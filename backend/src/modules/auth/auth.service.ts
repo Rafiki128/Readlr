@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { Database } from '../../database/db.js';
+import { supabase, unwrap } from '../../database/db.js';
 import { DecodedToken } from './auth.types.js';
 
 function getJwtSecret(): string {
@@ -15,12 +15,6 @@ const JWT_SECRET = getJwtSecret();
 const JWT_EXPIRY = '7d';
 
 export class AuthService {
-  private db: Database;
-
-  constructor(db: Database) {
-    this.db = db;
-  }
-
   /**
    * Register a new user
    */
@@ -31,7 +25,7 @@ export class AuthService {
     name: string
   ): Promise<{ id: number; email: string; role: string; name: string }> {
     // Check if user exists
-    const existingUser = await this.db.get('SELECT id FROM users WHERE email = ?', [email]);
+    const existingUser = unwrap(await supabase.from('users').select('id').eq('email', email).maybeSingle());
     if (existingUser) {
       throw new Error('User already exists');
     }
@@ -40,22 +34,16 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Create user
-    const result = await this.db.run(
-      'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
-      [email, passwordHash, role]
-    );
-
-    const userId = result.id;
+    const user = unwrap(await supabase.from('users').insert({ email, password_hash: passwordHash, role }).select('id, email, role').single());
+    if (!user) {
+      throw new Error('Failed to create user');
+    }
+    const userId = user.id;
 
     // If learner, create learner profile with name
     if (role === 'learner') {
-      await this.db.run(
-        'INSERT INTO learner_profiles (user_id, name) VALUES (?, ?)',
-        [userId, name]
-      );
+      unwrap(await supabase.from('learner_profiles').insert({ user_id: userId, name }));
     }
-
-    const user = await this.db.get('SELECT id, email, role FROM users WHERE id = ?', [userId]);
 
     return {
       id: user.id,
@@ -69,7 +57,7 @@ export class AuthService {
    * Login user
    */
   async login(email: string, password: string): Promise<{ id: number; email: string; role: string; name: string }> {
-    const user = await this.db.get('SELECT * FROM users WHERE email = ?', [email]);
+    const user = unwrap(await supabase.from('users').select('*').eq('email', email).maybeSingle());
 
     if (!user) {
       throw new Error('Invalid email or password');
@@ -84,10 +72,7 @@ export class AuthService {
     // Get name based on role
     let name = email.split('@')[0]; // Default fallback
     if (user.role === 'learner') {
-      const learnerProfile = await this.db.get(
-        'SELECT name FROM learner_profiles WHERE user_id = ?',
-        [user.id]
-      );
+      const learnerProfile = unwrap(await supabase.from('learner_profiles').select('name').eq('user_id', user.id).maybeSingle());
       if (learnerProfile) {
         name = learnerProfile.name;
       }
@@ -131,7 +116,7 @@ export class AuthService {
    * Get user by ID
    */
   async getUserById(userId: number) {
-    const user = await this.db.get('SELECT id, email, role FROM users WHERE id = ?', [userId]);
+    const user = unwrap(await supabase.from('users').select('id, email, role').eq('id', userId).maybeSingle());
 
     if (!user) {
       return null;
@@ -140,10 +125,7 @@ export class AuthService {
     // Get name based on role
     let name = user.email.split('@')[0]; // Default fallback
     if (user.role === 'learner') {
-      const learnerProfile = await this.db.get(
-        'SELECT name FROM learner_profiles WHERE user_id = ?',
-        [userId]
-      );
+      const learnerProfile = unwrap(await supabase.from('learner_profiles').select('name').eq('user_id', userId).maybeSingle());
       if (learnerProfile) {
         name = learnerProfile.name;
       }
