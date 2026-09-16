@@ -2,4 +2,4 @@
  * Database module
  */
 
-export { db, Database } from './db.js';
+export { supabase, unwrap } from './db.js';

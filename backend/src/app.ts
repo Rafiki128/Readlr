@@ -1,6 +1,5 @@
 import express, { Express } from 'express';
 import cors from 'cors';
-import { db } from './database/db.js';
 import { audioRoutes } from './modules/audio/index.js';
 import { healthRoutes } from './modules/health/index.js';
 import { learnerRoutes } from './modules/learner/index.js';
@@ -16,11 +15,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Initialize database
-await db.initializeSchema();
-
 // Initialize auth service and controller
-const authService = new AuthService(db);
+const authService = new AuthService();
 const authController = new AuthController(authService);
 
 // Routes
