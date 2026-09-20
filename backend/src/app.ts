@@ -8,6 +8,7 @@ import { progressRoutes } from './modules/progress/index.js';
 import { characterRouter, characterService } from './modules/character/index.js';
 import { AuthService, AuthController, createAuthRouter } from './modules/auth/index.js';
 import { config } from './config/env.js';
+import { adminRoutes } from './modules/admin/index.js';
 
 const app: Express = express();
 
@@ -31,6 +32,7 @@ const authController = new AuthController(authService);
 
 // Routes
 app.use('/api/auth', createAuthRouter(authController));
+app.use('/api/admin', adminRoutes);
 app.use('/api/audio', audioRoutes);
 app.use('/health', healthRoutes);
 app.use('/api/learner', learnerRoutes);

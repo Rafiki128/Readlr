@@ -20,6 +20,7 @@ import { Settings } from "./components/Settings";
 import { Achievements } from "./components/Achievements";
 import { Help } from "./components/Help";
 import { ProfilePage } from "./components/ProfilePage";
+import { AdminDashboard } from "./components/AdminDashboard";
 
 // Stage configuration for determining progress
 const STAGE_CONFIG: Record<number, { title: string; totalLevels: number; nextStageId?: number }> = {
@@ -158,7 +159,8 @@ type Screen =
   | "settings"
   | "achievements"
   | "help"
-  | "profile";
+  | "profile"
+  | "admin-learners";
 
 interface AppRouteState {
   screen: Screen;
@@ -185,6 +187,7 @@ function parseAppPath(pathname: string): AppRouteState {
   if (path === "/achievements") return { screen: "achievements" };
   if (path === "/help") return { screen: "help" };
   if (path === "/profile") return { screen: "profile" };
+  if (path === "/admin/learners") return { screen: "admin-learners" };
 
   const stageMatch = path.match(/^\/stage-(\d+)(?:\/(chapters|chapter-(\d+)(?:\/(intro|complete|summary|level-complete))?))?$/);
   if (stageMatch) {
@@ -246,6 +249,8 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
       return "/help";
     case "profile":
       return "/profile";
+    case "admin-learners":
+      return "/admin/learners";
     default:
       return "/";
   }
@@ -321,7 +326,13 @@ function AppContent() {
 
   useEffect(() => {
     if (isAuthenticated && user && (currentScreen === "landing" || currentScreen === "auth")) {
-      setCurrentScreen("learner-profile");
+      setCurrentScreen(user.role === "admin" ? "admin-learners" : "learner-profile");
+    }
+  }, [isAuthenticated, user, currentScreen]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === "admin" && currentScreen !== "admin-learners") {
+      setCurrentScreen("admin-learners");
     }
   }, [isAuthenticated, user, currentScreen]);
 
@@ -603,6 +614,10 @@ function AppContent() {
 
   if (!isAuthenticated && !isPublicScreen) {
     return <Landing onGetStarted={handleGetStarted} onSignIn={handleSignIn} />;
+  }
+
+  if (user?.role === "admin") {
+    return <AdminDashboard />;
   }
 
   return (

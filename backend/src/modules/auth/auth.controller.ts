@@ -49,7 +49,7 @@ export class AuthController {
         user: {
           id: user.id,
           email: user.email,
-          role: user.role as 'learner' | 'teacher',
+          role: user.role as 'learner' | 'teacher' | 'admin',
           name: user.name,
         },
       };

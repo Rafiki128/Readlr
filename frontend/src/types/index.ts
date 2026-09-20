@@ -21,7 +21,7 @@ export type Screen =
   | "help"
   | "diagrams";
 
-export type UserRole = "learner" | "teacher" | null;
+export type UserRole = "learner" | "teacher" | "admin" | null;
 
 export interface LearnerState {
   name: string;
