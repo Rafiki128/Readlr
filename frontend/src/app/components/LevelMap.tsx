@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
@@ -9,6 +9,7 @@ import {
   Map as MapIcon,
   Play,
   Star,
+  X,
 } from "lucide-react";
 
 interface LevelNode {
@@ -26,7 +27,7 @@ interface StageDef {
 }
 
 interface ValleyLevelNode extends LevelNode {
-  vowel: "A" | "E" | "I" | "O" | "U";
+  vowel: "A" | "E" | "I" | "O" | "U" | "★";
   word: string;
   x: number;
   y: number;
@@ -42,12 +43,20 @@ interface LevelMapProps {
 type NodeStatus = "done" | "next" | "locked";
 
 const GATE_LEVELS: ValleyLevelNode[] = [
-  { id: 1, vowel: "A", word: "Apple", label: "A", hint: "Apple", x: 13, y: 52 },
-  { id: 2, vowel: "E", word: "Egg", label: "E", hint: "Egg", x: 31, y: 30 },
-  { id: 3, vowel: "I", word: "Igloo", label: "I", hint: "Igloo", x: 50, y: 64 },
-  { id: 4, vowel: "O", word: "Octopus", label: "O", hint: "Octopus", x: 69, y: 30 },
-  { id: 5, vowel: "U", word: "Umbrella", label: "U", hint: "Umbrella", x: 87, y: 52 },
+  { id: 1, vowel: "A", word: "A Door", label: "A", hint: "train the A power", x: 20, y: 62 },
+  { id: 2, vowel: "E", word: "E Door", label: "E", hint: "train the E power", x: 31, y: 32 },
+  { id: 3, vowel: "I", word: "I Door", label: "I", hint: "train the I power", x: 50, y: 70 },
+  { id: 4, vowel: "O", word: "O Door", label: "O", hint: "train the O power", x: 69, y: 32 },
+  { id: 5, vowel: "U", word: "U Door", label: "U", hint: "train the U power", x: 80, y: 62 },
 ];
+
+const VOWEL_DOJO_STATIONS = [
+  { name: "A Armor", figure: "Shield stance", cue: "open sound" },
+  { name: "E Echo", figure: "Echo bell", cue: "quick sound" },
+  { name: "I Insight", figure: "Focus lens", cue: "short sound" },
+  { name: "O Orb", figure: "Round gate", cue: "round sound" },
+  { name: "U Uplift", figure: "Lift bridge", cue: "soft sound" },
+] as const;
 
 const VOWEL_SECTIONS: Array<{
   vowel: ValleyLevelNode["vowel"];
@@ -58,57 +67,73 @@ const VOWEL_SECTIONS: Array<{
 }> = [
   {
     vowel: "A",
-    title: "Apple Meadow",
+    title: "Meadow Trail",
     accent: "#F59E0B",
     tint: "#FFF7ED",
-    words: ["Apple", "Ant", "Axe", "Alligator", "Astronaut", "Anchor", "Arrow", "Acorn", "Apron", "Album"],
+    words: ["Trail 1", "Trail 2", "Trail 3"],
   },
   {
     vowel: "E",
-    title: "Echo Garden",
+    title: "Garden Trail",
     accent: "#EC4899",
     tint: "#FCE7F3",
-    words: ["Egg", "Elephant", "Elbow", "Engine", "Envelope", "Exit", "Echo", "Emerald", "Eskimo", "Exercise"],
+    words: ["Trail 4", "Trail 5", "Trail 6"],
   },
   {
     vowel: "I",
-    title: "Igloo Springs",
+    title: "Spring Trail",
     accent: "#06B6D4",
     tint: "#CFFAFE",
-    words: ["Igloo", "Insect", "Ink", "Island", "Invitation", "Iguana", "Idea", "Ice", "Iron", "Inside"],
+    words: ["Trail 7", "Trail 8", "Trail 9"],
   },
   {
     vowel: "O",
-    title: "Octopus Orchard",
+    title: "Orchard Trail",
     accent: "#8B5CF6",
     tint: "#EDE9FE",
-    words: ["Octopus", "Orange", "Ostrich", "Oblong", "Owl", "Ocean", "Olive", "Oven", "Office", "Orbit"],
+    words: ["Trail 10", "Trail 11", "Trail 12"],
   },
   {
     vowel: "U",
-    title: "Umbrella Grove",
+    title: "Grove Trail",
     accent: "#10B981",
     tint: "#D1FAE5",
-    words: ["Umbrella", "Unicorn", "Up", "Under", "Uniform", "Ukulele", "Uncle", "Utensil", "Unit", "Us"],
+    words: ["Trail 13", "Trail 14", "Trail 15"],
   },
 ];
 
-const SECTION_NODE_POSITIONS = [
-  [10, 20],
-  [26, 32],
-  [48, 23],
-  [69, 36],
-  [88, 26],
-  [78, 50],
-  [56, 60],
-  [34, 51],
-  [16, 68],
-  [42, 81],
+const SECTION_NODE_POSITIONS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
+  [
+    [25, 31],
+    [47, 44],
+    [72, 30],
+  ],
+  [
+    [86, 24],
+    [62, 43],
+    [34, 29],
+  ],
+  [
+    [18, 28],
+    [46, 20],
+    [77, 39],
+  ],
+  [
+    [90, 30],
+    [66, 22],
+    [42, 44],
+  ],
+  [
+    [19, 24],
+    [48, 42],
+    [78, 26],
+  ],
 ] as const;
 
 const SECTION_HEIGHT = 720;
 const BOARD_WIDTH = 1280;
 const BOARD_HEIGHT = VOWEL_SECTIONS.length * SECTION_HEIGHT;
+const VALLEY_TOTAL_LEVELS = GATE_LEVELS.length + VOWEL_SECTIONS.reduce((sum, section) => sum + section.words.length, 0);
 
 const SECTION_BACKGROUNDS = [
   "linear-gradient(180deg, #D9F99D 0%, #FEF3C7 100%)",
@@ -119,7 +144,7 @@ const SECTION_BACKGROUNDS = [
 ];
 
 const VALLEY_DECORATIONS = [
-  ["🌼", 140, 220],
+  ["🌼", 210, 255],
   ["🌻", 1080, 285],
   ["🍎", 930, 560],
   ["🦋", 220, 900],
@@ -132,15 +157,41 @@ const VALLEY_DECORATIONS = [
   ["🌿", 1020, 3400],
 ] as const;
 
-function sectionCompletedCount(sectionIndex: number, completed: number) {
-  const valleyProgress = Math.max(0, completed - GATE_LEVELS.length);
-  return Math.min(Math.max(valleyProgress - sectionIndex * 10, 0), 10);
+const VOWEL_DOJO_NODE: ValleyLevelNode = {
+  id: 5,
+  vowel: "A",
+  word: "Vowel Dojo",
+  label: "A",
+  hint: "train vowel powers again",
+  x: 10,
+  y: 210,
+};
+
+function sectionStartOffset(sectionIndex: number) {
+  return VOWEL_SECTIONS.slice(0, sectionIndex).reduce((sum, section) => sum + section.words.length, 0);
 }
 
-function restorationFilter(restoredCount: number) {
-  if (restoredCount >= 10) return "grayscale(0%) brightness(1)";
+function sectionIndexForLevelId(levelId: number) {
+  const valleyLevel = Math.max(1, levelId - GATE_LEVELS.length);
+  let offset = 0;
+  for (let i = 0; i < VOWEL_SECTIONS.length; i += 1) {
+    const nextOffset = offset + VOWEL_SECTIONS[i].words.length;
+    if (valleyLevel <= nextOffset) return i;
+    offset = nextOffset;
+  }
+  return VOWEL_SECTIONS.length - 1;
+}
+
+function sectionCompletedCount(sectionIndex: number, completed: number) {
+  const valleyProgress = Math.max(0, completed - GATE_LEVELS.length);
+  const sectionSize = VOWEL_SECTIONS[sectionIndex].words.length;
+  return Math.min(Math.max(valleyProgress - sectionStartOffset(sectionIndex), 0), sectionSize);
+}
+
+function restorationFilter(restoredCount: number, total = 6) {
+  if (restoredCount >= total) return "grayscale(0%) brightness(1)";
   if (restoredCount > 0) {
-    const pct = restoredCount / 10;
+    const pct = restoredCount / total;
     return `grayscale(${Math.round((1 - pct) * 65)}%) brightness(${0.78 + pct * 0.22})`;
   }
   return "grayscale(100%) brightness(0.72)";
@@ -148,8 +199,9 @@ function restorationFilter(restoredCount: number) {
 
 const VALLEY_LEVELS: ValleyLevelNode[] = VOWEL_SECTIONS.flatMap((section, sectionIndex) =>
   section.words.map((word, wordIndex) => {
-    const id = 6 + sectionIndex * 10 + wordIndex;
-    const [x, localY] = SECTION_NODE_POSITIONS[wordIndex];
+    const id = 6 + sectionStartOffset(sectionIndex) + wordIndex;
+    const sectionPositions = SECTION_NODE_POSITIONS[sectionIndex] ?? SECTION_NODE_POSITIONS[0];
+    const [x, localY] = sectionPositions[wordIndex % sectionPositions.length];
     return {
       id,
       vowel: section.vowel,
@@ -161,6 +213,8 @@ const VALLEY_LEVELS: ValleyLevelNode[] = VOWEL_SECTIONS.flatMap((section, sectio
     };
   })
 );
+
+const VALLEY_ROUTE_WITH_DOJO: ValleyLevelNode[] = [VOWEL_DOJO_NODE, ...VALLEY_LEVELS];
 
 const STAGES: Record<number, StageDef> = {
   2: {
@@ -213,7 +267,12 @@ function valleyStatus(levelId: number, completed: number): NodeStatus {
 
 function sectionForProgress(completed: number) {
   const valleyProgress = Math.max(0, completed - GATE_LEVELS.length);
-  return VOWEL_SECTIONS[Math.min(Math.floor(valleyProgress / 10), VOWEL_SECTIONS.length - 1)];
+  let offset = 0;
+  for (const section of VOWEL_SECTIONS) {
+    offset += section.words.length;
+    if (valleyProgress <= offset) return section;
+  }
+  return VOWEL_SECTIONS[VOWEL_SECTIONS.length - 1];
 }
 
 function routePath(nodes: ValleyLevelNode[]) {
@@ -285,7 +344,7 @@ function ValleyHeader({
               Valley of Vowels
             </h1>
             <p className="text-[#4B5266] mt-2 max-w-2xl">
-              Open the five vowel doors first. Then follow the winding valley road through 50 pronunciation levels.
+              Open the five vowel doors first. Then use Milo's vowel powers across short road challenges.
             </p>
           </div>
           <div className="w-full lg:w-96 bg-white rounded-2xl p-5 border border-[#1F243014]">
@@ -327,30 +386,35 @@ function VowelDoorIntro({
   onRevealRoad: () => void;
 }) {
   const allDoorsOpen = completed >= GATE_LEVELS.length;
+  const trainedDoorCount = Math.min(completed, GATE_LEVELS.length);
+  const [showUnlockNotice, setShowUnlockNotice] = useState(allDoorsOpen);
+
+  useEffect(() => {
+    if (allDoorsOpen) {
+      setShowUnlockNotice(true);
+    }
+  }, [allDoorsOpen]);
 
   return (
     <div className="size-full bg-[#FAF7F2] overflow-auto">
       <div className="min-h-full px-4 sm:px-6 md:px-10 py-6">
-        <ValleyHeader completed={completed} total={55} onBack={onBack} />
+        <ValleyHeader completed={completed} total={VALLEY_TOTAL_LEVELS} onBack={onBack} />
 
         <div className="max-w-7xl mx-auto">
-          <div className="relative min-h-[620px] overflow-hidden rounded-[2rem] border border-[#1F243014] bg-[#D9F99D] shadow-[0_18px_48px_-28px_rgba(31,36,48,0.35)]">
-            <div className="absolute inset-0 bg-gradient-to-b from-[#BDEB77] via-[#DFF8A6] to-[#A7F3D0]" />
-            <div className="absolute left-0 right-0 bottom-0 h-40 bg-[#8DD7A8]" />
-            <svg className="absolute inset-x-0 top-0 h-52 w-full" viewBox="0 0 1200 220" preserveAspectRatio="none">
-              <path d="M 0 170 L 120 70 L 220 168 L 350 52 L 510 174 L 650 80 L 760 168 L 900 44 L 1060 174 L 1200 82 L 1200 0 L 0 0 Z" fill="#8BA46F" opacity="0.42" />
-              <path d="M 0 215 L 170 98 L 310 214 L 470 92 L 660 220 L 820 82 L 990 212 L 1200 110 L 1200 0 L 0 0 Z" fill="#6F8F68" opacity="0.32" />
-            </svg>
-            <div className="absolute left-[8%] top-[12%] h-24 w-56 rounded-[50%] bg-[#FDE68A]" />
-            <div className="absolute right-[12%] top-[16%] h-28 w-64 rounded-[50%] bg-[#BAE6FD]" />
-            <div className="absolute left-[42%] bottom-[8%] h-20 w-80 rounded-[50%] bg-[#FCD34D]" />
+          <div className="relative min-h-[620px] overflow-hidden rounded-[2rem] border border-[#1F243014] bg-[#F8E7C5] shadow-[0_18px_48px_-28px_rgba(31,36,48,0.35)]">
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,#FFF7ED_0%,#F8E7C5_58%,#E7C990_100%)]" />
+            <div className="absolute inset-x-0 top-0 h-28 bg-[#D8B778]" />
+            <div className="absolute inset-x-10 top-20 h-8 rounded-full bg-white/35" />
+            <div className="absolute bottom-0 left-0 right-0 h-[42%] bg-[#D9B978]" />
+            <div className="absolute bottom-0 left-0 right-0 h-[42%] opacity-25" style={{ backgroundImage: "linear-gradient(90deg, #9A7A48 1px, transparent 1px), linear-gradient(0deg, #9A7A48 1px, transparent 1px)", backgroundSize: "96px 96px" }} />
+            <div className="absolute left-1/2 top-[50%] h-72 w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-[3rem] border-[12px] border-white/80 bg-[#FFF7ED] shadow-[0_24px_52px_-34px_rgba(31,36,48,0.45)]" />
+            <div className="absolute left-1/2 top-[50%] h-48 w-80 -translate-x-1/2 -translate-y-1/2 rounded-[2.4rem] border-4 border-dashed border-[#F59E0B]/45 bg-[#FEF3C7]" />
+            <div className="absolute left-[12%] top-[18%] h-24 w-10 rounded-full bg-[#B45309]/25" />
+            <div className="absolute right-[12%] top-[18%] h-24 w-10 rounded-full bg-[#B45309]/25" />
+            <div className="absolute left-[9%] bottom-[18%] h-20 w-40 rounded-[50%] bg-white/25" />
+            <div className="absolute right-[8%] bottom-[18%] h-20 w-40 rounded-[50%] bg-white/25" />
 
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1200 620" preserveAspectRatio="none">
-              <path d="M 100 430 C 260 160, 440 500, 600 350 C 760 190, 910 480, 1100 260" stroke="#F7EFE0" strokeWidth="42" strokeLinecap="round" fill="none" />
-              <path d="M 100 430 C 260 160, 440 500, 600 350 C 760 190, 910 480, 1100 260" stroke="#86EFAC" strokeWidth="8" strokeDasharray="18 16" strokeLinecap="round" fill="none" />
-            </svg>
-
-            <div className="absolute right-8 top-8 z-20 flex items-center gap-4 rounded-2xl border border-white bg-white/95 px-5 py-4 shadow-[0_14px_32px_-20px_rgba(31,36,48,0.5)]">
+            <div className="absolute left-4 right-4 top-4 z-20 flex items-center gap-3 rounded-2xl border border-white bg-white/95 px-4 py-3 shadow-[0_14px_32px_-20px_rgba(31,36,48,0.5)] sm:left-auto sm:right-8 sm:top-8 sm:gap-4 sm:px-5 sm:py-4">
               <motion.div
                 animate={allDoorsOpen ? { scale: [1, 1.05, 1] } : {}}
                 transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
@@ -364,40 +428,102 @@ function VowelDoorIntro({
               </motion.div>
               <div>
                 <p className="text-xs uppercase tracking-wider text-[#8A91A3]">
-                  {completed}/5 doors
+                  {trainedDoorCount}/5 doors
                 </p>
                 <p className="text-base font-bold text-[#1F2430]">
-                  {allDoorsOpen ? "Valley door open" : "Open vowel doors"}
+                  {allDoorsOpen ? "Vowel Dojo open" : "Train vowel doors"}
                 </p>
               </div>
             </div>
 
-            {allDoorsOpen && (
+            <div className="absolute left-1/2 top-[50%] z-10 -translate-x-1/2 -translate-y-1/2 text-center">
+              <p className="rounded-full bg-white/95 px-5 py-2 text-sm font-black text-[#F59E0B] shadow-sm">
+                Vowel Dojo
+              </p>
+              <p className="mt-2 max-w-[260px] rounded-2xl bg-white/90 px-4 py-2 text-xs font-bold leading-snug text-[#4B5266] shadow-sm">
+                Choose a station to practice Milo's vowel powers.
+              </p>
+            </div>
+
+            {allDoorsOpen && showUnlockNotice && (
               <motion.div
-                initial={{ opacity: 0, y: 18, scale: 0.96 }}
+                initial={{ opacity: 0, y: -12, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ duration: 0.55, ease: "easeOut" }}
-                className="absolute left-1/2 top-[44%] z-20 -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-white bg-white/95 px-8 py-6 text-center shadow-[0_24px_48px_-24px_rgba(31,36,48,0.5)]"
+                className="absolute left-1/2 top-28 z-30 w-[min(92%,520px)] -translate-x-1/2 rounded-3xl border border-white bg-white/95 px-5 py-4 shadow-[0_24px_48px_-24px_rgba(31,36,48,0.5)] sm:top-8"
               >
-                <motion.div
-                  animate={{ rotate: [0, -5, 5, 0], scale: [1, 1.08, 1] }}
-                  transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
-                  className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-[#F59E0B] bg-[#FFF7ED]"
+                <button
+                  onClick={() => setShowUnlockNotice(false)}
+                  className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#F8FAFC] text-[#8A91A3] hover:text-[#1F2430]"
+                  aria-label="Dismiss gate unlocked message"
                 >
-                  <DoorOpen className="h-11 w-11 text-[#F59E0B]" />
-                </motion.div>
-                <p className="text-xs uppercase tracking-wider text-[#8A91A3]">
-                  Gate unlocked
-                </p>
-                <p className="text-xl font-bold text-[#1F2430]">
-                  The Valley road is open
-                </p>
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="flex items-center gap-4 pr-8 text-left">
+                  <motion.div
+                    animate={{ rotate: [0, -5, 5, 0], scale: [1, 1.08, 1] }}
+                    transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-4 border-[#F59E0B] bg-[#FFF7ED]"
+                  >
+                    <DoorOpen className="h-8 w-8 text-[#F59E0B]" />
+                  </motion.div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                      Gate unlocked
+                    </p>
+                    <p className="text-lg font-bold text-[#1F2430]">
+                      The Valley road is open.
+                    </p>
+                    <p className="mt-1 text-sm text-[#4B5266]">
+                      You can still revisit the Dojo anytime to practice vowel powers.
+                    </p>
+                  </div>
+                </div>
               </motion.div>
             )}
+
+            <div className="absolute inset-x-4 top-[190px] z-20 grid grid-cols-2 gap-3 sm:hidden">
+              {GATE_LEVELS.map((node, index) => {
+                const status = valleyStatus(node.id, completed);
+                const accent = VOWEL_SECTIONS[index].accent;
+                const station = VOWEL_DOJO_STATIONS[index];
+                return (
+                  <motion.button
+                    key={`mobile-${node.id}`}
+                    initial={{ y: 12, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: index * 0.06, ease: "easeOut" }}
+                    onClick={() => status !== "locked" && onSelectLevel(node.id)}
+                    disabled={status === "locked"}
+                    className={`rounded-2xl border-2 bg-white/95 p-3 text-left shadow-[0_12px_26px_-20px_rgba(31,36,48,0.55)] ${
+                      index === 4 ? "col-span-2 mx-auto w-1/2 min-w-[150px]" : ""
+                    }`}
+                    style={{ borderColor: status === "locked" ? "#D6D3D1" : accent }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 text-lg font-black ${
+                          status === "locked" ? "grayscale" : ""
+                        }`}
+                        style={{ borderColor: status === "locked" ? "#D6D3D1" : accent, color: accent, background: "#FFF7ED" }}
+                      >
+                        {status === "done" ? <Check className="h-5 w-5" strokeWidth={3} /> : node.label}
+                      </span>
+                      <span>
+                        <span className="block text-sm font-black leading-tight text-[#1F2430]">{station.name}</span>
+                        <span className="block text-[11px] font-bold text-[#8A91A3]">{station.figure}</span>
+                      </span>
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
 
             {GATE_LEVELS.map((node, index) => {
               const status = valleyStatus(node.id, completed);
               const accent = VOWEL_SECTIONS[index].accent;
+              const station = VOWEL_DOJO_STATIONS[index];
               return (
                 <motion.button
                   key={node.id}
@@ -408,11 +534,11 @@ function VowelDoorIntro({
                   whileTap={status !== "locked" ? { scale: 0.97 } : {}}
                   onClick={() => status !== "locked" && onSelectLevel(node.id)}
                   disabled={status === "locked"}
-                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2 text-center"
+                  className="absolute z-20 hidden w-44 -translate-x-1/2 -translate-y-1/2 text-center sm:block"
                   style={{ left: `${node.x}%`, top: `${node.y}%` }}
                 >
                   <span
-                    className={`relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border-[6px] bg-white text-4xl font-bold shadow-[0_12px_28px_-16px_rgba(31,36,48,0.5)] ${
+                    className={`relative mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border-[6px] bg-white text-4xl font-bold shadow-[0_12px_28px_-16px_rgba(31,36,48,0.5)] ${
                       status === "locked" ? "grayscale" : ""
                     }`}
                     style={{ borderColor: status === "locked" ? "#D6D3D1" : accent, color: accent }}
@@ -424,8 +550,14 @@ function VowelDoorIntro({
                       </span>
                     )}
                   </span>
-                  <span className="mt-2 block rounded-full bg-white/90 px-3 py-1 text-sm font-bold text-[#1F2430] shadow-sm">
-                    {node.word}
+                  <span className="mt-2 block rounded-2xl bg-white/95 px-3 py-2 text-sm font-bold leading-tight text-[#1F2430] shadow-sm">
+                    {station.name}
+                    <span className="mt-0.5 block text-[11px] font-bold uppercase tracking-wide text-[#8A91A3]">
+                      {station.figure}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] font-bold" style={{ color: accent }}>
+                      {station.cue}
+                    </span>
                   </span>
                 </motion.button>
               );
@@ -433,13 +565,13 @@ function VowelDoorIntro({
           </div>
 
           <div className="sticky bottom-4 z-30 mt-6 rounded-2xl border border-[#1F243014] bg-white/95 p-4 shadow-[0_18px_38px_-24px_rgba(31,36,48,0.35)] backdrop-blur">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-bold text-[#1F2430]">
-                  {allDoorsOpen ? "The full valley road is ready" : `Next door: ${GATE_LEVELS[completed]?.word ?? "Valley"}`}
+                  {allDoorsOpen ? "The Vowel Dojo stays open" : `Next door: ${GATE_LEVELS[completed]?.word ?? "Valley"}`}
                 </p>
                 <p className="text-xs text-[#8A91A3]">
-                  {allDoorsOpen ? "Continue to the first valley road level." : "Complete the original vowel words to unlock the map."}
+                  {allDoorsOpen ? "Practice a door again or continue to the Valley road." : "Train each vowel sound to unlock the map."}
                 </p>
               </div>
               <button
@@ -451,7 +583,7 @@ function VowelDoorIntro({
 
                   onSelectLevel(completed + 1);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#F59E0B] px-4 py-2 text-sm text-white"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#F59E0B] px-4 py-2 text-sm font-bold text-white sm:w-auto"
               >
                 Continue
                 <ArrowRight className="w-4 h-4" />
@@ -468,23 +600,39 @@ function ValleyRoadMap({
   completed,
   onBack,
   onSelectLevel,
+  onShowVowelRoom,
 }: {
   completed: number;
   onBack: () => void;
   onSelectLevel: (levelId: number) => void;
+  onShowVowelRoom: () => void;
 }) {
   const currentSection = sectionForProgress(completed);
   const valleyCompleted = Math.max(0, completed - GATE_LEVELS.length);
+  const valleyPathReach = Math.min(VALLEY_LEVELS.length, valleyCompleted + 1);
   const recentSegmentPath =
     valleyCompleted > 1
       ? routeSegmentPath(VALLEY_LEVELS[valleyCompleted - 2], VALLEY_LEVELS[valleyCompleted - 1])
       : "";
   const recentNodeId = valleyCompleted > 0 ? VALLEY_LEVELS[valleyCompleted - 1]?.id : null;
+  const focusLevelId = Math.min(completed + 1, VALLEY_TOTAL_LEVELS);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`valley-node-${focusLevelId}`)?.scrollIntoView({
+        behavior: "auto",
+        block: "center",
+        inline: "center",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusLevelId]);
 
   return (
     <div className="size-full bg-[#FAF7F2] overflow-auto">
       <div className="min-h-full px-4 sm:px-6 md:px-10 py-6">
-        <ValleyHeader completed={completed} total={55} onBack={onBack} />
+        <ValleyHeader completed={completed} total={VALLEY_TOTAL_LEVELS} onBack={onBack} />
 
         <div className="max-w-7xl mx-auto">
           <div className="relative overflow-x-auto rounded-[2rem] border border-[#1F243014] bg-white shadow-[0_18px_48px_-28px_rgba(31,36,48,0.35)]">
@@ -495,12 +643,13 @@ function ValleyRoadMap({
               <div className="absolute inset-0 bg-[#BFC4B7]" />
               {VOWEL_SECTIONS.map((section, index) => {
                 const restoredCount = sectionCompletedCount(index, completed);
-                const isRestored = restoredCount >= 10;
+                const sectionSize = section.words.length;
+                const isRestored = restoredCount >= sectionSize;
                 return (
                   <motion.div
                     key={`${section.vowel}-terrain`}
                     className="absolute inset-x-0 overflow-hidden transition-all duration-700"
-                    animate={{ filter: restorationFilter(restoredCount) }}
+                    animate={{ filter: restorationFilter(restoredCount, sectionSize) }}
                     style={{
                       top: index * SECTION_HEIGHT,
                       height: SECTION_HEIGHT,
@@ -535,13 +684,13 @@ function ValleyRoadMap({
                     </svg>
                     <div className="absolute left-[8%] top-[18%] h-24 w-56 rounded-[50%] bg-white/20" />
                     <div className="absolute right-[10%] top-[24%] h-20 w-72 rounded-[50%] bg-white/18" />
-                    {restoredCount < 10 && (
+                    {restoredCount < sectionSize && (
                       <div className="absolute inset-0 bg-[#2F3130] opacity-[0.22]" />
                     )}
-                    {restoredCount > 0 && restoredCount < 10 && (
+                    {restoredCount > 0 && restoredCount < sectionSize && (
                       <div
                         className="absolute inset-y-0 left-0 bg-white/10"
-                        style={{ width: `${restoredCount * 10}%` }}
+                        style={{ width: `${(restoredCount / sectionSize) * 100}%` }}
                       />
                     )}
                   </motion.div>
@@ -549,34 +698,46 @@ function ValleyRoadMap({
               })}
 
               <svg className="absolute inset-0" width={BOARD_WIDTH} height={BOARD_HEIGHT + 140} viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT + 140}`}>
-                <path d={routePath(VALLEY_LEVELS)} stroke="#F7EFE0" strokeWidth="48" strokeLinecap="round" fill="none" />
-                <path d={routePath(VALLEY_LEVELS)} stroke="#7ED957" strokeWidth="9" strokeDasharray="20 17" strokeLinecap="round" fill="none" />
-                {valleyCompleted > 0 && (
+                <path d={routePath(VALLEY_ROUTE_WITH_DOJO)} stroke="#F7EFE0" strokeWidth="48" strokeLinecap="round" fill="none" />
+                <path d={routePath(VALLEY_ROUTE_WITH_DOJO)} stroke="#7ED957" strokeWidth="9" strokeDasharray="20 17" strokeLinecap="round" fill="none" />
+                {valleyPathReach > 1 && (
                   <>
-                    <path
-                      d={routePath(VALLEY_LEVELS.slice(0, valleyCompleted))}
+                    <motion.path
+                      key={`road-underpaint-${valleyPathReach}`}
+                      d={routePath(VALLEY_ROUTE_WITH_DOJO.slice(0, valleyPathReach + 1))}
                       stroke="#F59E0B"
                       strokeWidth="24"
                       strokeLinecap="round"
                       fill="none"
                       opacity="0.24"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.95, ease: "easeInOut" }}
                     />
-                    <path
-                      d={routePath(VALLEY_LEVELS.slice(0, valleyCompleted))}
+                    <motion.path
+                      key={`road-gold-${valleyPathReach}`}
+                      d={routePath(VALLEY_ROUTE_WITH_DOJO.slice(0, valleyPathReach + 1))}
                       stroke="#FBBF24"
                       strokeWidth="16"
                       strokeLinecap="round"
                       fill="none"
                       opacity="0.96"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 1.05, ease: "easeInOut", delay: 0.04 }}
                     />
-                    <path
-                      d={routePath(VALLEY_LEVELS.slice(0, valleyCompleted))}
+                    <motion.path
+                      key={`road-spark-${valleyPathReach}`}
+                      d={routePath(VALLEY_ROUTE_WITH_DOJO.slice(0, valleyPathReach + 1))}
                       stroke="#FFE8A3"
                       strokeWidth="5"
                       strokeLinecap="round"
                       strokeDasharray="18 18"
                       fill="none"
                       opacity="0.8"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 1.12, ease: "easeInOut", delay: 0.08 }}
                     />
                   </>
                 )}
@@ -609,7 +770,7 @@ function ValleyRoadMap({
                     style={{ top: index * SECTION_HEIGHT + 26 }}
                   >
                     <p className="text-[11px] uppercase tracking-wider text-[#8A91A3]">
-                      {sectionCompletedCount(index, completed) >= 10
+                      {sectionCompletedCount(index, completed) >= section.words.length
                         ? "Restored"
                         : sectionCompletedCount(index, completed) > 0
                         ? "Restoring"
@@ -619,7 +780,7 @@ function ValleyRoadMap({
                       {section.title}
                     </p>
                     <p className="mt-1 text-xs text-[#4B5266]">
-                      {sectionCompletedCount(index, completed)}/10 sounds
+                      {sectionCompletedCount(index, completed)}/{section.words.length} quests
                     </p>
                   </div>
                   <div
@@ -634,6 +795,7 @@ function ValleyRoadMap({
               {VALLEY_DECORATIONS.map(([icon, x, y]) => {
                 const sectionIndex = Math.min(Math.floor(y / SECTION_HEIGHT), VOWEL_SECTIONS.length - 1);
                 const restoredCount = sectionCompletedCount(sectionIndex, completed);
+                const sectionSize = VOWEL_SECTIONS[sectionIndex].words.length;
                 return (
                   <span
                     key={`${icon}-${x}-${y}`}
@@ -641,7 +803,7 @@ function ValleyRoadMap({
                     style={{
                       left: x,
                       top: y,
-                      filter: restorationFilter(restoredCount),
+                      filter: restorationFilter(restoredCount, sectionSize),
                     }}
                   >
                     {icon}
@@ -649,17 +811,45 @@ function ValleyRoadMap({
                 );
               })}
 
+              <motion.button
+                type="button"
+                onClick={onShowVowelRoom}
+                initial={{ opacity: 0, y: 16, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                whileHover={{ y: -5, scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ duration: 0.45, ease: "easeOut" }}
+                className="group absolute z-40 w-44 -translate-x-1/2 -translate-y-1/2 text-center"
+                style={{ left: `${VOWEL_DOJO_NODE.x}%`, top: VOWEL_DOJO_NODE.y + 72 }}
+                aria-label="Return to the Vowel Dojo training room"
+              >
+                <div className="relative rounded-[1.4rem] border-[5px] border-[#F59E0B] bg-white p-2.5 shadow-[0_18px_34px_-20px_rgba(31,36,48,0.55)]">
+                  <div className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#F59E0B] text-white shadow-[0_10px_20px_-14px_rgba(245,158,11,0.9)]">
+                    <DoorOpen className="h-5 w-5" />
+                  </div>
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF7ED] text-2xl font-black text-[#F59E0B]">
+                    A
+                  </div>
+                  <p className="mt-2 text-base font-black leading-tight text-[#1F2430]">Vowel Dojo</p>
+                  <p className="mt-1 text-xs font-bold text-[#B45309]">Train powers again</p>
+                </div>
+                <div className="pointer-events-none mx-auto mt-2 w-max max-w-[220px] rounded-xl bg-[#1F2430] px-3 py-2 text-xs font-bold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  Go back to the training room
+                </div>
+              </motion.button>
+
               {VALLEY_LEVELS.map((node) => {
-                const section = VOWEL_SECTIONS[Math.floor((node.id - 6) / 10)];
+                const section = VOWEL_SECTIONS[sectionIndexForLevelId(node.id)];
                 const status = valleyStatus(node.id, completed);
                 const isDone = status === "done";
                 const isNext = status === "next";
                 return (
                   <motion.button
                     key={node.id}
+                    id={`valley-node-${node.id}`}
                     initial={{ scale: 0.85, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: ((node.id - 6) % 10) * 0.03, ease: "easeOut" }}
+                    transition={{ delay: ((node.id - 6) % 6) * 0.03, ease: "easeOut" }}
                     whileHover={status !== "locked" ? { y: -5 } : {}}
                     whileTap={status !== "locked" ? { scale: 0.96 } : {}}
                     onClick={() => status !== "locked" && onSelectLevel(node.id)}
@@ -704,28 +894,39 @@ function ValleyRoadMap({
             </div>
           </div>
 
-          {completed < 55 && (
-            <div className="sticky bottom-4 z-30 mt-6 rounded-2xl border border-[#1F243014] bg-white/95 p-4 shadow-[0_18px_38px_-24px_rgba(31,36,48,0.35)] backdrop-blur">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-[#1F2430]">
-                    Next: Level {completed + 1}
-                  </p>
-                  <p className="text-xs text-[#8A91A3]">
-                    {VALLEY_LEVELS.find((node) => node.id === completed + 1)?.word ?? "Valley"} sound practice
-                  </p>
-                </div>
+          <div className="sticky bottom-4 z-30 mt-6 rounded-2xl border border-[#1F243014] bg-white/95 p-4 shadow-[0_18px_38px_-24px_rgba(31,36,48,0.35)] backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-[#1F2430]">
+                  {completed < VALLEY_TOTAL_LEVELS ? `Next: Level ${completed + 1}` : "Valley restored"}
+                </p>
+                <p className="text-xs text-[#8A91A3]">
+                  {completed < VALLEY_TOTAL_LEVELS
+                    ? `${VALLEY_LEVELS.find((node) => node.id === completed + 1)?.word ?? "Valley"} vowel power practice`
+                    : "Review the Vowel Dojo or revisit completed trail levels."}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => onSelectLevel(completed + 1)}
-                  className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm text-white"
-                  style={{ background: currentSection.accent }}
+                  onClick={onShowVowelRoom}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#F59E0B]/30 bg-[#FFF7ED] px-4 py-2 text-sm font-bold text-[#B45309] hover:text-[#92400E]"
                 >
-                  Continue
-                  <ArrowRight className="w-4 h-4" />
+                  <DoorOpen className="w-4 h-4" />
+                  Vowel Dojo
                 </button>
+                {completed < VALLEY_TOTAL_LEVELS && (
+                  <button
+                    onClick={() => onSelectLevel(completed + 1)}
+                    className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm text-white"
+                    style={{ background: currentSection.accent }}
+                  >
+                    Continue
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
@@ -737,10 +938,10 @@ function ValleyOfVowelsMap({
   onBack,
   onSelectLevel,
 }: Omit<LevelMapProps, "stageId">) {
-  const completed = Math.min(completedCount, 55);
-  const [showRoadAfterGate, setShowRoadAfterGate] = useState(false);
+  const completed = Math.min(completedCount, VALLEY_TOTAL_LEVELS);
+  const [showRoadAfterGate, setShowRoadAfterGate] = useState(completedCount > GATE_LEVELS.length);
 
-  if (completed < GATE_LEVELS.length || (completed === GATE_LEVELS.length && !showRoadAfterGate)) {
+  if (completed < GATE_LEVELS.length || !showRoadAfterGate) {
     return (
       <VowelDoorIntro
         completed={completed}
@@ -751,7 +952,14 @@ function ValleyOfVowelsMap({
     );
   }
 
-  return <ValleyRoadMap completed={completed} onBack={onBack} onSelectLevel={onSelectLevel} />;
+  return (
+    <ValleyRoadMap
+      completed={completed}
+      onBack={onBack}
+      onSelectLevel={onSelectLevel}
+      onShowVowelRoom={() => setShowRoadAfterGate(false)}
+    />
+  );
 }
 
 function StandardLevelMap({

@@ -14,6 +14,7 @@ import { StickerBook } from "./components/StickerBook";
 import { UnifiedDashboard } from "./components/UnifiedDashboard";
 import { LevelComplete } from "./components/LevelComplete";
 import { ChapterCelebration } from "./components/ChapterCelebration";
+import { VowelPowerComplete } from "./components/VowelPowerComplete";
 import { SessionSummary } from "./components/SessionSummary";
 import { PhonemeBank } from "./components/PhonemeBank";
 import { Settings } from "./components/Settings";
@@ -24,7 +25,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 
 // Stage configuration for determining progress
 const STAGE_CONFIG: Record<number, { title: string; totalLevels: number; nextStageId?: number }> = {
-  1: { title: "Valley of Vowels", totalLevels: 55, nextStageId: 2 },
+  1: { title: "Valley of Vowels", totalLevels: 20, nextStageId: 2 },
   2: { title: "Blending Bridges", totalLevels: 8, nextStageId: 3 },
   3: { title: "CVC Kingdom", totalLevels: 10 },
 };
@@ -151,6 +152,7 @@ type Screen =
   | "level-map"
   | "game"
   | "chapter-celebration"
+  | "vowel-power-complete"
   | "level-complete"
   | "session-summary"
   | "sticker-book"
@@ -189,7 +191,7 @@ function parseAppPath(pathname: string): AppRouteState {
   if (path === "/profile") return { screen: "profile" };
   if (path === "/admin/learners") return { screen: "admin-learners" };
 
-  const stageMatch = path.match(/^\/stage-(\d+)(?:\/(chapters|chapter-(\d+)(?:\/(intro|complete|summary|level-complete))?))?$/);
+  const stageMatch = path.match(/^\/stage-(\d+)(?:\/(chapters|chapter-(\d+)(?:\/(intro|complete|power-complete|summary|level-complete))?))?$/);
   if (stageMatch) {
     const stageId = Number(stageMatch[1]);
     const stageSection = stageMatch[2];
@@ -200,6 +202,7 @@ function parseAppPath(pathname: string): AppRouteState {
     if (stageSection === "chapters") return { screen: "level-map", stageId, levelId: 1 };
     if (chapterSection === "intro") return { screen: "chapter-bridge", stageId, levelId };
     if (chapterSection === "complete") return { screen: "chapter-celebration", stageId, levelId };
+    if (chapterSection === "power-complete") return { screen: "vowel-power-complete", stageId, levelId };
     if (chapterSection === "summary") return { screen: "session-summary", stageId, levelId };
     if (chapterSection === "level-complete") return { screen: "level-complete", stageId, levelId };
 
@@ -231,6 +234,8 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
       return `/stage-${stageId}/chapter-${levelId}`;
     case "chapter-celebration":
       return `/stage-${stageId}/chapter-${levelId}/complete`;
+    case "vowel-power-complete":
+      return `/stage-${stageId}/chapter-${levelId}/power-complete`;
     case "level-complete":
       return `/stage-${stageId}/chapter-${levelId}/level-complete`;
     case "session-summary":
@@ -289,7 +294,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const route = parseAppPath(window.location.pathname);
-      if (route.screen === "chapter-celebration" && !isLevelJustCompleted) {
+      if ((route.screen === "chapter-celebration" || route.screen === "vowel-power-complete") && !isLevelJustCompleted) {
         setCurrentScreen("level-map");
         setIsLevelJustCompleted(false);
         return;
@@ -319,7 +324,7 @@ function AppContent() {
 
   useEffect(() => {
     const route = parseAppPath(window.location.pathname);
-    if (route.screen === "chapter-celebration" && !isLevelJustCompleted) {
+    if ((route.screen === "chapter-celebration" || route.screen === "vowel-power-complete") && !isLevelJustCompleted) {
       setCurrentScreen("level-map");
     }
   }, []);
@@ -496,7 +501,7 @@ function AppContent() {
     }
 
     setIsLevelJustCompleted(true);
-    setCurrentScreen("chapter-celebration");
+    setCurrentScreen(selectedStage === 1 && selectedLevel <= 5 ? "vowel-power-complete" : "chapter-celebration");
   };
 
   const handleContinueToNextStory = () => {
@@ -508,7 +513,7 @@ function AppContent() {
     if (stageConfig && nextLevel <= stageConfig.totalLevels) {
       if (selectedStage === 1) {
         setSelectedLevel(nextLevel);
-        setCurrentScreen(nextLevel <= 5 ? "chapter-bridge" : "level-map");
+        setCurrentScreen("level-map");
         return;
       }
 
@@ -588,7 +593,7 @@ function AppContent() {
 
   const stickers = ["🦋", "🐝", "🐞", "🦉", "🦄"];
 
-  const noHeaderScreens = ["landing", "auth", "learner-profile", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "level-complete"];
+  const noHeaderScreens = ["landing", "auth", "learner-profile", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "level-complete", "vowel-power-complete"];
   const showLearnerHeader = user?.role === "learner" && !noHeaderScreens.includes(currentScreen);
 
   if (currentScreen === "landing") {
@@ -716,6 +721,14 @@ function AppContent() {
             totalLevels={STAGE_CONFIG[selectedStage]?.totalLevels ?? 5}
             stageName={STAGE_CONFIG[selectedStage]?.title ?? "Chapter"}
             onContinueStory={handleContinueToNextStory}
+            onBackToMap={handleBackFromCelebration}
+          />
+        )}
+
+        {currentScreen === "vowel-power-complete" && (
+          <VowelPowerComplete
+            levelId={selectedLevel}
+            onContinue={handleContinueToNextStory}
             onBackToMap={handleBackFromCelebration}
           />
         )}
