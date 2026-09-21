@@ -41,7 +41,7 @@ export function StageSelection({
   completedByStage = { 1: 0, 2: 0, 3: 0 },
 }: StageSelectionProps) {
   const stageDefs = [
-    { id: 1, total: 55, title: "Valley of Vowels", subtitle: "Open the five vowel doors, then follow the full valley road.", accent: "#F59E0B", accentSoft: "#FEF3C7", icon: <Star className="w-6 h-6" /> },
+    { id: 1, total: 20, title: "Valley of Vowels", subtitle: "Train vowel powers, hear your voice, then cross the valley road.", accent: "#F59E0B", accentSoft: "#FEF3C7", icon: <Star className="w-6 h-6" /> },
     { id: 2, total: 8, title: "Blending Bridges", subtitle: "Blend a consonant with a vowel.", accent: "#4F46E5", accentSoft: "#EEF2FF", icon: <Zap className="w-6 h-6" /> },
     { id: 3, total: 10, title: "CVC Kingdom", subtitle: "Read your first whole words.", accent: "#10B981", accentSoft: "#D1FAE5", icon: <Crown className="w-6 h-6" /> },
   ];

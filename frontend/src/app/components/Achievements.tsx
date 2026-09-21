@@ -42,7 +42,7 @@ interface Achievement {
   category: Exclude<Category, "all">;
 }
 
-const STAGE_TOTALS: Record<number, number> = { 1: 55, 2: 8, 3: 10 };
+const STAGE_TOTALS: Record<number, number> = { 1: 20, 2: 8, 3: 10 };
 const DB_NAME = "readlr_sound_library";
 const DB_VERSION = 1;
 const STORE_NAME = "recordings";
