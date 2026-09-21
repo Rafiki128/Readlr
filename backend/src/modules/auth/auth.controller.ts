@@ -29,8 +29,10 @@ export class AuthController {
         return;
       }
 
-      if (!['learner', 'teacher'].includes(role)) {
-        res.status(400).json({ success: false, message: 'Invalid role' });
+      // Public registration can create learner accounts only. Staff roles are
+      // assigned by an administrator directly in the database.
+      if (role !== 'learner') {
+        res.status(403).json({ success: false, message: 'Staff accounts are invitation-only' });
         return;
       }
 
@@ -47,7 +49,7 @@ export class AuthController {
         user: {
           id: user.id,
           email: user.email,
-          role: user.role as 'learner' | 'teacher',
+          role: user.role as 'learner' | 'teacher' | 'admin',
           name: user.name,
         },
       };

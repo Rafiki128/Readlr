@@ -3,15 +3,11 @@
  * Populates the database with initial data for development
  */
 
-import { db } from '../src/database/db.js';
 import { createStage } from '../src/database/models/stage.model.js';
 import { createLevel } from '../src/database/models/level.model.js';
 
 async function seedDatabase() {
   try {
-    console.log('Initializing database...');
-    await db.initializeSchema();
-
     console.log('Seeding stages and levels...');
 
     // Stage 1: Vowel Basics
@@ -65,8 +61,6 @@ async function seedDatabase() {
   } catch (error) {
     console.error('Error seeding database:', error);
     process.exit(1);
-  } finally {
-    db.close();
   }
 }
 

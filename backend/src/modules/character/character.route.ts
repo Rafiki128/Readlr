@@ -4,6 +4,7 @@
 
 import { Router } from 'express';
 import * as characterController from './character.controller.js';
+import { authMiddleware, requireRole } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -14,12 +15,12 @@ router.get('/', characterController.getAllCharacters);
 router.get('/:id', characterController.getCharacter);
 
 // Create character
-router.post('/', characterController.createCharacter);
+router.post('/', authMiddleware, requireRole('admin'), characterController.createCharacter);
 
 // Update character
-router.put('/:id', characterController.updateCharacter);
+router.put('/:id', authMiddleware, requireRole('admin'), characterController.updateCharacter);
 
 // Delete character
-router.delete('/:id', characterController.deleteCharacter);
+router.delete('/:id', authMiddleware, requireRole('admin'), characterController.deleteCharacter);
 
 export default router;

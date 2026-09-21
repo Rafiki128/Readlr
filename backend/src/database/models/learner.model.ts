@@ -1,61 +1,7 @@
-/**
- * Learner Model
- * Database operations for learner profiles
- */
-
-import { db } from '../db.js';
-
-export interface Learner {
-  id: number;
-  user_id: number;
-  name: string;
-  avatar: string;
-  grade: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export async function createLearner(
-  userId: number,
-  name: string,
-  avatar: string = '🦊'
-): Promise<Learner> {
-  const result = await db.run(
-    `INSERT INTO learner_profiles (user_id, name, avatar) VALUES (?, ?, ?)`,
-    [userId, name, avatar]
-  );
-  return getLearnerById(result.id);
-}
-
-export async function getLearnerById(id: number): Promise<Learner> {
-  return db.get('SELECT * FROM learner_profiles WHERE id = ?', [id]);
-}
-
-export async function getLearnerByUserId(userId: number): Promise<Learner> {
-  return db.get('SELECT * FROM learner_profiles WHERE user_id = ?', [userId]);
-}
-
-export async function updateLearner(
-  id: number,
-  updates: Partial<Learner>
-): Promise<void> {
-  const fields = Object.keys(updates)
-    .filter(key => key !== 'id' && key !== 'created_at')
-    .map(key => `${key} = ?`)
-    .join(', ');
-
-  const values = Object.keys(updates)
-    .filter(key => key !== 'id' && key !== 'created_at')
-    .map(key => updates[key as keyof Learner]);
-
-  if (fields) {
-    await db.run(`UPDATE learner_profiles SET ${fields} WHERE id = ?`, [
-      ...values,
-      id,
-    ]);
-  }
-}
-
-export async function getAllLearners(): Promise<Learner[]> {
-  return db.all('SELECT * FROM learner_profiles');
-}
+import { supabase, unwrap } from '../db.js';
+export interface Learner { id: number; user_id: number; name: string; avatar: string; grade: number; created_at: string; updated_at: string; }
+export async function createLearner(userId: number, name: string, avatar = '🦊'): Promise<Learner> { return unwrap(await supabase.from('learner_profiles').insert({ user_id: userId, name, avatar }).select().single()) as Learner; }
+export async function getLearnerById(id: number): Promise<Learner> { return unwrap(await supabase.from('learner_profiles').select('*').eq('id', id).maybeSingle()) as Learner; }
+export async function getLearnerByUserId(userId: number): Promise<Learner> { return unwrap(await supabase.from('learner_profiles').select('*').eq('user_id', userId).maybeSingle()) as Learner; }
+export async function updateLearner(id: number, updates: Partial<Learner>): Promise<void> { const { id: _id, created_at: _created, user_id: _user, ...safeUpdates } = updates; if (Object.keys(safeUpdates).length) unwrap(await supabase.from('learner_profiles').update(safeUpdates).eq('id', id)); }
+export async function getAllLearners(): Promise<Learner[]> { return unwrap(await supabase.from('learner_profiles').select('*')) as Learner[]; }

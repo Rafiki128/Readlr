@@ -54,7 +54,7 @@ Readlr is an interactive web-based learning platform designed to help young lear
 - tsx (TypeScript executor)
 - OpenAI API (Whisper for audio processing)
 - Multer (file uploads)
-- SQLite3 (database)
+- Supabase (hosted PostgreSQL database)
 - CORS (cross-origin requests)
 
 **Package Manager:**
@@ -67,6 +67,7 @@ Readlr is an interactive web-based learning platform designed to help young lear
 - Node.js (v18 or higher recommended)
 - npm or pnpm
 - OpenAI API key (for audio processing)
+- A Supabase project and its server-side service-role key
 
 ### Installation
 
@@ -82,6 +83,15 @@ pnpm install
 ```
 
 ### Development
+
+### Configure Supabase
+
+1. Create a Supabase project.
+2. Run [the initial schema migration](backend/supabase/migrations/202609160001_initial_schema.sql) in its SQL Editor.
+3. Copy `backend/.env.example` to `backend/.env`, then set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The service-role key must remain on the backend and must never be added to the frontend environment.
+4. Seed the learning stages and levels once with `npm -w backend run seed`.
+
+The backend does not create tables at startup. This keeps schema changes explicit and deployable through Supabase migrations.
 
 #### Run Both Frontend & Backend
 
@@ -332,4 +342,3 @@ The prototype and design specifications are available in:
 ## Acknowledgments
 
 See `ATTRIBUTIONS.md` for third-party libraries and attributions.
-  
