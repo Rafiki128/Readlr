@@ -1,6 +1,6 @@
-import { motion } from "motion/react";
-import { useEffect } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Volume2 } from "lucide-react";
+import { motion, MotionConfig } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, BookOpen, Volume2, Square } from "lucide-react";
 import { CharacterCompanion } from "./CharacterCompanion";
 import { useAudioManager } from "../../hooks/useAudioManager";
 
@@ -17,6 +17,8 @@ interface StoryScene {
 
 interface StorySceneProps {
   stageId: number;
+  dojoCompleted?: boolean;
+  onGoToValley?: () => void;
   onBack: () => void;
   onBegin: () => void;
 }
@@ -54,28 +56,133 @@ const SCENES: Record<number, StoryScene> = {
   },
 };
 
-export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
-  const scene = SCENES[stageId] ?? SCENES[1];
-  const { playAudio } = useAudioManager();
+function chapterIntroAudio(stageId: number) {
+  if (stageId === 1) return "/audio/stage1/Stage1MiloIntro.wav";
+  return `/audio/stage${stageId}/MiloSaysChapter${stageId}.wav`;
+}
 
-  // Auto-play the chapter introduction audio when the component mounts with a delay
+function chapterBeginAudio(stageId: number) {
+  if (stageId === 1) return "/audio/stage1/Stage1BeginChapter.wav";
+  return null;
+}
+
+export function StoryScene({ stageId, dojoCompleted = false, onGoToValley, onBack, onBegin }: StorySceneProps) {
+  const scene = SCENES[stageId] ?? SCENES[1];
+  const { playAudio, stopAudio, speakText } = useAudioManager();
+  const [speaking, setSpeaking] = useState(false);
+  const [beginning, setBeginning] = useState(false);
+  const [beat, setBeat] = useState(-1);
+  const sequenceRef = useRef(0);
+  const beginningRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelNarration = () => {
+    sequenceRef.current += 1;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    stopAudio();
+    setSpeaking(false);
+  };
+
+  const playIntroduction = () => {
+    cancelNarration();
+    const sequence = sequenceRef.current;
+    const parts = stageId === 1 ? [
+      { file: "Stage1Scene.wav", text: scene.scene },
+      { file: "Stage1MiloIntro.wav", text: "Hi, explorer! I am Milo. Before we step onto the valley road, we need to train the five vowel sounds." },
+      { file: "Stage1MiloMission.wav", text: "Behind each door is a vowel power for our journey. Listen closely, say the sound, and hear your brave reading voice come back to you." },
+      { file: "Stage1Goal.wav", text: scene.goal },
+    ] : [{ file: "", text: scene.narration }];
+    const playPart = (index: number) => {
+      if (sequence !== sequenceRef.current) return;
+      if (index >= parts.length) { setSpeaking(false); setBeat(-1); return; }
+      setSpeaking(true);
+      setBeat(index);
+      let advanced = false;
+      const advance = () => {
+        if (advanced || sequence !== sequenceRef.current) return;
+        advanced = true;
+        timerRef.current = setTimeout(() => playPart(index + 1), 350);
+      };
+      let fallingBack = false;
+      const fallback = () => {
+        if (fallingBack || sequence !== sequenceRef.current) return;
+        fallingBack = true;
+        const speech = speakText(parts[index].text, 0.84);
+        if (speech) {
+          speech.addEventListener("end", advance, { once: true });
+          speech.addEventListener("error", advance, { once: true });
+        } else advance();
+      };
+      const audio = playAudio(stageId === 1 ? `/audio/stage1/${parts[index].file}` : chapterIntroAudio(stageId));
+      if (audio) {
+        audio.onended = advance;
+        audio.onerror = fallback;
+        audio.play().catch((error: DOMException) => {
+          if (sequence !== sequenceRef.current) return;
+          if (error.name === "NotAllowedError") {
+            cancelNarration();
+            setBeat(-1);
+          } else fallback();
+        });
+      } else fallback();
+    };
+    playPart(0);
+  };
+
+  // Keep one sequence per visit; audio helpers are recreated on render.
   useEffect(() => {
     const timer = setTimeout(() => {
-      playAudio(`/audio/stage${stageId}/MiloSaysChapter${stageId}.wav`);
-    }, 700); // 2-second delay (2000ms)
+      playIntroduction();
+    }, 700);
+    timerRef.current = timer;
 
-    // Cleanup: If the user leaves the screen before 2 seconds, cancel the audio
-    return () => clearTimeout(timer);
-  }, [stageId, playAudio]);
+    return () => {
+      clearTimeout(timer);
+      sequenceRef.current += 1;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      stopAudio();
+    };
+  }, [stageId]);
 
   const handleListen = () => {
-    // Notice the backticks (`) instead of normal quotes!
-    // If stageId is 2, this automatically becomes "/audio/stage2/MiloSaysChapter2.wav"
-    playAudio(`/audio/stage${stageId}/MiloSaysChapter${stageId}.wav`);
+    if (beginningRef.current) return;
+    if (speaking) { cancelNarration(); setBeat(-1); }
+    else playIntroduction();
+  };
+
+  const handleBegin = () => {
+    if (beginningRef.current) return;
+    beginningRef.current = true;
+    setBeginning(true);
+    cancelNarration();
+    const sequence = sequenceRef.current;
+    let finished = false;
+    const finish = () => {
+      if (finished || sequence !== sequenceRef.current) return;
+      finished = true;
+      onBegin();
+    };
+    const audioPath = chapterBeginAudio(stageId);
+    if (!audioPath) {
+      finish();
+      return;
+    }
+
+    stopAudio();
+    const audio = playAudio(audioPath);
+    if (audio) {
+      setSpeaking(true);
+      audio.onended = finish;
+      audio.onerror = finish;
+      audio.play().catch(finish);
+      return;
+    }
+
+    finish();
   };
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-hidden relative flex flex-col">
+    <MotionConfig reducedMotion="user"><div className="size-full bg-[#FAF7F2] overflow-auto relative flex flex-col">
       {/* Soft scenery accents — single warm wash per stage */}
       <div
         className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-60 pointer-events-none"
@@ -88,7 +195,7 @@ export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
           {/* Top bar */}
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <button
-              onClick={onBack}
+              onClick={() => { cancelNarration(); onBack(); }}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] transition-colors text-xs sm:text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -135,7 +242,9 @@ export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
                   Scene
                 </p>
                 <p className="text-sm sm:text-base md:text-lg text-[#1F2430] leading-relaxed mb-6 sm:mb-8">
+                  <span style={{ background: speaking && beat === 0 ? "#FEF3C7" : "transparent", transition: "background 300ms" }}>
                   {scene.scene}
+                  </span>
                 </p>
 
                 {/* Milo speech */}
@@ -144,6 +253,7 @@ export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.28, duration: 0.45, ease: "easeOut" }}
                   className="bg-[#FAF7F2] rounded-2xl p-4 sm:p-5 border border-[#1F243014] mb-6"
+                  style={{ borderColor: speaking && (beat === 1 || beat === 2) ? scene.accent : undefined }}
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <span
@@ -159,10 +269,12 @@ export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
                   </p>
                   <button
                     onClick={handleListen}
+                    disabled={beginning}
+                    aria-label={speaking ? "Stop narration" : "Listen to the story again"}
                     className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] transition-colors text-xs sm:text-sm"
                   >
-                    <Volume2 className="w-3.5 h-3.5 flex-shrink-0" />
-                    Listen again
+                    {speaking ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 flex-shrink-0" />}
+                    {speaking ? "Stop narration" : "Listen again"}
                   </button>
                 </motion.div>
 
@@ -178,23 +290,40 @@ export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
                     <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-0.5">
                       Your goal
                     </p>
-                    <p className="text-sm sm:text-base text-[#1F2430]">{scene.goal}</p>
+                    <p className="text-sm sm:text-base text-[#1F2430]" style={{ background: speaking && beat === 3 ? "#FEF3C7" : "transparent", transition: "background 300ms" }}>{scene.goal}</p>
                   </div>
                 </div>
 
+                <div className="flex flex-wrap items-center gap-3">
                 <motion.button
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={onBegin}
+                  onClick={handleBegin}
+                  disabled={beginning}
                   className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-2xl text-white text-sm sm:text-lg font-medium transition-colors hover:opacity-90 w-full sm:w-auto justify-center sm:justify-start"
                   style={{
                     background: scene.accent,
                     boxShadow: `0 8px 24px -12px ${scene.accent}99`,
                   }}
                 >
-                  Begin chapter
+                  {beginning ? (stageId === 1 ? "Off to the Dojo..." : "Let's begin...") : "Begin chapter"}
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </motion.button>
+                {stageId === 1 && dojoCompleted && onGoToValley && (
+                  <button
+                    disabled={beginning}
+                    onClick={() => {
+                      if (beginningRef.current) return;
+                      beginningRef.current = true;
+                      cancelNarration();
+                      onGoToValley();
+                    }}
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#F59E0B]/30 bg-white px-5 py-3 text-sm font-medium text-[#4B5266] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50 sm:w-auto"
+                  >
+                    Go directly to the valley <ArrowRight className="h-4 w-4" />
+                  </button>
+                )}
+                </div>
               </div>
 
               {/* Right — Milo + illustration card */}
@@ -205,7 +334,7 @@ export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
                 <div className="absolute top-4 right-4 text-4xl sm:text-5xl opacity-60">
                   {scene.illustration}
                 </div>
-                <CharacterCompanion state="speaking" phoneme="A" size={180} />
+                <CharacterCompanion state={speaking ? "speaking" : "idle"} phoneme="A" size={180} />
                 <p
                   className="mt-3 sm:mt-4 text-xs uppercase tracking-wider text-center"
                   style={{ color: scene.accent }}
@@ -228,6 +357,6 @@ export function StoryScene({ stageId, onBack, onBegin }: StorySceneProps) {
           </motion.p>
         </div>
       </div>
-    </div>
+    </div></MotionConfig>
   );
 }

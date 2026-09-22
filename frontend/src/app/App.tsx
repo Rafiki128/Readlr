@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { TrailRewardDialog } from "./components/TrailRewardDialog";
+import { getTrailReward, type TrailReward } from "./components/trailRewards";
 import { motion } from "motion/react";
 import { AuthProvider, useAuth, AuthScreen } from "../modules/auth/index";
 import { NavigationHeader } from "./components/NavigationHeader";
@@ -268,8 +270,17 @@ function AppContent() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialRoute.authMode ?? 'register');
   const [selectedStage, setSelectedStage] = useState<number>(initialRoute.stageId ?? 1);
   const [selectedLevel, setSelectedLevel] = useState<number>(initialRoute.levelId ?? 1);
+  const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [levelScore] = useState(300);
+  const [trailReward, setTrailReward] = useState<TrailReward | null>(null);
+  const completionHandledRef = useRef(false);
+
+  useEffect(() => { setTrailReward(null); }, [user?.id]);
+  useEffect(() => {
+    if (currentScreen !== "level-map") setTrailReward(null);
+    if (currentScreen === "game") completionHandledRef.current = false;
+  }, [currentScreen]);
   const [learnerName, setLearnerName] = useState("");
   const [learnerAvatar, setLearnerAvatar] = useState("🦊");
   const [learnerId, setLearnerId] = useState<number | null>(null);
@@ -461,15 +472,28 @@ function AppContent() {
   };
 
   const handleBeginChapter = () => {
+    setMapEntry(selectedStage === 1 ? "dojo" : undefined);
+    setCurrentScreen("level-map");
+  };
+
+  const handleGoDirectlyToValley = () => {
+    if (selectedStage !== 1 || (completedByStage[1] ?? 0) < 5) return;
+    setMapEntry("valley");
     setCurrentScreen("level-map");
   };
 
   const handleSelectLevel = (levelId: number) => {
+    setMapEntry(undefined);
+    completionHandledRef.current = false;
+    setTrailReward(null);
     setSelectedLevel(levelId);
     setCurrentScreen("game");
   };
 
   const handleLevelComplete = async () => {
+    if (selectedStage === 1 && completionHandledRef.current) return;
+    completionHandledRef.current = true;
+    const reward = selectedStage === 1 ? getTrailReward(selectedLevel, completedByStage[1] ?? 0) : null;
     const newProgress = Math.max(completedByStage[selectedStage] ?? 0, selectedLevel);
     
     const nextProgress = {
@@ -478,6 +502,10 @@ function AppContent() {
     };
     setCompletedByStage(nextProgress);
     saveProgressToStorage(user?.id, nextProgress);
+
+    setIsLevelJustCompleted(selectedStage !== 1 || selectedLevel <= 5);
+    setCurrentScreen(selectedStage === 1 ? (selectedLevel <= 5 ? "vowel-power-complete" : "level-map") : "chapter-celebration");
+    if (reward) setTrailReward(reward);
 
     if (learnerId && token) {
       try {
@@ -500,8 +528,6 @@ function AppContent() {
       }
     }
 
-    setIsLevelJustCompleted(true);
-    setCurrentScreen(selectedStage === 1 && selectedLevel <= 5 ? "vowel-power-complete" : "chapter-celebration");
   };
 
   const handleContinueToNextStory = () => {
@@ -660,6 +686,8 @@ function AppContent() {
         {currentScreen === "story-scene" && (
           <StoryScene
             stageId={selectedStage}
+            dojoCompleted={(completedByStage[1] ?? 0) >= 5}
+            onGoToValley={handleGoDirectlyToValley}
             onBack={handleBackToStages}
             onBegin={handleBeginChapter}
           />
@@ -698,6 +726,7 @@ function AppContent() {
         {currentScreen === "level-map" && (
           <LevelMap
             stageId={selectedStage}
+            initialView={mapEntry}
             completedCount={completedByStage[selectedStage] ?? 0}
             onBack={handleBackToStages}
             onSelectLevel={handleSelectLevel}
@@ -706,6 +735,7 @@ function AppContent() {
 
         {currentScreen === "game" && (
           <GameLevel
+            key={`${selectedStage}-${selectedLevel}`}
             stageId={selectedStage}
             levelId={selectedLevel}
             onBack={handleBackToLevelMap}
@@ -723,6 +753,13 @@ function AppContent() {
             onContinueStory={handleContinueToNextStory}
             onBackToMap={handleBackFromCelebration}
           />
+        )}
+
+        {currentScreen === "level-map" && trailReward && (
+          <TrailRewardDialog reward={trailReward} onClose={() => setTrailReward(null)} onBook={() => {
+            setTrailReward(null);
+            setCurrentScreen("sticker-book");
+          }} />
         )}
 
         {currentScreen === "vowel-power-complete" && (

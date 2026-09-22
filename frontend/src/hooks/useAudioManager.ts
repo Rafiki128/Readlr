@@ -8,6 +8,8 @@ export const stopAllGlobalAudio = () => {
   try {
     // Stop HTML5 audio
     if (globalAudioRef) {
+      globalAudioRef.onended = null;
+      globalAudioRef.onerror = null;
       globalAudioRef.pause();
       globalAudioRef.currentTime = 0;
       globalAudioRef.src = ''; // Clear the src
@@ -35,6 +37,8 @@ export function useAudioManager() {
     
     if (currentAudioRef.current) {
       try {
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
         currentAudioRef.current.pause();
         currentAudioRef.current.currentTime = 0;
         currentAudioRef.current.src = '';

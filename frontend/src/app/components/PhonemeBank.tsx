@@ -170,7 +170,7 @@ function buildEntries(): SoundEntry[] {
       stage: "Valley of Vowels",
       title,
       sound,
-      modelAudioPath: `/audio/stage1/${VOWEL_GATE_WORDS.includes(title) ? title : VOWEL_GATE_WORDS[Math.floor(index / 10)]}.wav`,
+      modelAudioPath: `/audio/stage1/${sound}.wav`,
       tint: "#FFF7ED",
       color: "#F59E0B",
     };

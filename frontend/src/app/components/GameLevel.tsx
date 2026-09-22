@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { Volume2, Mic, ArrowLeft, Square, Sparkles, Wand2 } from "lucide-react";
+import { motion } from "motion/react";
+import { Volume2, Mic, ArrowLeft } from "lucide-react";
 import confetti from "canvas-confetti";
 import { CharacterCompanion, CharacterState } from "./CharacterCompanion";
 import { useAudioManager } from "../../hooks/useAudioManager";
+import { VowelChallengeView } from "./VowelChallengeView";
 
 type FluencyTier = "fluent" | "halting" | "syllabic";
 type StageOneLevelType =
@@ -116,6 +117,12 @@ interface VowelDoorData {
   title: string;
   intro: string;
   audioPath: string;
+  trainAudioPath: string;
+  abilityIntroAudioPath: string;
+  mouthHintAudioPath: string;
+  readyAudioPath: string;
+  useAudioPath: string;
+  gainedAudioPath: string;
   abilityName: string;
   abilityIcon: string;
   ability: string;
@@ -128,6 +135,7 @@ interface VowelDoorData {
 interface StageOneNarrationStep {
   message: string;
   revealCount: number;
+  audioPath?: string;
 }
 
 interface VowelPowerChallenge {
@@ -135,6 +143,8 @@ interface VowelPowerChallenge {
   obstacle: string;
   action: string;
   success: string;
+  audioPath: string;
+  successAudioPath: string;
   steps: string[];
 }
 
@@ -149,6 +159,12 @@ const VOWEL_POWER_KIT: Record<VowelKey, VowelDoorData> = {
     title: "A Training Door",
     intro: "The A door opens wide. Milo needs your open /a/ sound to forge the first valley power.",
     audioPath: "/audio/stage1/A.wav",
+    trainAudioPath: "/audio/stage1/TrainA.wav",
+    abilityIntroAudioPath: "/audio/stage1/AArmorWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/AArmorMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnAArmor.wav",
+    useAudioPath: "/audio/stage1/UseAArmor.wav",
+    gainedAudioPath: "/audio/stage1/GainedAArmor.wav",
     abilityName: "A Armor",
     abilityIcon: "A",
     ability: "A strong open sound that clears blocked trail gates.",
@@ -163,6 +179,12 @@ const VOWEL_POWER_KIT: Record<VowelKey, VowelDoorData> = {
     title: "E Training Door",
     intro: "The E door twinkles with tiny lights. Milo needs your quick /e/ sound to reveal hidden marks.",
     audioPath: "/audio/stage1/E.wav",
+    trainAudioPath: "/audio/stage1/TrainE.wav",
+    abilityIntroAudioPath: "/audio/stage1/EEchoWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/EEchoMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnEEcho.wav",
+    useAudioPath: "/audio/stage1/UseEEcho.wav",
+    gainedAudioPath: "/audio/stage1/GainedEEcho.wav",
     abilityName: "E Echo",
     abilityIcon: "E",
     ability: "A bright echo that wakes small clue lights.",
@@ -177,6 +199,12 @@ const VOWEL_POWER_KIT: Record<VowelKey, VowelDoorData> = {
     title: "I Training Door",
     intro: "The I door shivers like a tiny bell. Milo needs your short /i/ sound to sharpen the path.",
     audioPath: "/audio/stage1/I.wav",
+    trainAudioPath: "/audio/stage1/TrainI.wav",
+    abilityIntroAudioPath: "/audio/stage1/IInsightWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/IInsightMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnIInsight.wav",
+    useAudioPath: "/audio/stage1/UseIInsight.wav",
+    gainedAudioPath: "/audio/stage1/GainedIInsight.wav",
     abilityName: "I Insight",
     abilityIcon: "I",
     ability: "A sharp sound that draws missing paths back onto the map.",
@@ -191,6 +219,12 @@ const VOWEL_POWER_KIT: Record<VowelKey, VowelDoorData> = {
     title: "O Training Door",
     intro: "The O door rolls like a round moon. Milo needs your round /o/ sound to open circle gates.",
     audioPath: "/audio/stage1/O.wav",
+    trainAudioPath: "/audio/stage1/TrainO.wav",
+    abilityIntroAudioPath: "/audio/stage1/OOrbWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/OOrbMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnOOrb.wav",
+    useAudioPath: "/audio/stage1/UseOOrb.wav",
+    gainedAudioPath: "/audio/stage1/GainedOOrb.wav",
     abilityName: "O Orb",
     abilityIcon: "O",
     ability: "A round sound that unlocks circle gates and rolling stones.",
@@ -205,6 +239,12 @@ const VOWEL_POWER_KIT: Record<VowelKey, VowelDoorData> = {
     title: "U Training Door",
     intro: "The U door lifts with a whoosh. Milo needs your soft /u/ sound to raise bridges and shields.",
     audioPath: "/audio/stage1/U.wav",
+    trainAudioPath: "/audio/stage1/TrainU.wav",
+    abilityIntroAudioPath: "/audio/stage1/UUpliftWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/UUpliftMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnUUplift.wav",
+    useAudioPath: "/audio/stage1/UseUUplift.wav",
+    gainedAudioPath: "/audio/stage1/GainedUUplift.wav",
     abilityName: "U Uplift",
     abilityIcon: "U",
     ability: "A lifting sound that raises bridges and shields rainy paths.",
@@ -220,34 +260,36 @@ const DEFAULT_POWER_CHALLENGE: VowelPowerChallenge = {
   obstacle: "A trail stone is waiting for a voice spark.",
   action: "Say the vowel sound to make the stone glow.",
   success: "The trail stone glowed and showed Milo the way forward.",
+  audioPath: "/audio/stage1/ChallengeQuietTrailStone.wav",
+  successAudioPath: "/audio/stage1/SuccessQuietTrailStone.wav",
   steps: ["Listen", "Say", "Replay"],
 };
 
 const POWER_CHALLENGES: Record<VowelKey, VowelPowerChallenge[]> = {
   A: [
-    { title: "Heavy Gate", obstacle: "A sleepy gate blocks the trail.", action: "Use A Armor. Say /a/ with an open mouth.", success: "A Armor pushed the heavy gate open.", steps: ["Open", "Say /a/", "Push"] },
-    { title: "Branch Wall", obstacle: "A branch wall leans across the road.", action: "Use A Armor to make a strong sound wave.", success: "The /a/ sound wave cleared the branches.", steps: ["Breathe", "Say /a/", "Clear"] },
-    { title: "Stone Step", obstacle: "A stone step needs a strong voice to rise.", action: "Say /a/ and send the sound under the stone.", success: "The stone rose into a safe step.", steps: ["Aim", "Say /a/", "Rise"] },
+    { title: "Heavy Gate", obstacle: "A sleepy gate blocks the trail.", action: "Use A Armor. Say /a/ with an open mouth.", success: "A Armor pushed the heavy gate open. Milo steps through the first bright doorway.", audioPath: "/audio/stage1/ChallengeAHeavyGate.wav", successAudioPath: "/audio/stage1/SuccessAHeavyGate.wav", steps: ["Open", "Say /a/", "Push"] },
+    { title: "Branch Wall", obstacle: "A branch wall leans across the road.", action: "Use A Armor to make a strong sound wave.", success: "The /a/ sound wave cleared the branches. The meadow trail is open again.", audioPath: "/audio/stage1/ChallengeABranchWall.wav", successAudioPath: "/audio/stage1/SuccessABranchWall.wav", steps: ["Breathe", "Say /a/", "Clear"] },
+    { title: "Stone Step", obstacle: "A stone step needs a strong voice to rise.", action: "Say /a/ and send the sound under the stone.", success: "The stone rose into a safe step. Milo climbs higher on the valley path.", audioPath: "/audio/stage1/ChallengeAStoneStep.wav", successAudioPath: "/audio/stage1/SuccessAStoneStep.wav", steps: ["Aim", "Say /a/", "Rise"] },
   ],
   E: [
-    { title: "Hidden Marks", obstacle: "Tiny trail marks are hiding in the grass.", action: "Use E Echo. Say /e/ quickly and clearly.", success: "E Echo lit the hidden marks.", steps: ["Smile", "Say /e/", "Reveal"] },
-    { title: "Blinking Sign", obstacle: "A small sign blinks but cannot shine.", action: "Send your /e/ sound to wake the sign.", success: "The sign blinked bright and pointed ahead.", steps: ["Listen", "Say /e/", "Shine"] },
-    { title: "Little Light Path", obstacle: "The path needs tiny lights to appear.", action: "Say /e/ to spark each little light.", success: "Little lights led Milo forward.", steps: ["Tap", "Say /e/", "Follow"] },
+    { title: "Hidden Marks", obstacle: "Tiny trail marks are hiding in the grass.", action: "Use E Echo. Say /e/ quickly and clearly.", success: "E Echo lit the hidden marks. Milo can follow the secret trail.", audioPath: "/audio/stage1/ChallengeEHiddenMarks.wav", successAudioPath: "/audio/stage1/SuccessEHiddenMarks.wav", steps: ["Smile", "Say /e/", "Reveal"] },
+    { title: "Blinking Sign", obstacle: "A small sign blinks but cannot shine.", action: "Send your /e/ sound to wake the sign.", success: "The sign blinked bright and pointed ahead. Milo knows where to go next.", audioPath: "/audio/stage1/ChallengeEBlinkingSign.wav", successAudioPath: "/audio/stage1/SuccessEBlinkingSign.wav", steps: ["Listen", "Say /e/", "Shine"] },
+    { title: "Little Light Path", obstacle: "The path needs tiny lights to appear.", action: "Say /e/ to spark each little light.", success: "Little lights popped awake one by one. Milo walks the glowing path.", audioPath: "/audio/stage1/ChallengeELittleLightPath.wav", successAudioPath: "/audio/stage1/SuccessELittleLightPath.wav", steps: ["Tap", "Say /e/", "Follow"] },
   ],
   I: [
-    { title: "Missing Map Line", obstacle: "The map lost the next trail line.", action: "Use I Insight. Say a short /i/ sound.", success: "I Insight drew the missing line.", steps: ["Focus", "Say /i/", "Trace"] },
-    { title: "Tiny Clue", obstacle: "A clue is too small for Milo to see.", action: "Say /i/ to sharpen the clue.", success: "The tiny clue grew clear.", steps: ["Look", "Say /i/", "Spot"] },
-    { title: "Needle Bridge", obstacle: "A narrow bridge needs careful steps.", action: "Say /i/ and help Milo focus.", success: "Milo crossed the narrow bridge.", steps: ["Steady", "Say /i/", "Cross"] },
+    { title: "Missing Map Line", obstacle: "The map lost the next trail line.", action: "Use I Insight. Say a short /i/ sound.", success: "I Insight drew the missing line. Milo can see the trail again.", audioPath: "/audio/stage1/ChallengeIMissingMapLine.wav", successAudioPath: "/audio/stage1/SuccessIMissingMapLine.wav", steps: ["Focus", "Say /i/", "Trace"] },
+    { title: "Tiny Clue", obstacle: "A clue is too small for Milo to see.", action: "Say /i/ to sharpen the clue.", success: "The tiny clue grew clear. Milo found the mark he needed.", audioPath: "/audio/stage1/ChallengeITinyClue.wav", successAudioPath: "/audio/stage1/SuccessITinyClue.wav", steps: ["Look", "Say /i/", "Spot"] },
+    { title: "Needle Bridge", obstacle: "A narrow bridge needs careful steps.", action: "Say /i/ and help Milo focus.", success: "I Insight steadied the bridge. Milo crossed with careful little steps.", audioPath: "/audio/stage1/ChallengeINeedleBridge.wav", successAudioPath: "/audio/stage1/SuccessINeedleBridge.wav", steps: ["Steady", "Say /i/", "Cross"] },
   ],
   O: [
-    { title: "Round Gate", obstacle: "A round gate is sealed shut.", action: "Use O Orb. Round your lips and say /o/.", success: "O Orb rolled the round gate open.", steps: ["Round", "Say /o/", "Open"] },
-    { title: "Rolling Stone", obstacle: "A round stone waits on the road.", action: "Say /o/ to roll it aside.", success: "The stone rolled away from the path.", steps: ["Circle", "Say /o/", "Roll"] },
-    { title: "Moon Door", obstacle: "A moon door only hears round sounds.", action: "Say /o/ with your lips like a circle.", success: "The moon door opened softly.", steps: ["Shape", "Say /o/", "Glow"] },
+    { title: "Round Gate", obstacle: "A round gate is sealed shut.", action: "Use O Orb. Round your lips and say /o/.", success: "O Orb rolled the round gate open. Milo follows the circle road ahead.", audioPath: "/audio/stage1/ChallengeORoundGate.wav", successAudioPath: "/audio/stage1/SuccessORoundGate.wav", steps: ["Round", "Say /o/", "Open"] },
+    { title: "Rolling Stone", obstacle: "A round stone waits on the road.", action: "Say /o/ to roll it aside.", success: "The round stone rolled away. Milo found a smooth path underneath.", audioPath: "/audio/stage1/ChallengeORollingStone.wav", successAudioPath: "/audio/stage1/SuccessORollingStone.wav", steps: ["Circle", "Say /o/", "Roll"] },
+    { title: "Moon Door", obstacle: "A moon door only hears round sounds.", action: "Say /o/ with your lips like a circle.", success: "The moon door opened softly. Silver light spills across Milo's trail.", audioPath: "/audio/stage1/ChallengeOMoonDoor.wav", successAudioPath: "/audio/stage1/SuccessOMoonDoor.wav", steps: ["Shape", "Say /o/", "Glow"] },
   ],
   U: [
-    { title: "Low Bridge", obstacle: "A little bridge sank into the stream.", action: "Use U Uplift. Say /u/ to raise it.", success: "U Uplift raised the bridge.", steps: ["Soft", "Say /u/", "Lift"] },
-    { title: "Rainy Shield", obstacle: "Rain covers the valley road.", action: "Say /u/ to lift a shield over Milo.", success: "The shield rose and caught the rain.", steps: ["Breathe", "Say /u/", "Shield"] },
-    { title: "Updraft Path", obstacle: "The next platform is too high.", action: "Say /u/ to call an updraft.", success: "The updraft lifted Milo safely.", steps: ["Ready", "Say /u/", "Rise"] },
+    { title: "Low Bridge", obstacle: "A little bridge sank into the stream.", action: "Use U Uplift. Say /u/ to raise it.", success: "U Uplift raised the bridge. Milo crosses above the sparkling water.", audioPath: "/audio/stage1/ChallengeULowBridge.wav", successAudioPath: "/audio/stage1/SuccessULowBridge.wav", steps: ["Soft", "Say /u/", "Lift"] },
+    { title: "Rainy Shield", obstacle: "Rain covers the valley road.", action: "Say /u/ to lift a shield over Milo.", success: "The shield rose and caught the rain. Milo walks forward warm and dry.", audioPath: "/audio/stage1/ChallengeURainyShield.wav", successAudioPath: "/audio/stage1/SuccessURainyShield.wav", steps: ["Breathe", "Say /u/", "Shield"] },
+    { title: "Updraft Path", obstacle: "The next platform is too high.", action: "Say /u/ to call an updraft.", success: "A soft updraft lifted Milo safely. The high path is ready.", audioPath: "/audio/stage1/ChallengeUUpdraftPath.wav", successAudioPath: "/audio/stage1/SuccessUUpdraftPath.wav", steps: ["Ready", "Say /u/", "Rise"] },
   ],
 };
 
@@ -288,27 +330,28 @@ function makeDoorNarrationSteps(door: VowelDoorData): StageOneNarrationStep[] {
     {
       message: `We need your help training the vowel sound ${door.sound}. Listen to Milo first, then try the sound with your own voice.`,
       revealCount: 0,
+      audioPath: door.trainAudioPath,
     },
     {
       message: `${door.abilityName} is waiting behind this door. ${door.ability}`,
       revealCount: 1,
+      audioPath: door.abilityIntroAudioPath,
     },
     {
       message: `${door.mouthHint} When you record it, Milo will play your voice back so you can hear your sound.`,
       revealCount: 1,
+      audioPath: door.mouthHintAudioPath,
     },
   ];
 }
 
 const ALL_CHALLENGES: Record<number, Record<number, Challenge>> = {
   1: {
-    // Apple = 2 syllables (1200ms), Egg = 1 (600ms), Igloo = 2 (1200ms),
-    // Octopus = 3 (1800ms), Umbrella = 3 (1800ms)
-    1: { id: 1, word: "Apple", phoneme: "A", audioPath: "/audio/stage1/Apple.wav", acceptedTranscripts: ["apple", "a", "ah"], storyContext: "Say 'Apple' to open the door!", expectedDurationMs: 1200 },
-    2: { id: 2, word: "Egg", phoneme: "E", audioPath: "/audio/stage1/Egg.wav", acceptedTranscripts: ["egg", "e", "eh"], storyContext: "Say 'Egg' to help the bird hatch!", expectedDurationMs: 600 },
-    3: { id: 3, word: "Igloo", phoneme: "I", audioPath: "/audio/stage1/Igloo.wav", acceptedTranscripts: ["igloo", "i", "ee"], storyContext: "Say 'Igloo' to unlock the chest!", expectedDurationMs: 1200 },
-    4: { id: 4, word: "Octopus", phoneme: "O", audioPath: "/audio/stage1/Octopus.wav", acceptedTranscripts: ["octopus", "o", "oh"], storyContext: "Say 'Octopus' to wake up the octopus!", expectedDurationMs: 1800 },
-    5: { id: 5, word: "Umbrella", phoneme: "U", audioPath: "/audio/stage1/Umbrella.wav", acceptedTranscripts: ["umbrella", "u", "uh"], storyContext: "Say 'Umbrella' to move the boulder!", expectedDurationMs: 1800 },
+    1: { id: 1, word: "A", phoneme: "A", audioPath: "/audio/stage1/A.wav", acceptedTranscripts: ["a", "ah"], storyContext: "Say the vowel sound /a/ to open the door.", expectedDurationMs: 700 },
+    2: { id: 2, word: "E", phoneme: "E", audioPath: "/audio/stage1/E.wav", acceptedTranscripts: ["e", "eh"], storyContext: "Say the vowel sound /e/ to open the door.", expectedDurationMs: 700 },
+    3: { id: 3, word: "I", phoneme: "I", audioPath: "/audio/stage1/I.wav", acceptedTranscripts: ["i", "ih"], storyContext: "Say the vowel sound /i/ to open the door.", expectedDurationMs: 700 },
+    4: { id: 4, word: "O", phoneme: "O", audioPath: "/audio/stage1/O.wav", acceptedTranscripts: ["o", "oh"], storyContext: "Say the vowel sound /o/ to open the door.", expectedDurationMs: 700 },
+    5: { id: 5, word: "U", phoneme: "U", audioPath: "/audio/stage1/U.wav", acceptedTranscripts: ["u", "uh"], storyContext: "Say the vowel sound /u/ to open the door.", expectedDurationMs: 700 },
   },
   2: { // Chapter 2: Blending Bridges — all CV blends are 1 syllable (600ms)
     1: {
@@ -431,99 +474,6 @@ const ALL_CHALLENGES: Record<number, Record<number, Challenge>> = {
     },
   },
 };
-
-const VOWEL_WORD_SETS: Array<{
-  phoneme: string;
-  audioWord: string;
-  audioPath: string;
-  words: { word: string; audioPath: string }[];
-}> = [
-  {
-    phoneme: "A",
-    audioWord: "Apple",
-    audioPath: "/audio/stage1/Apple.wav",
-    words: [
-      { word: "Apple", audioPath: "/audio/stage1/Apple.wav" },
-      { word: "Ant", audioPath: "/audio/stage1/Ant.wav" },
-      { word: "Axe", audioPath: "/audio/stage1/Axe.wav" },
-      { word: "Alligator", audioPath: "/audio/stage1/Alligator.wav" },
-      { word: "Astronaut", audioPath: "/audio/stage1/Astronaut.wav" },
-      { word: "Anchor", audioPath: "/audio/stage1/Anchor.wav" },
-      { word: "Arrow", audioPath: "/audio/stage1/Arrow.wav" },
-      { word: "Acorn", audioPath: "/audio/stage1/Acorn.wav" },
-      { word: "Apron", audioPath: "/audio/stage1/Apron.wav" },
-      { word: "Album", audioPath: "/audio/stage1/Album.wav" },
-    ],
-  },
-  {
-    phoneme: "E",
-    audioWord: "Egg",
-    audioPath: "/audio/stage1/Egg.wav",
-    words: [
-      { word: "Egg", audioPath: "/audio/stage1/Egg.wav" },
-      { word: "Elephant", audioPath: "/audio/stage1/Elephant.wav" },
-      { word: "Elbow", audioPath: "/audio/stage1/Elbow.wav" },
-      { word: "Engine", audioPath: "/audio/stage1/Engine.wav" },
-      { word: "Envelope", audioPath: "/audio/stage1/Envelope.wav" },
-      { word: "Exit", audioPath: "/audio/stage1/Exit.wav" },
-      { word: "Echo", audioPath: "/audio/stage1/Echo.wav" },
-      { word: "Emerald", audioPath: "/audio/stage1/Emerald.wav" },
-      { word: "Eskimo", audioPath: "/audio/stage1/Eskimo.wav" },
-      { word: "Exercise", audioPath: "/audio/stage1/Exercise.wav" },
-    ],
-  },
-  {
-    phoneme: "I",
-    audioWord: "Igloo",
-    audioPath: "/audio/stage1/Igloo.wav",
-    words: [
-      { word: "Igloo", audioPath: "/audio/stage1/Igloo.wav" },
-      { word: "Insect", audioPath: "/audio/stage1/Insect.wav" },
-      { word: "Ink", audioPath: "/audio/stage1/Ink.wav" },
-      { word: "Island", audioPath: "/audio/stage1/Island.wav" },
-      { word: "Invitation", audioPath: "/audio/stage1/Invitation.wav" },
-      { word: "Iguana", audioPath: "/audio/stage1/Iguana.wav" },
-      { word: "Idea", audioPath: "/audio/stage1/Idea.wav" },
-      { word: "Ice", audioPath: "/audio/stage1/Ice.wav" },
-      { word: "Iron", audioPath: "/audio/stage1/Iron.wav" },
-      { word: "Inside", audioPath: "/audio/stage1/Inside.wav" },
-    ],
-  },
-  {
-    phoneme: "O",
-    audioWord: "Octopus",
-    audioPath: "/audio/stage1/Octopus.wav",
-    words: [
-      { word: "Octopus", audioPath: "/audio/stage1/Octopus.wav" },
-      { word: "Orange", audioPath: "/audio/stage1/Orange.wav" },
-      { word: "Ostrich", audioPath: "/audio/stage1/Ostrich.wav" },
-      { word: "Oblong", audioPath: "/audio/stage1/Oblong.wav" },
-      { word: "Owl", audioPath: "/audio/stage1/Owl.wav" },
-      { word: "Ocean", audioPath: "/audio/stage1/Ocean.wav" },
-      { word: "Olive", audioPath: "/audio/stage1/Olive.wav" },
-      { word: "Oven", audioPath: "/audio/stage1/Oven.wav" },
-      { word: "Office", audioPath: "/audio/stage1/Office.wav" },
-      { word: "Orbit", audioPath: "/audio/stage1/Orbit.wav" },
-    ],
-  },
-  {
-    phoneme: "U",
-    audioWord: "Umbrella",
-    audioPath: "/audio/stage1/Umbrella.wav",
-    words: [
-      { word: "Umbrella", audioPath: "/audio/stage1/Umbrella.wav" },
-      { word: "Unicorn", audioPath: "/audio/stage1/Unicorn.wav" },
-      { word: "Up", audioPath: "/audio/stage1/Up.wav" },
-      { word: "Under", audioPath: "/audio/stage1/Under.wav" },
-      { word: "Uniform", audioPath: "/audio/stage1/Uniform.wav" },
-      { word: "Ukulele", audioPath: "/audio/stage1/Ukulele.wav" },
-      { word: "Uncle", audioPath: "/audio/stage1/Uncle.wav" },
-      { word: "Utensil", audioPath: "/audio/stage1/Utensil.wav" },
-      { word: "Unit", audioPath: "/audio/stage1/Unit.wav" },
-      { word: "Us", audioPath: "/audio/stage1/Us.wav" },
-    ],
-  },
-];
 
 const VOWEL_GATE_CHALLENGES: Challenge[] = [
   {
@@ -853,7 +803,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   const [hasRecording, setHasRecording] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [stageOneIntroRevealed, setStageOneIntroRevealed] = useState(false);
-  const [stageOneVisibleChoiceCount, setStageOneVisibleChoiceCount] = useState(0);
+  const [, setStageOneVisibleChoiceCount] = useState(0);
   const [stageOneRewardRevealed, setStageOneRewardRevealed] = useState(false);
   const [stageOneAutoCompleting, setStageOneAutoCompleting] = useState(false);
 
@@ -866,6 +816,14 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   const learnerAudioRef = useRef<HTMLAudioElement | null>(null);
   const recordingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageOneCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageOneReplayCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageOneRecordingPlaybackFinishedRef = useRef(false);
+  const stageOneActiveRef = useRef(true);
+  const stageOneFinishingRef = useRef(false);
+  const stageOneCompletedRef = useRef(false);
+  const stageOneRecordingPendingRef = useRef(false);
+  const [preparingRecording, setPreparingRecording] = useState(false);
+  const recordingLeadInRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const attemptNumber = useRef(0);
   const attemptStartTime = useRef<number>(0);
@@ -893,8 +851,19 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     if (stageOneEncounter) {
       return [
         {
-          message: `${stageOneEncounter.challenge.obstacle} ${stageOneEncounter.challenge.action} Listen to the ${stageOneEncounter.vowel} sound, then record your own vowel power.`,
+          message: `${stageOneEncounter.challenge.obstacle} ${stageOneEncounter.challenge.action}`,
           revealCount: 0,
+          audioPath: stageOneEncounter.challenge.audioPath,
+        },
+        {
+          message: `${stageOneEncounter.power.abilityName} is the right power for this trail. Milo needs your ${stageOneEncounter.power.sound} sound to wake it up.`,
+          revealCount: 0,
+          audioPath: `/audio/stage1/Trail${stageOneEncounter.vowel}Power.wav`,
+        },
+        {
+          message: `When the button appears, record your ${stageOneEncounter.power.sound} sound. Then listen back as Milo uses it on the trail.`,
+          revealCount: 0,
+          audioPath: `/audio/stage1/Trail${stageOneEncounter.vowel}Record.wav`,
         },
       ];
     }
@@ -914,7 +883,10 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   }, [challenge.promptVariants, challenge.storyContext, randomSeed]);
 
   useEffect(() => {
+    stageOneActiveRef.current = true;
     return () => {
+      stageOneActiveRef.current = false;
+      if (recordingLeadInRef.current) clearTimeout(recordingLeadInRef.current);
       stopAllAudio();
       stopListening();
       try {
@@ -924,16 +896,28 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
         if (stageOneCompleteTimerRef.current) {
           clearTimeout(stageOneCompleteTimerRef.current);
         }
+        if (stageOneReplayCompleteTimerRef.current) {
+          clearTimeout(stageOneReplayCompleteTimerRef.current);
+        }
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+          mediaRecorderRef.current.onstop = null;
           mediaRecorderRef.current.stop();
         }
       } catch {
         // The browser may already have stopped the recorder during teardown.
       }
+      if (learnerAudioRef.current) {
+        learnerAudioRef.current.pause();
+        learnerAudioRef.current.src = "";
+        learnerAudioRef.current = null;
+      }
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-      if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     };
-  }, [recordingUrl, stopAllAudio]);
+  }, [stopAllAudio]);
+
+  useEffect(() => () => {
+    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+  }, [recordingUrl]);
 
   const speakPhoneme = useCallback(() => {
     stopAudio();
@@ -967,6 +951,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     setStageOneVisibleChoiceCount(0);
     setStageOneRewardRevealed(false);
     setStageOneAutoCompleting(false);
+    stageOneRecordingPlaybackFinishedRef.current = false;
     setRecordingUrl((current) => {
       if (current) URL.revokeObjectURL(current);
       return null;
@@ -978,21 +963,51 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
 
     const revealStageOneActivity = () => {
       if (cancelled) return;
+      const readyMessage = stageOneDoor ? `Tap once to learn ${stageOneDoor.abilityName}.` : `Tap once to use ${activePower.abilityName}.`;
       setCharacterState("idle");
-      setStageOneIntroRevealed(true);
       setStageOneVisibleChoiceCount(stageOneDoor ? 1 : 0);
       setCharacterState("speaking");
       setBubbleMessage(`Milo is saying ${activePower.sound}. Listen, then use your power.`);
       const modelAudio = playAudio(activePower.audioPath);
-      if (modelAudio) {
-        modelAudio.onended = () => {
+      const playReadyPrompt = () => {
+        if (cancelled) return;
+        setCharacterState("speaking");
+        setBubbleMessage(readyMessage);
+        const readyAudio = stageOneDoor ? playAudio(stageOneDoor.readyAudioPath) : playAudio("/audio/stage1/TapToUsePower.wav");
+        const finishReadyPrompt = () => {
           if (cancelled) return;
+          setStageOneIntroRevealed(true);
           setCharacterState("idle");
-          setBubbleMessage(stageOneDoor ? `Tap once to use ${stageOneDoor.abilityName}.` : `Tap once to use ${activePower.abilityName}.`);
+          setBubbleMessage(readyMessage);
+        };
+        if (readyAudio) {
+          readyAudio.onended = finishReadyPrompt;
+          readyAudio.onerror = () => {
+            const spoken = speakText(readyMessage, 0.84);
+            if (spoken) {
+              spoken.addEventListener("end", finishReadyPrompt, { once: true });
+              spoken.addEventListener("error", finishReadyPrompt, { once: true });
+            } else {
+              finishReadyPrompt();
+            }
+          };
+        } else {
+          const spoken = speakText(readyMessage, 0.84);
+          if (spoken) {
+            spoken.addEventListener("end", finishReadyPrompt, { once: true });
+            spoken.addEventListener("error", finishReadyPrompt, { once: true });
+          } else {
+            finishReadyPrompt();
+          }
+        }
+      };
+      if (modelAudio) {
+        modelAudio.onerror = playReadyPrompt;
+        modelAudio.onended = () => {
+          playReadyPrompt();
         };
       } else {
-        setCharacterState("idle");
-        setBubbleMessage(stageOneDoor ? `Tap once to use ${stageOneDoor.abilityName}.` : `Tap once to use ${activePower.abilityName}.`);
+        playReadyPrompt();
       }
     };
 
@@ -1019,14 +1034,25 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
         playStageOneNarrationStep(stepIndex + 1);
       };
 
-      const narration = speakText(step.message, 0.84);
-      if (narration) {
-        narration.addEventListener("end", advance, { once: true });
-        narration.addEventListener("error", advance, { once: true });
+      const speakStep = () => {
+        if (cancelled) return;
+        const narration = speakText(step.message, 0.84);
+        if (narration) {
+          narration.addEventListener("end", advance, { once: true });
+          narration.addEventListener("error", advance, { once: true });
+        } else {
+          advance();
+        }
+      };
+
+      const narrationAudio = step.audioPath ? playAudio(step.audioPath) : null;
+      if (narrationAudio) {
+        narrationAudio.onended = advance;
+        narrationAudio.onerror = speakStep;
+      } else {
+        speakStep();
       }
 
-      const fallbackMs = Math.max(2200, step.message.length * 72);
-      timers.push(setTimeout(advance, fallbackMs));
     };
 
     const autoplayTimer = setTimeout(() => {
@@ -1183,7 +1209,9 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   };
 
   const finishStageOneAutomatically = () => {
-    if (stageOneCompleteTimerRef.current) return;
+    if (!stageOneActiveRef.current || stageOneFinishingRef.current) return;
+    if (!stageOneRecordingPlaybackFinishedRef.current) return;
+    stageOneFinishingRef.current = true;
 
     if (stageOneDoor) {
       writeEarnedVowelPower(stageOneDoor.vowel);
@@ -1193,16 +1221,43 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     setStageOneAutoCompleting(true);
     setStageOneRewardRevealed(true);
     setCharacterState("celebrating");
-    setBubbleMessage(
-      stageOneDoor
-        ? `${stageOneDoor.abilityName} is ready. Milo can use it in the valley.`
-        : `${activePower.abilityName} worked. Milo can move forward.`
-    );
+    setBubbleMessage(stageOneDoor ? `${stageOneDoor.abilityName} is ready. Milo can use it in the valley.` : activePowerChallenge.success);
     confetti({ particleCount: 90, spread: 70, origin: { y: 0.62 } });
-    stageOneCompleteTimerRef.current = setTimeout(() => {
+
+    const rewardAudio = playAudio(stageOneDoor ? stageOneDoor.gainedAudioPath : activePowerChallenge.successAudioPath);
+    const completeAfterReward = () => {
+      if (!stageOneActiveRef.current || stageOneCompletedRef.current) return;
+      stageOneCompletedRef.current = true;
+      if (stageOneCompleteTimerRef.current) {
+        clearTimeout(stageOneCompleteTimerRef.current);
+      }
       stageOneCompleteTimerRef.current = null;
       onComplete();
-    }, 1500);
+    };
+    const speakMatchingSuccessFallback = () => {
+      if (!stageOneActiveRef.current || stageOneCompletedRef.current) return;
+      const fallbackText = stageOneDoor
+        ? `${stageOneDoor.abilityName} is ready. Milo can use it in the valley.`
+        : activePowerChallenge.success;
+      const spoken = speakText(fallbackText, 0.84);
+      if (spoken) {
+        spoken.addEventListener("end", () => {
+          completeAfterReward();
+        }, { once: true });
+        spoken.addEventListener("error", () => {
+          if (stageOneActiveRef.current) stageOneCompleteTimerRef.current = setTimeout(completeAfterReward, 1800);
+        }, { once: true });
+      } else {
+        stageOneCompleteTimerRef.current = setTimeout(completeAfterReward, 2600);
+      }
+    };
+
+    if (rewardAudio) {
+      rewardAudio.onended = completeAfterReward;
+      rewardAudio.onerror = speakMatchingSuccessFallback;
+    } else {
+      speakMatchingSuccessFallback();
+    }
   };
 
   const stopStageOneRecording = () => {
@@ -1217,6 +1272,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   };
 
   const playStageOneRecordingUrl = (url: string, autoReplay = false) => {
+    if (!stageOneActiveRef.current) return;
     stopAudio();
     learnerAudioRef.current?.pause();
     const audio = new Audio(url);
@@ -1224,36 +1280,65 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     setCharacterState("listening");
     setBubbleMessage(autoReplay ? "Listen. This is your vowel sound coming back to you." : "Listen closely. That is your explorer voice on the trail.");
     audio.onended = () => {
+      if (!stageOneActiveRef.current || learnerAudioRef.current !== audio) return;
+      stageOneRecordingPlaybackFinishedRef.current = true;
       setCharacterState(autoReplay ? "celebrating" : "idle");
       if (stageOneDoor) {
         setStageOneRewardRevealed(true);
         setBubbleMessage(`${stageOneDoor.rewardTitle}. Milo is using it now.`);
       } else {
         setStageOneRewardRevealed(true);
-        setBubbleMessage(`${activePowerChallenge.success} Milo is moving ahead.`);
+        setBubbleMessage(activePowerChallenge.success);
       }
 
       if (autoReplay) {
-        setTimeout(finishStageOneAutomatically, 650);
+        if (stageOneReplayCompleteTimerRef.current) {
+          clearTimeout(stageOneReplayCompleteTimerRef.current);
+        }
+        stageOneReplayCompleteTimerRef.current = setTimeout(() => {
+          stageOneReplayCompleteTimerRef.current = null;
+          finishStageOneAutomatically();
+        }, 650);
       }
     };
     audio.play().catch(() => {
+      if (!stageOneActiveRef.current) return;
+      setHasRecording(false);
       setCharacterState("encouraging");
       setBubbleMessage("I could not play that recording. Try recording again.");
     });
   };
 
   const startStageOneRecording = async () => {
-    if (!stageOneIntroRevealed || isRecording || stageOneAutoCompleting) {
+    if (!stageOneIntroRevealed || preparingRecording || isRecording || hasRecording || stageOneAutoCompleting || stageOneRecordingPendingRef.current) {
       return;
     }
 
+    stageOneRecordingPendingRef.current = true;
+    setPreparingRecording(true);
     try {
+      if (stageOneReplayCompleteTimerRef.current) {
+        clearTimeout(stageOneReplayCompleteTimerRef.current);
+        stageOneReplayCompleteTimerRef.current = null;
+      }
+      if (stageOneCompleteTimerRef.current) {
+        clearTimeout(stageOneCompleteTimerRef.current);
+        stageOneCompleteTimerRef.current = null;
+      }
+      stageOneRecordingPlaybackFinishedRef.current = false;
       stopAudio();
-      learnerAudioRef.current?.pause();
+      if (learnerAudioRef.current) {
+        learnerAudioRef.current.pause();
+        learnerAudioRef.current.src = "";
+        learnerAudioRef.current = null;
+      }
       setStageOneRewardRevealed(false);
       setStageOneAutoCompleting(false);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!stageOneActiveRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const recorder = new MediaRecorder(stream);
       mediaStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
@@ -1267,6 +1352,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
 
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
+        if (!stageOneActiveRef.current) return;
         mediaStreamRef.current = null;
         const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || "audio/webm" });
         const nextUrl = URL.createObjectURL(blob);
@@ -1278,269 +1364,80 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
         setIsRecording(false);
         setCharacterState("speaking");
         setBubbleMessage("Great. Milo is playing your sound back now.");
-        window.setTimeout(() => playStageOneRecordingUrl(nextUrl, true), 300);
+        const doneAudio = playAudio("/audio/stage1/RecordingDone.wav");
+        if (doneAudio) {
+          doneAudio.onended = () => {
+            if (!stageOneActiveRef.current) return;
+            const listenBackAudio = playAudio("/audio/stage1/NowListenBack.wav");
+            if (listenBackAudio) {
+              listenBackAudio.onended = () => playStageOneRecordingUrl(nextUrl, true);
+              listenBackAudio.onerror = () => playStageOneRecordingUrl(nextUrl, true);
+            } else {
+              playStageOneRecordingUrl(nextUrl, true);
+            }
+          };
+          doneAudio.onerror = () => playStageOneRecordingUrl(nextUrl, true);
+        } else {
+          playStageOneRecordingUrl(nextUrl, true);
+        }
       };
 
-      recorder.start();
-      setIsRecording(true);
-      setHasRecording(false);
-      setCharacterState("listening");
-      setBubbleMessage(`Say ${activePower.sound}. Milo is listening...`);
-      recordingStopTimerRef.current = setTimeout(() => {
-        stopStageOneRecording();
-        recordingStopTimerRef.current = null;
-      }, 1800);
+      setCharacterState("speaking");
+      setBubbleMessage("Listen first. Get your voice ready!");
+      let queued = false;
+      const startAfterPrompt = () => {
+        if (queued || !stageOneActiveRef.current) return;
+        queued = true;
+        setCharacterState("idle");
+        setBubbleMessage("Get ready...");
+        recordingLeadInRef.current = setTimeout(() => {
+          recordingLeadInRef.current = null;
+          if (!stageOneActiveRef.current) return;
+          try {
+            recorder.start();
+            setPreparingRecording(false);
+            setIsRecording(true);
+            setHasRecording(false);
+            setCharacterState("listening");
+            setBubbleMessage(`Your turn! Say ${activePower.sound}.`);
+            recordingStopTimerRef.current = setTimeout(() => {
+              stopStageOneRecording();
+              recordingStopTimerRef.current = null;
+            }, 3000);
+          } catch {
+            stream.getTracks().forEach((track) => track.stop());
+            setPreparingRecording(false);
+            setBubbleMessage("The microphone stopped. Tap to try again.");
+          }
+        }, 900);
+      };
+      const prompt = playAudio("/audio/stage1/RecordingStarts.wav");
+      if (prompt) {
+        prompt.onended = startAfterPrompt;
+        prompt.onerror = startAfterPrompt;
+        prompt.play().catch(startAfterPrompt);
+      } else startAfterPrompt();
     } catch {
+      if (!stageOneActiveRef.current) return;
       setIsRecording(false);
+      setPreparingRecording(false);
       setCharacterState("encouraging");
       setBubbleMessage("I could not open the microphone. Check browser microphone permission.");
+    } finally {
+      stageOneRecordingPendingRef.current = false;
     }
   };
 
   if (isStageOneQuest) {
-    return (
-      <div className="size-full bg-[#FAF7F2] overflow-hidden relative">
-        <div className="flex h-full min-h-0 flex-col px-4 py-3 sm:px-5 sm:py-4">
-          <button onClick={onBack} className="absolute left-4 top-3 z-20 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-sm font-bold text-[#4B5266] hover:text-[#1F2430] transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Valley Map
-          </button>
-
-          <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col items-center justify-center gap-3 pt-10">
-            <motion.div
-              key={bubbleMessage}
-              initial={{ y: 8, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className="w-full max-w-2xl rounded-2xl bg-white px-4 py-3 text-center shadow-lg"
-            >
-              <p className="text-base sm:text-lg font-bold leading-snug text-[#1F2430]">{bubbleMessage}</p>
-            </motion.div>
-
-            <div className="h-[132px] sm:h-[150px] shrink-0">
-              <CharacterCompanion state={characterState} phoneme={activeVowel} size={150} />
-            </div>
-
-            <motion.div
-              layout
-              initial={{ y: 18, opacity: 0, scale: 0.985 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.5, ease: "easeOut", layout: { duration: 0.45, ease: "easeInOut" } }}
-              className="w-full min-h-0 rounded-3xl border-4 bg-white p-4 shadow-[0_18px_42px_-28px_rgba(31,36,48,0.35)] sm:p-5"
-              style={{ borderColor: accent }}
-            >
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-[#FFF7ED] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#B45309]">
-                    <Wand2 className="h-3.5 w-3.5" />
-                    Milo's Vowel Power Kit
-                  </p>
-                  <h1 className="text-xl sm:text-2xl font-bold text-[#1F2430]">
-                    {stageOneDoor ? stageOneDoor.title : stageOneEncounter?.title}
-                  </h1>
-                  <p className="mt-1 max-w-2xl text-sm leading-snug text-[#4B5266]">
-                    {stageOneDoor ? stageOneDoor.intro : stageOneEncounter?.prompt}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    onClick={playStageOneModel}
-                    disabled={!stageOneIntroRevealed || isRecording || stageOneAutoCompleting}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#F59E0B]/25 bg-white text-[#F59E0B] disabled:opacity-40"
-                    aria-label={`Hear Milo say ${activePower.sound}`}
-                  >
-                    <Volume2 className="h-5 w-5" />
-                  </button>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF7ED] text-3xl font-bold text-[#F59E0B]">
-                    {activeVowel}
-                  </div>
-                </div>
-              </div>
-
-              <AnimatePresence mode="wait">
-                {!stageOneIntroRevealed ? (
-                  <motion.div
-                    key="stage-one-intro"
-                    initial={{ opacity: 0, y: 18, scale: 0.975 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -16, scale: 0.98 }}
-                    transition={{ duration: 0.6, ease: "easeInOut" }}
-                    className="flex min-h-[150px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#F59E0B]/40 bg-[#FFF7ED] px-4 py-5 text-center"
-                  >
-                    <motion.div
-                      animate={{ scale: [1, 1.08, 1], rotate: [-2, 2, -2], y: [0, -4, 0] }}
-                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                      className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#F59E0B] shadow-[0_12px_24px_-18px_rgba(245,158,11,0.8)]"
-                    >
-                      <Volume2 className="h-6 w-6" />
-                    </motion.div>
-                    <p className="text-base font-bold text-[#1F2430]">Milo is opening the scene</p>
-                    <p className="mt-1 max-w-md text-sm leading-snug text-[#4B5266]">
-                      Listen for the quest. Your vowel power will glow awake in a moment.
-                    </p>
-                    <div className="mt-3 grid w-full max-w-lg grid-cols-3 gap-2 text-xs font-bold text-[#B45309]">
-                      <span className="rounded-xl bg-white px-2 py-2">Hear it</span>
-                      <span className="rounded-xl bg-white px-2 py-2">Say it</span>
-                      <span className="rounded-xl bg-white px-2 py-2">Hear it back</span>
-                    </div>
-                    {stageOneDoor && stageOneVisibleChoiceCount > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 16, scale: 0.94 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.45, ease: "easeOut" }}
-                        className="mt-3 w-full max-w-md rounded-2xl border-2 border-[#F59E0B] bg-white p-3 text-left shadow-[0_14px_28px_-22px_rgba(245,158,11,0.8)]"
-                      >
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#B45309]">
-                          {stageOneDoor.sound} power training
-                        </p>
-                        <p className="mt-1 text-xl font-bold text-[#1F2430]">{stageOneDoor.abilityName}</p>
-                        <p className="mt-1 text-sm text-[#4B5266]">{stageOneDoor.ability}</p>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                ) : stageOneDoor ? (
-                  <motion.div
-                    key="stage-one-power"
-                    layout
-                    initial={{ opacity: 0, y: 24, scale: 0.985 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                    transition={{ duration: 0.55, ease: "easeOut" }}
-                    className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr]"
-                  >
-                    <div className="rounded-2xl border border-[#E6DED2] bg-[#FAF7F2] p-4">
-                      <p className="text-xs uppercase tracking-wider text-[#8A91A3]">Vowel training</p>
-                      <p className="mt-1 text-4xl font-bold text-[#F59E0B]">{stageOneDoor.sound}</p>
-                      <p className="mt-2 text-sm leading-snug text-[#4B5266]">{stageOneDoor.mouthHint}</p>
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {stageOneDoor.steps.map((step, index) => (
-                          <motion.div
-                            key={step}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1, duration: 0.35, ease: "easeOut" }}
-                            className="rounded-xl bg-white px-2 py-2 text-center text-xs font-bold text-[#B45309]"
-                          >
-                            {step}
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-[#F59E0B]/30 bg-[#FFF7ED] p-4 text-center">
-                      <p className="text-xs uppercase tracking-wider text-[#B45309]">Power waiting</p>
-                      <motion.div
-                        animate={stageOneRewardRevealed ? { scale: [1, 1.16, 1], rotate: [0, -4, 4, 0] } : {}}
-                        transition={{ duration: 0.75, repeat: stageOneAutoCompleting ? 2 : 0, ease: "easeInOut" }}
-                        className="mx-auto mt-2 flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-[#F59E0B] bg-white text-4xl font-black text-[#F59E0B] shadow-[0_18px_34px_-24px_rgba(245,158,11,0.95)]"
-                      >
-                        {stageOneDoor.abilityIcon}
-                      </motion.div>
-                      <p className="mt-2 text-2xl font-bold text-[#1F2430]">{stageOneDoor.abilityName}</p>
-                      <p className="mt-2 text-sm leading-snug text-[#4B5266]">{stageOneDoor.ability}</p>
-                      <AnimatePresence>
-                        {stageOneRewardRevealed && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 14, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                            transition={{ duration: 0.35, ease: "easeOut" }}
-                            className="mt-3 rounded-2xl bg-white px-3 py-2 text-left"
-                          >
-                            <p className="text-sm font-bold text-[#B45309]">{stageOneDoor.rewardTitle}</p>
-                            <p className="mt-1 text-xs leading-relaxed text-[#4B5266]">{stageOneDoor.rewardSubtitle}</p>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="stage-one-road"
-                    layout
-                    initial={{ opacity: 0, y: 24, scale: 0.985 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -18, scale: 0.985 }}
-                    transition={{ duration: 0.55, ease: "easeOut" }}
-                    className="grid gap-3 md:grid-cols-[1fr_1.15fr]"
-                  >
-                    <div className="rounded-2xl border border-[#E6DED2] bg-[#FAF7F2] p-4">
-                      <p className="text-xs uppercase tracking-wider text-[#8A91A3]">Road challenge</p>
-                      <p className="mt-1 text-xl font-bold text-[#1F2430]">{activePowerChallenge.title}</p>
-                      <p className="mt-2 text-sm leading-snug text-[#4B5266]">{activePowerChallenge.obstacle}</p>
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {activePowerChallenge.steps.map((step, index) => (
-                          <motion.div
-                            key={step}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1, duration: 0.35, ease: "easeOut" }}
-                            className="rounded-xl bg-white px-2 py-2 text-center text-xs font-bold text-[#B45309]"
-                          >
-                            {step}
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-[#F59E0B]/30 bg-[#FFF7ED] p-4 text-center">
-                      <p className="text-xs uppercase tracking-wider text-[#B45309]">Use this vowel power</p>
-                      <p className="mt-1 text-2xl font-bold text-[#1F2430]">{activePower.abilityName}</p>
-                      <motion.p
-                        animate={stageOneRewardRevealed ? { scale: [1, 1.18, 1] } : {}}
-                        transition={{ duration: 0.75, repeat: stageOneAutoCompleting ? 2 : 0, ease: "easeInOut" }}
-                        className="mt-1 text-4xl font-bold text-[#F59E0B]"
-                      >
-                        {activePower.sound}
-                      </motion.p>
-                      <p className="mt-2 text-sm leading-snug text-[#4B5266]">{activePowerChallenge.action}</p>
-                      <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#B45309]">
-                        Listen, record, hear it back, then send the sound.
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {stageOneIntroRevealed && (
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.16, duration: 0.4, ease: "easeOut" }}
-                  className="mt-4"
-                >
-                  <button
-                    onClick={startStageOneRecording}
-                    disabled={isRecording || stageOneAutoCompleting}
-                    className="mx-auto flex min-h-[64px] w-full max-w-xl items-center justify-center gap-3 rounded-3xl px-6 py-4 text-lg font-black text-white shadow-[0_18px_34px_-24px_rgba(245,158,11,0.95)] disabled:cursor-wait disabled:opacity-80"
-                    style={{ background: isRecording ? "#EF4444" : stageOneAutoCompleting ? "#10B981" : accent }}
-                  >
-                    {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                    {isRecording
-                      ? `Say ${activePower.sound}`
-                      : stageOneAutoCompleting
-                      ? "Milo's power is ready!"
-                      : `Use my ${activePower.abilityName}`}
-                  </button>
-                </motion.div>
-              )}
-
-              {stageOneIntroRevealed && (isRecording || hasRecording || stageOneAutoCompleting) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-3 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs sm:text-sm font-bold text-[#4B5266]"
-                >
-                  <Sparkles className="h-4 w-4 text-[#F59E0B]" />
-                  {isRecording
-                    ? "The app will stop by itself."
-                    : stageOneAutoCompleting
-                    ? "Milo is taking this power to the next task."
-                    : "Your voice played back. Milo is using the power."}
-                </motion.div>
-              )}
-            </motion.div>
-          </div>
-        </div>
-      </div>
-    );
+    return <VowelChallengeView
+      vowel={activeVowel} sound={activePower.sound} ability={activePower.abilityName}
+      title={stageOneDoor ? "Train your vowel power" : activePowerChallenge.title}
+      message={bubbleMessage} characterState={characterState}
+      preparing={preparingRecording}
+      training={Boolean(stageOneDoor)} ready={stageOneIntroRevealed}
+      recording={isRecording} recorded={hasRecording} celebrating={stageOneRewardRevealed}
+      onBack={onBack} onReplay={playStageOneModel} onRecord={startStageOneRecording}
+    />;
   }
 
   return (
