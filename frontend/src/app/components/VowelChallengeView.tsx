@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, Volume2, Mic, Headphones, Check, Shield, Sparkles, Eye, Circle, Wind } from "lucide-react";
+import { ArrowLeft, Volume2, Mic, Headphones, Check } from "lucide-react";
+import { VowelPowerSymbol } from "./VowelPowerSymbol";
 import { CharacterCompanion, type CharacterState } from "./CharacterCompanion";
 import "./vowelChallenge.css";
 import { TrailPowerScene } from "./TrailPowerScene";
@@ -14,7 +15,6 @@ interface Props {
 
 export function VowelChallengeView(p: Props) {
   const reduced = useReducedMotion();
-  const PowerIcon = ({ A: Shield, E: Sparkles, I: Eye, O: Circle, U: Wind })[p.vowel] ?? Sparkles;
   const phase = p.celebrating ? 3 : p.recorded ? 2 : p.recording || p.ready ? 1 : 0;
   const busy = !p.ready || p.preparing || p.recording || p.recorded || p.celebrating;
   const label = p.preparing ? "Get ready..." : p.celebrating ? "You helped Milo!" : p.recording ? `Say ${p.sound}` : p.recorded ? "Hear your voice" : !p.ready ? "Listen to Milo" : `${p.training ? "Learn" : "Use"} my ${p.ability}`;
@@ -22,7 +22,7 @@ export function VowelChallengeView(p: Props) {
   return (
     <div className="vowel-play">
       <header className="vowel-play__nav">
-        <button onClick={p.onBack}><ArrowLeft size={19} />Map</button>
+        <button onClick={p.onBack}><ArrowLeft size={19} />{p.training ? "Dojo" : "Valley"}</button>
         <span>{p.training ? "Vowel Dojo" : "Milo's adventure"}</span>
       </header>
       <main className="vowel-play__main">
@@ -36,15 +36,22 @@ export function VowelChallengeView(p: Props) {
         </ol>
         <div className="vowel-play__dialogue" aria-live="polite" aria-atomic="true">
           <span>Milo says</span>
-          <motion.p key={p.message} initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>{p.message}</motion.p>
+          <motion.p key={p.message} initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+            {p.message.split(/(\/[aeiou]\/|\b(?:A Armor|E Echo|I Insight|O Orb|U Uplift)\b)/gi).map((part, index) => {
+              const sound = /^\/[aeiou]\/$/i.test(part);
+              const ability = /^(?:A Armor|E Echo|I Insight|O Orb|U Uplift)$/i.test(part);
+              return sound || ability
+                ? <strong key={index} className="vowel-play__sound" data-vowel={part[sound ? 1 : 0].toUpperCase()}>{part}</strong>
+                : part;
+            })}
+          </motion.p>
         </div>
         <div className="vowel-play__scene" data-trail={!p.training}>
           <div className="vowel-play__milo"><CharacterCompanion state={p.characterState} phoneme={p.vowel} size={180} /></div>
           {!p.training && <TrailPowerScene title={p.title} vowel={p.vowel} active={p.celebrating} />}
           <motion.div className="vowel-play__power" animate={p.celebrating && !reduced ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.7 }}>
-            <PowerIcon className="vowel-play__power-icon" aria-hidden="true" />
-            <strong>{p.vowel.toLowerCase()}</strong>
-            <span>{p.ability}</span>
+            <VowelPowerSymbol vowel={p.vowel} />
+            <span className="vowel-play__power-name">{p.ability}</span>
             {p.celebrating && <Check className="vowel-play__power-check" aria-label="Power activated" />}
           </motion.div>
         </div>
