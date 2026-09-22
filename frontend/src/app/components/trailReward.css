@@ -1,0 +1,85 @@
+.trail-reward[data-slot="dialog-content"] {
+  display: block;
+  width: calc(100% - 24px);
+  max-width: 460px;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: 0;
+  border: 1px solid #d8e9e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #243d36;
+  text-align: center;
+  letter-spacing: 0;
+  box-shadow: 0 24px 80px #102b3440;
+}
+.trail-reward > button:last-child { color: #426458; padding: 10px; top: 8px; right: 8px; }
+.trail-reward__header { padding: 26px 32px 12px; background: #edf8f2; }
+.trail-reward__eyebrow { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0 0 10px; font-size: 12px; font-weight: 700; color: #397561; }
+.trail-reward__title[data-slot="dialog-title"] { font-size: 27px; line-height: 1.15; font-weight: 800; letter-spacing: 0; }
+.trail-reward__description[data-slot="dialog-description"] { margin-top: 9px; font-size: 14px; line-height: 1.5; color: #547168; }
+.trail-reward__reveal { position: relative; padding: 12px 24px 20px; background: #edf8f2; border-bottom: 1px solid #d8e9e1; }
+.trail-reward__sticker { position: relative; display: flex; align-items: center; justify-content: center; width: 132px; height: 132px; margin: 0 auto 13px; border: 7px solid white; border-radius: 32%; background: #d5f0ed; box-shadow: 0 5px 0 #bedbd0, 0 10px 20px #244c3915; }
+.trail-reward__sticker > span:first-child { font-size: 76px; line-height: 1; }
+.trail-reward__seal { position: absolute; right: -7px; bottom: -3px; display: grid; place-items: center; width: 32px; height: 32px; border: 3px solid white; border-radius: 50%; background: #217962; color: white; }
+.trail-reward__spark { position: absolute; color: #daa127; width: 24px; height: 24px; }
+.trail-reward__spark--left { left: 19%; top: 36px; transform: rotate(-14deg); }
+.trail-reward__spark--right { right: 19%; top: 72px; transform: rotate(16deg); fill: #f7d76e; }
+.trail-reward__name { font-size: 21px; font-weight: 800; line-height: 1.3; }
+.trail-reward__saved { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 4px; font-size: 12px; color: #547168; }
+.trail-reward__details { padding: 0 24px 14px; }
+.trail-reward__points { display: flex; align-items: center; gap: 10px; text-align: left; padding: 17px 0; border-bottom: 1px solid #e6ece8; }
+.trail-reward__point-icon { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: #fff3c4; color: #bb7a10; }
+.trail-reward__points strong { display: block; font-size: 22px; line-height: 1.2; }
+.trail-reward__points span:not(.trail-reward__point-icon) { font-size: 12px; color: #63766f; }
+.trail-reward__total { margin-left: auto; text-align: right; }
+.trail-reward__total strong { font-size: 19px; }
+.trail-reward__bonus { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #e6ece8; text-align: left; font-size: 12px; color: #217962; }
+.trail-reward__bonus > span:first-child { font-size: 32px; }
+.trail-reward__bonus strong { display: block; font-size: 16px; }
+.trail-reward__bonus > svg { margin-left: auto; }
+.trail-reward__milestone { padding: 13px 0 15px; text-align: left; }
+.trail-reward__milestone > p:first-child { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.trail-reward__milestone > p:first-child > span { margin-left: auto; font-size: 21px; }
+.trail-reward__meter { margin-top: 6px; height: 7px; overflow: hidden; border-radius: 4px; background: #e9efeb; }
+.trail-reward__meter > div { height: 100%; border-radius: inherit; background: #359c81; }
+.trail-reward__remaining { margin-top: 5px; font-size: 11px; color: #63766f; }
+.trail-reward__actions { display: grid; gap: 5px; }
+.trail-reward__actions button { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 160ms, transform 160ms; }
+.trail-reward__actions button:focus-visible { outline: 3px solid #51afa5; outline-offset: 3px; }
+.trail-reward__continue { background: #f7bd43; color: #3b2c0d; box-shadow: 0 3px 0 #dca333; }
+.trail-reward__continue:hover { background: #f9cb66; transform: translateY(-1px); }
+.trail-reward__book { color: #397561; background: transparent; }
+.trail-reward__book:hover { background: #edf8f2; }
+@media (max-height: 800px) {
+  .trail-reward__header { padding-top: 16px; padding-bottom: 6px; }
+  .trail-reward__eyebrow { margin-bottom: 6px; }
+  .trail-reward__sticker { width: 96px; height: 96px; margin-bottom: 9px; }
+  .trail-reward__sticker > span:first-child { font-size: 58px; }
+  .trail-reward__reveal { padding-top: 8px; padding-bottom: 12px; }
+  .trail-reward__points { padding: 11px 0; }
+  .trail-reward__milestone { padding: 8px 0 10px; }
+  .trail-reward__bonus { padding: 8px 0; }
+  .trail-reward__title[data-slot="dialog-title"] { font-size: 24px; }
+  .trail-reward__header { padding-left: 22px; padding-right: 22px; }
+}
+@media (max-height: 600px) {
+  .trail-reward__eyebrow { display: none; }
+  .trail-reward__header { padding-top: 12px; }
+  .trail-reward__description[data-slot="dialog-description"] { margin-top: 5px; font-size: 12px; }
+  .trail-reward__sticker { width: 72px; height: 72px; border-width: 5px; margin-bottom: 6px; }
+  .trail-reward__sticker > span:first-child { font-size: 44px; }
+  .trail-reward__reveal { padding-top: 4px; padding-bottom: 8px; }
+  .trail-reward__name { font-size: 18px; }
+  .trail-reward__points { padding: 7px 0; }
+  .trail-reward__details { padding-bottom: 4px; }
+}
+@media (max-width: 360px) {
+  .trail-reward__title[data-slot="dialog-title"] { font-size: 23px; }
+  .trail-reward__details { padding-left: 16px; padding-right: 16px; }
+  .trail-reward__spark--left { left: 12%; }
+  .trail-reward__spark--right { right: 12%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trail-reward__actions button { transition: none; }
+}
