@@ -530,7 +530,20 @@ function AppContent() {
 
   };
 
+  const handleContinueDojoTraining = () => {
+    const trained = completedByStage[1] ?? 0;
+    if (selectedStage !== 1 || trained >= 5) return;
+    setIsLevelJustCompleted(false);
+    handleSelectLevel(trained + 1);
+  };
+
   const handleContinueToNextStory = () => {
+    if (selectedStage === 1 && selectedLevel <= 5) {
+      setIsLevelJustCompleted(false);
+      setMapEntry("dojo");
+      setCurrentScreen("level-map");
+      return;
+    }
     const nextLevel = selectedLevel + 1;
     const stageConfig = STAGE_CONFIG[selectedStage];
     
@@ -565,6 +578,7 @@ function AppContent() {
   };
 
   const handleBackFromCelebration = () => {
+    if (selectedStage === 1) setMapEntry(selectedLevel <= 5 ? "dojo" : "valley");
     // Reset completion flag when leaving celebration screen
     setIsLevelJustCompleted(false);
     setCurrentScreen("level-map");
@@ -603,6 +617,7 @@ function AppContent() {
   };
 
   const handleBackToLevelMap = () => {
+    if (selectedStage === 1) setMapEntry(selectedLevel <= 5 ? "dojo" : "valley");
     setCurrentScreen("level-map");
   };
 
@@ -765,6 +780,7 @@ function AppContent() {
         {currentScreen === "vowel-power-complete" && (
           <VowelPowerComplete
             levelId={selectedLevel}
+            onContinueTraining={(completedByStage[1] ?? 0) < 5 ? handleContinueDojoTraining : undefined}
             onContinue={handleContinueToNextStory}
             onBackToMap={handleBackFromCelebration}
           />

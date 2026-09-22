@@ -326,9 +326,16 @@ function makeStageOneEncounter(levelId: number) {
 }
 
 function makeDoorNarrationSteps(door: VowelDoorData): StageOneNarrationStep[] {
+  const trainingInstructions: Record<VowelKey, string> = {
+    A: "Open your mouth wide and say /a/.",
+    E: "Make a small smile and say /e/.",
+    I: "Keep it short and light. Say /i/.",
+    O: "Round your lips and say /o/.",
+    U: "Use a soft voice and say /u/.",
+  };
   return [
     {
-      message: `We need your help training the vowel sound ${door.sound}. Listen to Milo first, then try the sound with your own voice.`,
+      message: `Let us train the ${door.vowel} sound. ${trainingInstructions[door.vowel]}`,
       revealCount: 0,
       audioPath: door.trainAudioPath,
     },

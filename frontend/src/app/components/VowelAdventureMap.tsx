@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check, Lock, Play, Shield, Sparkles, Eye, Circle
 import { useAudioManager } from "../../hooks/useAudioManager";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import "./vowelAdventureMap.css";
+import { VowelPowerSymbol } from "./VowelPowerSymbol";
 
 const POWERS = [
   { vowel: "A", name: "A Armor", icon: Shield, color: "#F59E0B" },
@@ -73,6 +74,10 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
       const timer = setTimeout(() => playAudio("/audio/stage1/ValleyUnlocked.wav"), 450);
       return () => clearTimeout(timer);
     }
+    const timer = setTimeout(() => playAudio(completed === 0
+      ? "/audio/stage1/DojoIntro.wav"
+      : "/audio/stage1/DojoReturn.wav"), 450);
+    return () => clearTimeout(timer);
   }, [room, completed]);
   const dismiss = () => {
     localStorage.setItem("readlr_vowel_dojo_unlock_dismissed", "true");
@@ -94,7 +99,7 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
             const done = completed > index;
             const locked = index > completed;
             return <button key={power.vowel} disabled={locked} onClick={() => { stopAudio(); onSelectLevel(index + 1); }} className="dojo-station" data-locked={locked} data-next={index === completed} style={{ "--station-color": power.color } as React.CSSProperties} aria-label={`${power.name}${locked ? ", locked" : done ? ", practice again" : ", start training"}`}>
-              <div className="dojo-station__figure"><power.icon aria-hidden="true" /><strong>{power.vowel.toLowerCase()}</strong><span>{locked ? <Lock size={15} /> : done ? <Check size={16} /> : <Play size={15} fill="currentColor" />}</span></div>
+              <div className="dojo-station__figure"><VowelPowerSymbol vowel={power.vowel} /><span className="dojo-station__badge">{locked ? <Lock size={15} /> : done ? <Check size={16} /> : <Play size={15} fill="currentColor" />}</span></div>
               <strong>{power.name}</strong><small>{locked ? "Coming soon" : done ? "Practice again" : "Let's train!"}</small>
             </button>;
           })}
