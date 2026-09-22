@@ -10,6 +10,7 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StageSelection } from "./components/StageSelection";
 import { GameLevel } from "./components/GameLevel";
 import { StoryScene } from "./components/StoryScene";
+import { readBridgeJourney } from "./components/stageTwoContent";
 import { ChapterBridge } from "./components/ChapterBridge";
 import { LevelMap } from "./components/LevelMap";
 import { StickerBook } from "./components/StickerBook";
@@ -270,7 +271,7 @@ function AppContent() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialRoute.authMode ?? 'register');
   const [selectedStage, setSelectedStage] = useState<number>(initialRoute.stageId ?? 1);
   const [selectedLevel, setSelectedLevel] = useState<number>(initialRoute.levelId ?? 1);
-  const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | undefined>();
+  const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [levelScore] = useState(300);
   const [trailReward, setTrailReward] = useState<TrailReward | null>(null);
@@ -468,6 +469,7 @@ function AppContent() {
 
   const handleSelectStage = (stageId: number) => {
     setSelectedStage(stageId);
+    setMapEntry(undefined);
     setCurrentScreen("story-scene");
   };
 
@@ -479,6 +481,12 @@ function AppContent() {
   const handleGoDirectlyToValley = () => {
     if (selectedStage !== 1 || (completedByStage[1] ?? 0) < 5) return;
     setMapEntry("valley");
+    setCurrentScreen("level-map");
+  };
+
+  const handleGoDirectlyToBridgeMap = () => {
+    if (selectedStage !== 2 || readBridgeJourney(learnerId).training.length < 5) return;
+    setMapEntry("bridges");
     setCurrentScreen("level-map");
   };
 
@@ -689,6 +697,7 @@ function AppContent() {
 
         {currentScreen === "stage-selection" && (
           <StageSelection
+            learnerId={learnerId}
             onSelectStage={handleSelectStage}
             onViewProgress={handleViewProgress}
             onViewStickers={handleViewStickers}
@@ -702,7 +711,9 @@ function AppContent() {
           <StoryScene
             stageId={selectedStage}
             dojoCompleted={(completedByStage[1] ?? 0) >= 5}
+            bridgeWorkshopCompleted={selectedStage === 2 && readBridgeJourney(learnerId).training.length === 5}
             onGoToValley={handleGoDirectlyToValley}
+            onGoToBridgeMap={handleGoDirectlyToBridgeMap}
             onBack={handleBackToStages}
             onBegin={handleBeginChapter}
           />
@@ -740,6 +751,7 @@ function AppContent() {
 
         {currentScreen === "level-map" && (
           <LevelMap
+            learnerId={learnerId}
             stageId={selectedStage}
             initialView={mapEntry}
             completedCount={completedByStage[selectedStage] ?? 0}
@@ -807,7 +819,7 @@ function AppContent() {
         )}
 
         {currentScreen === "sticker-book" && (
-          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} />
+          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} learnerId={learnerId} />
         )}
 
         {currentScreen === "dashboard" && (

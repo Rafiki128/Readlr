@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { readBridgeJourney } from "./stageTwoContent";
 import {
   Crown,
   Zap,
@@ -24,6 +25,7 @@ interface Stage {
 }
 
 interface StageSelectionProps {
+  learnerId?: number | null;
   onSelectStage: (stageId: number) => void;
   onViewProgress: () => void;
   onViewStickers: () => void;
@@ -33,6 +35,7 @@ interface StageSelectionProps {
 }
 
 export function StageSelection({
+  learnerId,
   onSelectStage,
   onViewProgress,
   onViewStickers,
@@ -40,9 +43,11 @@ export function StageSelection({
   onViewAchievements,
   completedByStage = { 1: 0, 2: 0, 3: 0 },
 }: StageSelectionProps) {
+  const bridgeJourney = readBridgeJourney(learnerId);
+  const bridgeCompleted = bridgeJourney.training.length + bridgeJourney.crossings.length;
   const stageDefs = [
     { id: 1, total: 20, title: "Valley of Vowels", subtitle: "Train vowel powers, hear your voice, then cross the valley road.", accent: "#F59E0B", accentSoft: "#FEF3C7", icon: <Star className="w-6 h-6" /> },
-    { id: 2, total: 8, title: "Blending Bridges", subtitle: "Blend a consonant with a vowel.", accent: "#4F46E5", accentSoft: "#EEF2FF", icon: <Zap className="w-6 h-6" /> },
+    { id: 2, total: 20, title: "Blending Bridges", subtitle: "Train sound teams, then rebuild fifteen bridges from brook to sky.", accent: "#4F46E5", accentSoft: "#EEF2FF", icon: <Zap className="w-6 h-6" /> },
     { id: 3, total: 10, title: "CVC Kingdom", subtitle: "Read your first whole words.", accent: "#10B981", accentSoft: "#D1FAE5", icon: <Crown className="w-6 h-6" /> },
   ];
 
@@ -53,9 +58,11 @@ export function StageSelection({
     icon: def.icon,
     accent: def.accent,
     accentSoft: def.accentSoft,
-    completed: completedByStage[def.id] ?? 0,
+    completed: def.id === 2 ? bridgeCompleted : completedByStage[def.id] ?? 0,
     total: def.total,
-    locked: idx > 0 && (completedByStage[idx] ?? 0) < stageDefs[idx - 1].total,
+    locked: def.id === 3
+      ? bridgeCompleted < 20 && (completedByStage[2] ?? 0) < 8 && (completedByStage[3] ?? 0) === 0
+      : idx > 0 && (completedByStage[idx] ?? 0) < stageDefs[idx - 1].total,
   }));
 
   const quickActions = [

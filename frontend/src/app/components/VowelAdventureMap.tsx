@@ -40,7 +40,7 @@ function Landscape({ region }: { region: number }) {
     <path d="M0 55Q170 5 305 70T610 70T1000 30V0H0Z" fill="#fff" opacity=".35" />
     <path d="M0 370Q140 315 310 410T690 400T1000 360V500H0Z" fill={REGIONS[region].ink} opacity=".09" />
     {region === 2 && <><path d="M850 -20Q590 100 810 260T720 520" fill="none" stroke="#38BDF8" strokeWidth="100" /><path d="M840 -20Q590 100 800 260T710 520" fill="none" stroke="#ECFEFF" strokeWidth="7" strokeDasharray="30 30" /></>}
-    {[{ x: 100, y: 215 }, { x: 875, y: 145 }, { x: 820, y: 375 }, { x: 140, y: 445 }].map(({ x, y }, i) => <g key={i} transform={`translate(${x} ${y})`}><g className="landscape-tree">
+    {[{ x: 100, y: 215 }, { x: 875, y: 145 }, { x: 820, y: 375 }, { x: 140, y: 445 }].filter(({y})=>region!==4 || y<300).map(({ x, y }, i) => <g key={i} transform={`translate(${x} ${y})`}><g className="landscape-tree">
       <ellipse cy="12" rx="45" ry="10" fill="#3e6659" opacity=".12" />
       <path d="M0 10V-55" stroke="#60974D" strokeWidth="10" strokeLinecap="round" />
       {region === 1 ? <><path d="M0 0Q-35-45-20-62M0-15Q35-45 24-65" stroke="#16A34A" strokeWidth="5" fill="none" /><circle cy="-66" r="23" fill="#F472B6" /><circle cx="-24" cy="-46" r="20" fill="#F9A8D4" /><circle cx="24" cy="-48" r="22" fill="#EC4899" /></> : <><path d="M-39-25Q-60-53-23-70Q-12-108 20-83Q59-78 40-42Q36-18 0-24Z" fill={region === 3 ? "#A78BFA" : "#4ADE80"} /><path d="M-26-47Q-36-67-13-73Q-4-91 14-74" fill="none" stroke="#fff" strokeWidth="5" opacity=".25" />{region === 3 && <><circle cx="-20" cy="-50" r="8" fill="#FB923C" /><circle cx="20" cy="-60" r="8" fill="#F43F5E" /></>}</>}
@@ -55,18 +55,26 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
   const completed = Math.max(0, Math.min(20, completedCount));
   const [room, setRoom] = useState(completed < 5 || initialView === "dojo" || (initialView !== "valley" && completed === 5));
   const [notice, setNotice] = useState(false);
+  const [trailArrival, setTrailArrival] = useState(false);
   const { playAudio, stopAudio } = useAudioManager();
   const scrollRef = useRef<HTMLDivElement>(null);
   const currentRef = useRef<HTMLButtonElement>(null);
   const next = Math.min(20, completed + 1);
   useEffect(() => {
     if (!room) {
-      const frame = requestAnimationFrame(() => {
-        const container = scrollRef.current;
+      setTrailArrival(false);
+      const container = scrollRef.current;
+      if (!container) return;
+      container.scrollTop = 0;
+      const timer = window.setTimeout(() => {
         const node = currentRef.current;
-        if (container && node) container.scrollTop = node.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - container.clientHeight * 0.45;
-      });
-      return () => cancelAnimationFrame(frame);
+        if (!node || !scrollRef.current) return;
+        const view = scrollRef.current;
+        const target = node.getBoundingClientRect().top - view.getBoundingClientRect().top + view.scrollTop - view.clientHeight * 0.48;
+        view.scrollTo({ top: Math.max(0, target), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+        setTrailArrival(true);
+      }, 750);
+      return () => window.clearTimeout(timer);
     }
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     if (completed >= 5 && localStorage.getItem("readlr_vowel_dojo_unlock_dismissed") !== "true") {
@@ -106,19 +114,30 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
         </div>
         <div className="dojo-exit"><span>{completed >= 5 ? "Your powers are ready!" : "Five powers. One brave adventure."}</span><button disabled={completed < 5} onClick={() => { dismiss(); setRoom(false); }}>Into the valley <ArrowRight size={19} /></button></div>
       </div> : <div className="valley-world">
-        <button className="valley-dojo" onClick={() => setRoom(true)}><PavilionArt /><span><strong>Vowel Dojo</strong><small>Visit & train again</small></span><ArrowRight size={20} /></button>
         {REGIONS.map((region, section) => {
           const start = 6 + section * 3;
           const restored = Math.max(0, Math.min(3, completed - start + 1));
-          const nodes = [[50, 0], ...region.points, [50, 100]];
+          const finale = section === REGIONS.length - 1;
+          const points = section === 0 ? [[25, 48], [55, 67], [74, 85]] : finale ? [[28, 20], [70, 37], [52, 53]] : region.points;
+          const nodes = [[50, section === 0 ? 26 : 0], ...points, finale ? [78, 100] : [50, 100]];
           const segment = (a: number[], b: number[]) => `M${a[0] * 10} ${a[1] * 5} C${a[0] * 10} ${(a[1] + b[1]) * 2.5} ${b[0] * 10} ${(a[1] + b[1]) * 2.5} ${b[0] * 10} ${b[1] * 5}`;
-          return <section key={region.name} className="valley-region" data-sleeping={completed + 1 < start} style={{ background: region.color }} aria-label={region.name}>
+          return <section key={region.name} className={`valley-region${section === 0 ? " valley-region--entrance" : ""}${finale ? " valley-region--finale" : ""}`} data-sleeping={completed + 1 < start} style={{ background: region.color }} aria-label={region.name}>
             <Landscape region={section} />
+            {section === 0 && <button className="valley-dojo" onClick={() => setRoom(true)} aria-label="Visit the Vowel Dojo to train your powers again"><PavilionArt /><span><strong>Vowel Dojo</strong><small>Visit & train again</small></span><ArrowRight size={20} /></button>}
             <div className="valley-region__label"><h2>{region.name}</h2><span>{restored === 3 ? "All trails restored!" : region.subtitle}</span></div>
             <svg className="valley-path" viewBox="0 0 1000 500" preserveAspectRatio="none" aria-hidden="true">
-              {nodes.slice(1).map((node, i) => <g key={i}><path d={segment(nodes[i], node)} fill="none" stroke="#b5b9a5" strokeWidth="36" /><path d={segment(nodes[i], node)} fill="none" stroke="#fff8e7" strokeWidth="29" />{completed >= start + i - 1 && <path d={segment(nodes[i], node)} fill="none" stroke="#FBBF24" strokeWidth="12" pathLength={1} className={completed === start + i - 1 ? "valley-path__new" : undefined} />}</g>)}
+              {finale && <path d="M570 500Q570 410 760 416T1050 360" fill="none" stroke="#38BDF8" strokeWidth="65" />}
+              {nodes.slice(1).map((node, i) => <g key={i}>
+                <path d={segment(nodes[i], node)} fill="none" stroke="#b5b9a5" strokeWidth="36" />
+                <path d={segment(nodes[i], node)} fill="none" stroke="#fff8e7" strokeWidth="29" />
+                {completed === start + i - 1 && <defs><mask id={`trail-reveal-${section}-${i}`} maskUnits="userSpaceOnUse" x="-100" y="-100" width="1200" height="700">
+                  <path d={segment(nodes[i], node)} fill="none" stroke="white" strokeWidth="80" pathLength={1} className="valley-path__reveal" data-started={trailArrival} />
+                </mask></defs>}
+                {completed >= start + i - 1 && <path d={segment(nodes[i], node)} fill="none" stroke="#FBBF24" strokeWidth="12" mask={completed === start + i - 1 ? `url(#trail-reveal-${section}-${i})` : undefined} />}
+              </g>)}
             </svg>
-            {region.points.map(([x, y], index) => {
+            {finale && <div className="valley-onward" data-ready={completed>=20}><div className="valley-onward__celebration"><Star size={24}/><strong>{completed>=20?"The valley is alive!":"Keep going, explorer!"}</strong></div><div className="valley-onward__sign"><span>Next adventure</span><h2>Blending Bridges</h2><p>{completed>=20?"Your next journey awaits":<><Lock size={14}/> Finish the valley to unlock</>}</p></div></div>}
+            {points.map(([x, y], index) => {
               const id = start + index;
               const done = id <= completed;
               const locked = id > completed + 1;
@@ -130,7 +149,6 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
             })}
           </section>;
         })}
-        <div className="valley-finish"><Star size={28} /><strong>{completed >= 20 ? "You brought the valley to life!" : "The valley is waiting for your voice."}</strong></div>
       </div>}
     </div>
     {!room && <footer className="adventure-bottom"><button onClick={() => setRoom(true)}><DoorOpen size={20} />Train in the Dojo</button>{completed < 20 && <button onClick={() => onSelectLevel(next)}>Continue <ArrowRight size={20} /></button>}</footer>}
