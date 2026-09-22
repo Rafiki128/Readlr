@@ -18,7 +18,9 @@ interface StoryScene {
 interface StorySceneProps {
   stageId: number;
   dojoCompleted?: boolean;
+  bridgeWorkshopCompleted?: boolean;
   onGoToValley?: () => void;
+  onGoToBridgeMap?: () => void;
   onBack: () => void;
   onBegin: () => void;
 }
@@ -37,9 +39,9 @@ const SCENES: Record<number, StoryScene> = {
   2: {
     chapter: "Chapter 2",
     title: "Blending Bridges",
-    scene: "Two ropes swing between cliffs. A consonant on one side, a vowel on the other.",
-    narration: "Now we'll join two sounds together to make a bridge. Listen carefully, then say it with me!",
-    goal: "Blend a consonant with a vowel to cross each bridge.",
+    scene: "Beyond the valley, a sparkling brook winds past Milo's Bridge Workshop. Broken crossings lead to waterfalls and gardens in the sky.",
+    narration: "Your vowel powers brought us here! Now our sounds need a teammate. Meet me in the Bridge Workshop. We will join two sounds, hear your voice, and build a crossing together.",
+    goal: "Train five sound teams in the Workshop, then help Milo repair fifteen bridges from brook to sky.",
     accent: "#4F46E5",
     tint: "#EEF2FF",
     illustration: "🌉",
@@ -66,7 +68,7 @@ function chapterBeginAudio(stageId: number) {
   return null;
 }
 
-export function StoryScene({ stageId, dojoCompleted = false, onGoToValley, onBack, onBegin }: StorySceneProps) {
+export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompleted = false, onGoToValley, onGoToBridgeMap, onBack, onBegin }: StorySceneProps) {
   const scene = SCENES[stageId] ?? SCENES[1];
   const { playAudio, stopAudio, speakText } = useAudioManager();
   const [speaking, setSpeaking] = useState(false);
@@ -91,6 +93,10 @@ export function StoryScene({ stageId, dojoCompleted = false, onGoToValley, onBac
       { file: "Stage1MiloIntro.wav", text: "Hi, explorer! I am Milo. Before we step onto the valley road, we need to train the five vowel sounds." },
       { file: "Stage1MiloMission.wav", text: "Behind each door is a vowel power for our journey. Listen closely, say the sound, and hear your brave reading voice come back to you." },
       { file: "Stage1Goal.wav", text: scene.goal },
+    ] : stageId === 2 ? [
+      { file: "BridgeStoryScene.wav", text: scene.scene },
+      { file: "BridgeStoryMilo.wav", text: scene.narration },
+      { file: "BridgeStoryGoal.wav", text: scene.goal },
     ] : [{ file: "", text: scene.narration }];
     const playPart = (index: number) => {
       if (sequence !== sequenceRef.current) return;
@@ -113,7 +119,7 @@ export function StoryScene({ stageId, dojoCompleted = false, onGoToValley, onBac
           speech.addEventListener("error", advance, { once: true });
         } else advance();
       };
-      const audio = playAudio(stageId === 1 ? `/audio/stage1/${parts[index].file}` : chapterIntroAudio(stageId));
+      const audio = playAudio(stageId === 1 || stageId === 2 ? `/audio/stage${stageId}/${parts[index].file}` : chapterIntroAudio(stageId));
       if (audio) {
         audio.onended = advance;
         audio.onerror = fallback;
@@ -306,7 +312,7 @@ export function StoryScene({ stageId, dojoCompleted = false, onGoToValley, onBac
                     boxShadow: `0 8px 24px -12px ${scene.accent}99`,
                   }}
                 >
-                  {beginning ? (stageId === 1 ? "Off to the Dojo..." : "Let's begin...") : "Begin chapter"}
+                  {beginning ? (stageId === 1 ? "Off to the Dojo..." : stageId === 2 ? "Off to the Workshop..." : "Let's begin...") : "Begin chapter"}
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </motion.button>
                 {stageId === 1 && dojoCompleted && onGoToValley && (
@@ -321,6 +327,20 @@ export function StoryScene({ stageId, dojoCompleted = false, onGoToValley, onBac
                     className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#F59E0B]/30 bg-white px-5 py-3 text-sm font-medium text-[#4B5266] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50 sm:w-auto"
                   >
                     Go directly to the valley <ArrowRight className="h-4 w-4" />
+                  </button>
+                )}
+                {stageId === 2 && bridgeWorkshopCompleted && onGoToBridgeMap && (
+                  <button
+                    disabled={beginning}
+                    onClick={() => {
+                      if (beginningRef.current) return;
+                      beginningRef.current = true;
+                      cancelNarration();
+                      onGoToBridgeMap();
+                    }}
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#4F46E5]/30 bg-white px-5 py-3 text-sm font-medium text-[#4B5266] transition-colors hover:bg-[#EEF2FF] disabled:opacity-50 sm:w-auto"
+                  >
+                    Go directly to the bridges <ArrowRight className="h-4 w-4" />
                   </button>
                 )}
                 </div>

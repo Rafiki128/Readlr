@@ -35,12 +35,19 @@
 .dojo-exit button,.adventure-unlock { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: var(--radius); background: var(--sun); color: white; box-shadow: 0 10px 28px -14px #f59e0b99; font-weight: var(--font-weight-medium); }
 .dojo-exit button:disabled { background: #d2dfd9; color: #7b9086; }
 .valley-world { width: 100%; margin: 0; }
-.valley-dojo { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; gap: 12px; background: #ECFCCA; padding: 12px 20px; border-top: 1px solid #A3E635; border-bottom: 5px solid #FBBF24; }
-.valley-dojo > svg:first-child { width: 144px; height: 94px; }
-.valley-dojo > span { text-align: left; }
+.valley-dojo { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 230px; gap: 2px; border: 0; background: transparent; padding: 4px 12px 12px; color: #1F2430; }
+.valley-dojo:hover > svg:first-child { transform: translateY(-6px); }
+.valley-dojo:focus-visible { outline: 3px solid #4F46E5; outline-offset: 4px; }
+.valley-dojo > svg:first-child { width: 190px; height: 132px; transition: transform 200ms; }
+.valley-dojo > span { text-align: center; background: #FFFFFFEC; border: 2px solid #A3E635; border-radius: 8px; padding: 5px 12px; box-shadow: 0 4px 0 #86C95B; }
 .valley-dojo strong { display: block; font-size: 19px; font-weight: var(--font-weight-medium); }
 .valley-dojo small { display: block; color: #4B5266; margin-top: 4px; }
+.valley-dojo > svg:last-child { position: absolute; right: -7px; bottom: 20px; color: #065F46; }
 .valley-region { position: relative; height: clamp(470px, 38vw, 660px); isolation: isolate; }
+.valley-region--entrance { height: clamp(760px, 60vw, 980px); }
+.valley-region--entrance .valley-dojo { position: absolute; left: 50%; top: 7%; transform: translateX(-50%); }
+.valley-region--entrance .valley-region__label { top: 35%; }
+.valley-path path { vector-effect: non-scaling-stroke; }
 .adventure-landscape,.valley-path { position: absolute; width: 100%; height: 100%; inset: 0; pointer-events: none; }
 .adventure-landscape { transition: filter .6s; }
 .valley-region[data-sleeping="true"] .adventure-landscape { filter: grayscale(1); opacity: .5; }
@@ -55,10 +62,21 @@
 .valley-stop strong { font-size: 13px; font-weight: var(--font-weight-medium); padding: 4px 12px; background: #FFFFFF; border-radius: 20px; white-space: nowrap; }
 .valley-stop:not(:disabled):hover .valley-stop__disc { transform: translateY(-3px); }
 .valley-stop__disc { transition: transform .18s; }
-.valley-path__new { stroke-dasharray: 1; animation: valley-path-arrive 1.2s ease-out both; }
-@keyframes valley-path-arrive { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-.valley-finish { display: flex; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 26px 20px 40px; background: #A7F3D0; color: #1F2430; }
-.valley-finish svg { color: #F59E0B; flex-shrink: 0; }
+.valley-path .valley-path__reveal { vector-effect:none; stroke-dasharray:1; stroke-dashoffset:1; }
+.valley-path__reveal[data-started="true"] { animation:valley-path-arrive 2.2s ease-in-out forwards; }
+@keyframes valley-path-arrive { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+.valley-region--finale { height: clamp(780px, 60vw, 1000px); }
+.valley-region--finale::after { content:""; position:absolute; bottom:0; left:0; right:0; height:65px; background:linear-gradient(transparent,#ECFEFF); pointer-events:none; }
+.valley-onward { position:absolute; top:72%; left:8%; width:35%; max-width:340px; color:#312E81; z-index:2; text-align:center; }
+.valley-onward__celebration { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px; color:#065F46; font-size:17px; }
+.valley-onward__celebration svg { color:#D97706; flex-shrink:0; }
+.valley-onward__sign { position:relative; padding:18px 12px; background:#FFFEF5; border:4px solid #A78BFA; border-radius:8px; box-shadow:0 6px 0 #7C3AED; }
+.valley-onward__sign::after { content:""; position:absolute; top:calc(100% + 6px); left:calc(50% - 9px); width:18px; height:45px; background:#A78BFA; border-right:5px solid #7C3AED; }
+.valley-onward span { display:block; font-size:12px; text-transform:uppercase; color:#6D28D9; }
+.valley-onward h2 { font-size:25px; margin:6px 0; }
+.valley-onward p { display:flex; align-items:center; justify-content:center; gap:5px; font-size:13px; margin:8px 0 0; color:#475569; }
+.valley-onward[data-ready="false"] .valley-onward__sign { border-color:#94A3B8; box-shadow:0 6px 0 #64748B; }
+@media(max-width:600px) { .valley-region.valley-region--finale { height:800px; } .valley-onward { left:5%; width:49%; } .valley-onward h2 { font-size:22px; } }
 .adventure-bottom { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #fff; border-top: 1px solid #EAE6DF; padding: 10px 24px; }
 .adventure-bottom button { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 44px; padding: 8px 14px; font-size: 14px; font-weight: var(--font-weight-medium); border-radius: var(--radius); }
 .adventure-bottom button:first-child { color: var(--ink-soft); background: white; border: 1px solid var(--hairline); }
@@ -82,6 +100,10 @@
   .dojo-station small { font-size: 10px; }
   .dojo-exit { gap: 10px; }
   .valley-region { height: 440px; }
+  .valley-region--entrance { height: 740px; }
+  .valley-trailhead { height: 290px; }
+  .valley-trailhead__path { height: 100%; }
+  .valley-dojo > svg:first-child { width: 150px; height: 108px; }
   .valley-region__label { top: 12px; left: 12px; padding: 7px 10px; }
   .valley-region__label h2 { font-size: 16px; }
   .valley-region__label span { font-size: 10px; }
@@ -91,7 +113,7 @@
   .adventure-bottom { padding: 8px; }
   .adventure-bottom button { font-size: 12px; padding: 7px 10px; }
 }
-@media(prefers-reduced-motion:reduce) { .dojo-station__figure,.valley-stop__disc,.adventure-landscape { transition: none; } .valley-path__new { animation: none; } }
+@media(prefers-reduced-motion:reduce) { .dojo-station__figure,.valley-stop__disc,.adventure-landscape,.valley-dojo > svg:first-child { transition: none; } .valley-path .valley-path__reveal { animation:none; stroke-dashoffset:0; } }
 /* Match the story screen's UI; the illustrations carry the playful emphasis. */
 .dojo-station__figure strong { font-weight: 700; }
 .adventure-topbar button, .dojo-exit button, .adventure-bottom button, .adventure-unlock {

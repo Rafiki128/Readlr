@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { ArrowLeft, Check, Lock, Map as MapIcon, Star } from "lucide-react";
 import { VowelAdventureMap } from "./VowelAdventureMap";
+import { BlendingWorkshop } from "./BlendingWorkshop";
 
 interface LevelNode {
   id: number;
@@ -17,9 +18,10 @@ interface StageDef {
 }
 
 interface LevelMapProps {
+  learnerId?: number | null;
   stageId: number;
   completedCount?: number;
-  initialView?: "dojo" | "valley";
+  initialView?: "dojo" | "valley" | "bridges";
   onBack: () => void;
   onSelectLevel: (levelId: number) => void;
 }
@@ -188,10 +190,16 @@ function StandardLevelMap({
   );
 }
 
+function StageTwoMap(props: LevelMapProps) {
+  return <BlendingWorkshop learnerId={props.learnerId} initialView={props.initialView === "bridges" ? "bridges" : "workshop"} onBack={props.onBack} />;
+}
+
 export function LevelMap(props: LevelMapProps) {
   if (props.stageId === 1) {
-    return <VowelAdventureMap {...props} />;
+    return <VowelAdventureMap {...props} initialView={props.initialView === "bridges" ? "valley" : props.initialView} />;
   }
+
+  if (props.stageId === 2) return <StageTwoMap key={props.learnerId} {...props} />;
 
   return <StandardLevelMap {...props} />;
 }
