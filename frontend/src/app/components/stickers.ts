@@ -45,3 +45,12 @@ export function newStickerReward(stageId: number, before: number, after: number)
 }
 
 export type StickerReward = NonNullable<ReturnType<typeof newStickerReward>>;
+
+// Summarises a learner's stickers for teachers: how many, the three latest milestones and the next one.
+export function stickerSummary(completedByStage: Record<number, number>) {
+  const earned = STICKERS.filter((item) => isStickerEarned(item, completedByStage));
+  const recent = [...earned].sort((a, b) => b.stageId - a.stageId || b.at - a.at).slice(0, 3);
+  const next = STICKERS.filter((item) => !isStickerEarned(item, completedByStage))
+    .sort((a, b) => a.stageId - b.stageId || a.at - b.at)[0] ?? null;
+  return { earned: earned.length, total: STICKERS.length, recent, next };
+}

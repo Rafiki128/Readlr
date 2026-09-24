@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { STICKERS, isStickerEarned, newStickerReward } from "../src/app/components/stickers.ts";
+import { STICKERS, isStickerEarned, newStickerReward, stickerSummary } from "../src/app/components/stickers.ts";
 import { getTrailReward } from "../src/app/components/trailRewards.ts";
 
 test("every sticker is earnable within its stage's 20 levels", () => {
@@ -42,4 +42,14 @@ test("a reward appears only for stickers first earned by this completion", () =>
   assert.equal(newStickerReward(1, 2, 3)!.sticker.name, "Ladybug");
   const jump = newStickerReward(3, 4, 15)!;
   assert.deepEqual([jump.sticker.at, ...jump.bonuses.map((item) => item.at)], [5, 10, 15]);
+});
+
+test("admin summary shows count, latest milestones and the next sticker", () => {
+  const empty = stickerSummary({});
+  assert.deepEqual([empty.earned, empty.total, empty.recent.length, empty.next?.name], [0, STICKERS.length, 0, "Ant"]);
+  const midway = stickerSummary({ 1: 20, 2: 10 });
+  assert.equal(midway.earned, 23 + 2);
+  assert.deepEqual(midway.recent.map((item) => item.name), ["Brook Keeper", "Bridge Builder", "Valley Unicorn"]);
+  assert.equal(midway.next?.name, "Waterfall Explorer");
+  assert.equal(stickerSummary({ 1: 20, 2: 20, 3: 20 }).next, null);
 });
