@@ -37,3 +37,11 @@ export const STICKERS: Sticker[] = [
 export function isStickerEarned(sticker: Sticker, completedByStage: Record<number, number>) {
   return (completedByStage[sticker.stageId] ?? 0) >= sticker.at;
 }
+
+// Returns the stickers first earned when a stage's count rises from `before` to `after`, or null if none.
+export function newStickerReward(stageId: number, before: number, after: number) {
+  const [sticker, ...bonuses] = STICKERS.filter((item) => item.stageId === stageId && item.at > before && item.at <= after);
+  return sticker ? { sticker, bonuses } : null;
+}
+
+export type StickerReward = NonNullable<ReturnType<typeof newStickerReward>>;

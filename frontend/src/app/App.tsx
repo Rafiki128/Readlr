@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { TrailRewardDialog } from "./components/TrailRewardDialog";
 import { getTrailReward, type TrailReward } from "./components/trailRewards";
+import { newStickerReward, type StickerReward } from "./components/stickers";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { AuthProvider, useAuth, AuthScreen } from "../modules/auth/index";
@@ -280,12 +281,12 @@ function AppContent() {
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [levelScore] = useState(300);
-  const [trailReward, setTrailReward] = useState<TrailReward | null>(null);
+  const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
   const completionHandledRef = useRef(false);
 
-  useEffect(() => { setTrailReward(null); }, [user?.id]);
+  useEffect(() => { setStickerReward(null); }, [user?.id]);
   useEffect(() => {
-    if (currentScreen !== "level-map") setTrailReward(null);
+    if (currentScreen !== "level-map" && currentScreen !== "vowel-power-complete") setStickerReward(null);
     if (currentScreen === "game") completionHandledRef.current = false;
   }, [currentScreen]);
   // Links or history entries to a locked level go back to the map instead of skipping ahead.
@@ -513,7 +514,7 @@ function AppContent() {
   const handleSelectLevel = (levelId: number) => {
     setMapEntry(undefined);
     completionHandledRef.current = false;
-    setTrailReward(null);
+    setStickerReward(null);
     setSelectedLevel(levelId);
     setCurrentScreen("game");
   };
@@ -559,13 +560,23 @@ function AppContent() {
   const handleLevelComplete = async () => {
     if (selectedStage === 1 && completionHandledRef.current) return;
     completionHandledRef.current = true;
-    const reward = selectedStage === 1 ? getTrailReward(selectedLevel, completedByStage[1] ?? 0) : null;
+    const previous = completedByStage[selectedStage] ?? 0;
+    const completed = Math.max(previous, selectedLevel);
+    const reward = selectedStage === 1
+      ? getTrailReward(selectedLevel, previous) ?? newStickerReward(1, previous, completed)
+      : null;
 
     setIsLevelJustCompleted(selectedStage !== 1 || selectedLevel <= 5);
     setCurrentScreen(selectedStage === 1 ? (selectedLevel <= 5 ? "vowel-power-complete" : "level-map") : "chapter-celebration");
-    if (reward) setTrailReward(reward);
+    if (reward) setStickerReward(reward);
 
-    await recordStageProgress(selectedStage, Math.max(completedByStage[selectedStage] ?? 0, selectedLevel));
+    await recordStageProgress(selectedStage, completed);
+  };
+
+  const handleJourneyProgress = (completed: number) => {
+    const reward = newStickerReward(selectedStage, completedByStage[selectedStage] ?? 0, completed);
+    if (reward) setStickerReward(reward);
+    recordStageProgress(selectedStage, completed);
   };
 
   const handleContinueDojoTraining = () => {
@@ -785,7 +796,7 @@ function AppContent() {
             completedCount={completedByStage[selectedStage] ?? 0}
             onBack={handleBackToStages}
             onSelectLevel={handleSelectLevel}
-            onProgress={(completed) => recordStageProgress(selectedStage, completed)}
+            onProgress={handleJourneyProgress}
           />
         )}
 
@@ -810,9 +821,9 @@ function AppContent() {
           />
         )}
 
-        {currentScreen === "level-map" && trailReward && (
-          <TrailRewardDialog reward={trailReward} onClose={() => setTrailReward(null)} onBook={() => {
-            setTrailReward(null);
+        {(currentScreen === "level-map" || currentScreen === "vowel-power-complete") && stickerReward && (
+          <TrailRewardDialog reward={stickerReward} onClose={() => setStickerReward(null)} onBook={() => {
+            setStickerReward(null);
             setCurrentScreen("sticker-book");
           }} />
         )}

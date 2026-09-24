@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { STICKERS, isStickerEarned } from "../src/app/components/stickers.ts";
+import { STICKERS, isStickerEarned, newStickerReward } from "../src/app/components/stickers.ts";
 import { getTrailReward } from "../src/app/components/trailRewards.ts";
 
 test("every sticker is earnable within its stage's 20 levels", () => {
@@ -33,4 +33,13 @@ test("stickers are earned from saved stage progress", () => {
   assert.equal(isStickerEarned(crown, { 3: 19 }), false);
   assert.equal(isStickerEarned(crown, { 3: 20 }), true);
   assert.equal(isStickerEarned(crown, {}), false);
+});
+
+test("a reward appears only for stickers first earned by this completion", () => {
+  assert.equal(newStickerReward(2, 5, 6)!.sticker.name, "Bridge Builder");
+  assert.equal(newStickerReward(2, 6, 7), null);
+  assert.equal(newStickerReward(2, 20, 20), null);
+  assert.equal(newStickerReward(1, 2, 3)!.sticker.name, "Ladybug");
+  const jump = newStickerReward(3, 4, 15)!;
+  assert.deepEqual([jump.sticker.at, ...jump.bonuses.map((item) => item.at)], [5, 10, 15]);
 });
