@@ -10,6 +10,7 @@ import {
   updateStageProgress,
 } from './progress.service.js';
 import { getLearnerByUserId } from '../learner/learner.service.js';
+import { unlockFramesForStage } from '../frames/frames.service.js';
 
 async function ensureOwnLearner(req: Request, learnerId: number): Promise<void> {
   const userId = (req as any).userId;
@@ -72,13 +73,24 @@ export async function handleUpdateProgress(req: Request, res: Response) {
       });
     }
 
+    const parsedStageId = parseInt(stageId);
+    const previous = await getStageProgress(parsedLearnerId, parsedStageId).catch(() => null);
+    const wasStageComplete = !!previous && previous.completed_levels >= previous.total_levels;
+
     const progress = await updateStageProgress(
       parsedLearnerId,
-      parseInt(stageId),
+      parsedStageId,
       completed_levels,
       total_levels
     );
-    res.json(progress);
+
+    const isStageComplete = progress.completed_levels >= progress.total_levels;
+    const unlockedFrames =
+      !wasStageComplete && isStageComplete
+        ? await unlockFramesForStage((req as any).userId, parsedStageId)
+        : [];
+
+    res.json({ ...progress, unlocked_frames: unlockedFrames });
   } catch (error) {
     console.error('Error updating progress:', error);
     res.status(error instanceof Error && error.message === 'Access denied' ? 403 : 500).json({ error: 'Failed to update progress' });

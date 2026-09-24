@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { TrailRewardDialog } from "./components/TrailRewardDialog";
 import { getTrailReward, type TrailReward } from "./components/trailRewards";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { AuthProvider, useAuth, AuthScreen } from "../modules/auth/index";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { Landing } from "./components/Landing";
@@ -24,6 +25,7 @@ import { Settings } from "./components/Settings";
 import { Achievements } from "./components/Achievements";
 import { Help } from "./components/Help";
 import { ProfilePage } from "./components/ProfilePage";
+import { useDarkMode } from "./hooks/useDarkMode";
 import { AdminDashboard } from "./components/AdminDashboard";
 
 // Stage configuration for determining progress
@@ -266,6 +268,7 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
 
 function AppContent() {
   const { isAuthenticated, user, token, isLoading: isAuthLoading, logout } = useAuth();
+  useDarkMode();
   const initialRoute = parseAppPath(window.location.pathname);
   const [currentScreen, setCurrentScreen] = useState<Screen>(initialRoute.screen);
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialRoute.authMode ?? 'register');
@@ -520,7 +523,7 @@ function AppContent() {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
         const stageConfig = STAGE_CONFIG[selectedStage];
         
-        await fetch(`${API_URL}/progress/learners/${learnerId}/stages/${selectedStage}`, {
+        const progressRes = await fetch(`${API_URL}/progress/learners/${learnerId}/stages/${selectedStage}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -531,6 +534,14 @@ function AppContent() {
             total_levels: stageConfig.totalLevels,
           }),
         });
+        if (progressRes.ok) {
+          const data = await progressRes.json();
+          if (data.unlocked_frames?.length) {
+            toast.success('New frames unlocked!', {
+              description: `Pick your favorite: ${data.unlocked_frames.map((f: { name: string }) => f.name).join(' or ')} ✨`,
+            });
+          }
+        }
       } catch (error) {
         console.error('Failed to save progress to backend:', error);
       }
@@ -660,7 +671,7 @@ function AppContent() {
 
   if (isAuthLoading && token && !user && !isPublicScreen) {
     return (
-      <div className="size-full bg-[#FAF7F2] flex items-center justify-center">
+      <div className="size-full bg-[var(--paper)] flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-[#E6DED2] border-t-[#4F46E5] rounded-full animate-spin" />
       </div>
     );

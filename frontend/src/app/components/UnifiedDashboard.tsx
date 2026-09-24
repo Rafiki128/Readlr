@@ -221,20 +221,20 @@ export function UnifiedDashboard({
   ];
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-6 md:px-10 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             {onBack ? (
               <button
                 onClick={onBack}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] transition-colors text-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] transition-colors text-sm"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
             ) : <div />}
-            <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+            <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
               Learning Dashboard
             </span>
             <div className="w-16" />
@@ -245,14 +245,14 @@ export function UnifiedDashboard({
             animate={{ y: 0, opacity: 1 }}
             className="mb-8"
           >
-            <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">
+            <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">
               Your progress
             </p>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-              <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">
+              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">
                 {userName}'s Progress
               </h1>
-              <p className="text-[#4B5266]">
+              <p className="text-[var(--ink-soft)]">
                 {totalWeekMin} words this week · {activeDays} active days
               </p>
             </div>
@@ -264,7 +264,7 @@ export function UnifiedDashboard({
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 activeTab === 'progress'
                   ? 'bg-[#4F46E5] text-white'
-                  : 'bg-white text-[#4B5266] border border-[#1F243014] hover:border-[#1F243029]'
+                  : 'bg-card text-[var(--ink-soft)] border border-[var(--hairline)] hover:border-[var(--hairline-strong)]'
               }`}
             >
               Progress
@@ -274,7 +274,7 @@ export function UnifiedDashboard({
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 activeTab === 'heatmap'
                   ? 'bg-[#4F46E5] text-white'
-                  : 'bg-white text-[#4B5266] border border-[#1F243014] hover:border-[#1F243029]'
+                  : 'bg-card text-[var(--ink-soft)] border border-[var(--hairline)] hover:border-[var(--hairline-strong)]'
               }`}
             >
               Fluency
@@ -292,7 +292,7 @@ export function UnifiedDashboard({
                       initial={{ y: 8, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: i * 0.05, ease: 'easeOut' }}
-                      className="bg-white rounded-2xl p-5 border border-[#1F243014]"
+                      className="bg-card rounded-2xl p-5 border border-[var(--hairline)]"
                     >
                       <div className="flex items-center gap-2.5 mb-3">
                         <div
@@ -301,11 +301,11 @@ export function UnifiedDashboard({
                         >
                           <Icon className="w-4 h-4" style={{ color: s.color }} />
                         </div>
-                        <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                        <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                           {s.label}
                         </span>
                       </div>
-                      <p className="text-3xl text-[#1F2430] tracking-tight">
+                      <p className="text-3xl text-[var(--ink)] tracking-tight">
                         {s.value}
                       </p>
                     </motion.div>
@@ -317,16 +317,16 @@ export function UnifiedDashboard({
                 initial={{ y: 12, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.25 }}
-                className="bg-white rounded-2xl p-6 border border-[#1F243014] mb-6"
+                className="bg-card rounded-2xl p-6 border border-[var(--hairline)] mb-6"
               >
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] flex items-center justify-center">
                       <TrendingUp className="w-4 h-4 text-[#4F46E5]" />
                     </div>
-                    <h2 className="text-lg text-[#1F2430]">Weekly Activity</h2>
+                    <h2 className="text-lg text-[var(--ink)]">Weekly Activity</h2>
                   </div>
-                  <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                  <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                     Words Practiced
                   </span>
                 </div>
@@ -340,7 +340,7 @@ export function UnifiedDashboard({
                         key={day.day}
                         className="flex-1 flex flex-col items-center gap-2 h-full justify-end"
                       >
-                        <span className="text-xs text-[#8A91A3]">
+                        <span className="text-xs text-[var(--ink-muted)]">
                           {day.minutes || ''}
                         </span>
                         <motion.div
@@ -359,7 +359,7 @@ export function UnifiedDashboard({
                         />
                         <span
                           className={`text-xs ${
-                            active ? 'text-[#1F2430]' : 'text-[#8A91A3]'
+                            active ? 'text-[var(--ink)]' : 'text-[var(--ink-muted)]'
                           }`}
                         >
                           {day.day}
@@ -374,17 +374,17 @@ export function UnifiedDashboard({
                 initial={{ y: 12, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.35 }}
-                className="bg-white rounded-2xl p-6 border border-[#1F243014]"
+                className="bg-card rounded-2xl p-6 border border-[var(--hairline)]"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg text-[#1F2430]">Recent Activity</h2>
-                  <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                  <h2 className="text-lg text-[var(--ink)]">Recent Activity</h2>
+                  <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                     Last {recentActivity.length} sessions
                   </span>
                 </div>
 
                 {recentActivity.length > 0 ? (
-                  <ul className="divide-y divide-[#1F243014]">
+                  <ul className="divide-y divide-[var(--hairline)]">
                     {recentActivity.map((activity, index) => (
                       <li
                         key={index}
@@ -393,15 +393,15 @@ export function UnifiedDashboard({
                         <div className="flex items-center gap-3">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5]" />
                           <div className="leading-tight">
-                            <p className="text-[#1F2430]">{activity.level}</p>
-                            <p className="text-xs text-[#8A91A3] mt-0.5">
+                            <p className="text-[var(--ink)]">{activity.level}</p>
+                            <p className="text-xs text-[var(--ink-muted)] mt-0.5">
                               {activity.date}
                             </p>
                           </div>
                         </div>
                         <div className="text-right leading-tight">
-                          <p className="text-[#1F2430]">+{activity.score} pts</p>
-                          <p className="text-xs text-[#8A91A3] mt-0.5">
+                          <p className="text-[var(--ink)]">+{activity.score} pts</p>
+                          <p className="text-xs text-[var(--ink-muted)] mt-0.5">
                             {activity.accuracy}% accuracy
                           </p>
                         </div>
@@ -409,7 +409,7 @@ export function UnifiedDashboard({
                     ))}
                   </ul>
                 ) : (
-                  <div className="py-8 text-center text-sm text-[#8A91A3]">
+                  <div className="py-8 text-center text-sm text-[var(--ink-muted)]">
                     No completed sessions yet.
                   </div>
                 )}

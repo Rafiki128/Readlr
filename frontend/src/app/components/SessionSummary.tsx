@@ -25,7 +25,7 @@ export function SessionSummary({
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-3xl p-8 max-w-3xl w-full shadow-2xl"
+        className="bg-card rounded-3xl p-8 max-w-3xl w-full shadow-2xl"
       >
         <div className="text-center mb-8">
           <motion.div

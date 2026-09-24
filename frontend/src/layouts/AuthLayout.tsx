@@ -11,7 +11,7 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="size-full bg-[#FAF7F2] flex items-center justify-center">
+    <div className="size-full bg-[var(--paper)] flex items-center justify-center">
       {children}
     </div>
   );

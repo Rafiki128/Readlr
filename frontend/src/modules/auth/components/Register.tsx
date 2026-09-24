@@ -50,10 +50,10 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--paper)] flex items-center justify-center p-4 relative overflow-hidden">
       {/* Decorative background shapes */}
-      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#EEF2FF] opacity-70" />
-      <div className="absolute -bottom-32 -right-20 w-[28rem] h-[28rem] rounded-full bg-[#FEF3C7] opacity-60" />
+      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[var(--accent-soft)] opacity-70" />
+      <div className="absolute -bottom-32 -right-20 w-[28rem] h-[28rem] rounded-full bg-[var(--tint-yellow)] opacity-60" />
       <div className="absolute top-1/3 right-1/4 w-3 h-3 rounded-full bg-[#FB7185]" />
       <div className="absolute bottom-1/4 left-1/4 w-2 h-2 rounded-full bg-[#10B981]" />
 
@@ -63,7 +63,7 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(31,36,48,0.04),0_8px_24px_-12px_rgba(31,36,48,0.10)] p-8 border border-[#1F243014]">
+        <div className="bg-card rounded-2xl shadow-[0_1px_2px_rgba(31,36,48,0.04),0_8px_24px_-12px_rgba(31,36,48,0.10)] p-8 border border-[var(--hairline)]">
           {/* Header */}
           <div className="mb-8 text-center">
             <img
@@ -71,8 +71,8 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
               alt="Readlr"
               className="w-16 h-16 rounded-xl mx-auto mb-4 shadow-[0_4px_12px_-4px_rgba(79,70,229,0.2)]"
             />
-            <h1 className="text-2xl font-semibold text-[#1F2430] mb-1">Join Readlr</h1>
-            <p className="text-[#4B5266] text-sm">Create your account to get started</p>
+            <h1 className="text-2xl font-semibold text-[var(--ink)] mb-1">Join Readlr</h1>
+            <p className="text-[var(--ink-soft)] text-sm">Create your account to get started</p>
           </div>
 
           {/* Error Message */}
@@ -80,7 +80,7 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-[#FEE2E2] border border-[#FECACA] text-[#DC2626] px-4 py-3 rounded-xl mb-6 text-sm"
+              className="bg-[var(--tint-red)] border border-[#FECACA] text-[#DC2626] px-4 py-3 rounded-xl mb-6 text-sm"
             >
               {error || localError}
             </motion.div>
@@ -89,44 +89,44 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[#1F2430] font-medium text-sm mb-2">Full Name</label>
+              <label className="block text-[var(--ink)] font-medium text-sm mb-2">Full Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full px-4 py-3 border-2 border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-white text-[#1F2430] placeholder-[#9CA3AF]"
+                className="w-full px-4 py-3 border-2 border-[var(--gray-soft)] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-card text-[var(--ink)] placeholder-[#9CA3AF]"
                 disabled={isLoading}
               />
             </div>
 
             <div>
-              <label className="block text-[#1F2430] font-medium text-sm mb-2">Email Address</label>
+              <label className="block text-[var(--ink)] font-medium text-sm mb-2">Email Address</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 border-2 border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-white text-[#1F2430] placeholder-[#9CA3AF]"
+                className="w-full px-4 py-3 border-2 border-[var(--gray-soft)] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-card text-[var(--ink)] placeholder-[#9CA3AF]"
                 disabled={isLoading}
               />
             </div>
 
             <div>
-              <label className="block text-[#1F2430] font-medium text-sm mb-2">Password</label>
+              <label className="block text-[var(--ink)] font-medium text-sm mb-2">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-11 border-2 border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-white text-[#1F2430] placeholder-[#9CA3AF]"
+                  className="w-full px-4 py-3 pr-11 border-2 border-[var(--gray-soft)] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-card text-[var(--ink)] placeholder-[#9CA3AF]"
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#4B5266] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[var(--ink-soft)] transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -135,20 +135,20 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
             </div>
 
             <div>
-              <label className="block text-[#1F2430] font-medium text-sm mb-2">Confirm Password</label>
+              <label className="block text-[var(--ink)] font-medium text-sm mb-2">Confirm Password</label>
               <div className="relative">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-11 border-2 border-[#E5E7EB] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-white text-[#1F2430] placeholder-[#9CA3AF]"
+                  className="w-full px-4 py-3 pr-11 border-2 border-[var(--gray-soft)] rounded-lg focus:outline-none focus:border-[#4F46E5] transition-colors bg-card text-[var(--ink)] placeholder-[#9CA3AF]"
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#4B5266] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[var(--ink-soft)] transition-colors"
                 >
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -178,9 +178,9 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
 
           {/* Divider */}
           <div className="my-6 flex items-center gap-3">
-            <div className="flex-1 h-px bg-[#E5E7EB]" />
+            <div className="flex-1 h-px bg-[var(--gray-soft)]" />
             <span className="text-xs text-[#9CA3AF]">Already registered?</span>
-            <div className="flex-1 h-px bg-[#E5E7EB]" />
+            <div className="flex-1 h-px bg-[var(--gray-soft)]" />
           </div>
 
           {/* Switch to Login */}
@@ -188,7 +188,7 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
             onClick={onSwitchToLogin}
-            className="w-full bg-white border-2 border-[#4F46E5] text-[#4F46E5] font-semibold py-3 rounded-lg hover:bg-[#EEF2FF] transition-colors"
+            className="w-full bg-card border-2 border-[#4F46E5] text-[#4F46E5] font-semibold py-3 rounded-lg hover:bg-[var(--accent-soft)] transition-colors"
           >
             Sign In
           </motion.button>

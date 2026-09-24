@@ -88,18 +88,18 @@ function StandardLevelMap({
   };
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto relative">
+    <div className="size-full bg-[var(--paper)] overflow-auto relative">
       <div className="relative z-10 min-h-full px-6 md:px-10 py-8">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] text-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </button>
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[#8A91A3]">
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
               <MapIcon className="w-3.5 h-3.5" />
               Level Map
             </span>
@@ -110,20 +110,20 @@ function StandardLevelMap({
               {stage.chapter}
             </p>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-              <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">{stage.title}</h1>
-              <p className="text-[#4B5266]">
+              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">{stage.title}</h1>
+              <p className="text-[var(--ink-soft)]">
                 <span style={{ color: stage.accent }}>{completed}</span>
-                <span className="text-[#8A91A3]"> / {total} levels</span>
+                <span className="text-[var(--ink-muted)]"> / {total} levels</span>
               </p>
             </div>
           </motion.div>
 
-          <div className="bg-white rounded-2xl p-5 border border-[#1F243014] mb-8">
+          <div className="bg-card rounded-2xl p-5 border border-[var(--hairline)] mb-8">
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-xs uppercase tracking-wider text-[#8A91A3]">Chapter progress</span>
-              <span className="text-sm text-[#1F2430]">{pct}%</span>
+              <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">Chapter progress</span>
+              <span className="text-sm text-[var(--ink)]">{pct}%</span>
             </div>
-            <div className="w-full h-1.5 bg-[#F2EEE6] rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-[var(--paper-deep)] rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}
@@ -134,7 +134,7 @@ function StandardLevelMap({
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 md:p-10 border border-[#1F243014]">
+          <div className="bg-card rounded-3xl p-6 md:p-10 border border-[var(--hairline)]">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-4 gap-y-8">
               {stage.nodes.map((node, i) => {
                 const status = getStatus(i, completed);
@@ -149,7 +149,7 @@ function StandardLevelMap({
                       onClick={() => handleClick(i, node)}
                       disabled={status === "locked"}
                       className={`relative z-10 rounded-2xl flex items-center justify-center text-xl transition-all border-2 ${
-                        status === "locked" ? "bg-[#F2EEE6] text-[#8A91A3] cursor-not-allowed" : "bg-white text-[#1F2430] cursor-pointer"
+                        status === "locked" ? "bg-[var(--paper-deep)] text-[var(--ink-muted)] cursor-not-allowed" : "bg-card text-[var(--ink)] cursor-pointer"
                       }`}
                       style={{
                         width: 72,
@@ -176,8 +176,8 @@ function StandardLevelMap({
                       )}
                     </motion.button>
                     <div className="mt-3 text-center">
-                      <p className={`text-sm ${status === "locked" ? "text-[#8A91A3]" : "text-[#1F2430]"}`}>Level {i + 1}</p>
-                      <p className="text-xs text-[#8A91A3] mt-0.5">{node.hint}</p>
+                      <p className={`text-sm ${status === "locked" ? "text-[var(--ink-muted)]" : "text-[var(--ink)]"}`}>Level {i + 1}</p>
+                      <p className="text-xs text-[var(--ink-muted)] mt-0.5">{node.hint}</p>
                     </div>
                   </div>
                 );

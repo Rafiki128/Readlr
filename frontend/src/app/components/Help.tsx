@@ -67,12 +67,12 @@ export function Help({}: HelpProps) {
   ];
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-6 md:px-10 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Top bar */}
           <div className="flex items-center justify-center mb-8">
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[#8A91A3]">
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
               <HelpCircle className="w-3.5 h-3.5" />
               Help Center
             </span>
@@ -84,9 +84,9 @@ export function Help({}: HelpProps) {
             animate={{ y: 0, opacity: 1 }}
             className="mb-8"
           >
-            <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">Support</p>
-            <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">How can we help?</h1>
-            <p className="text-[#4B5266] mt-2">
+            <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Support</p>
+            <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">How can we help?</h1>
+            <p className="text-[var(--ink-soft)] mt-2">
               Browse a topic to find quick answers, or check the daily tips below.
             </p>
           </motion.div>
@@ -102,7 +102,7 @@ export function Help({}: HelpProps) {
                   initial={{ y: 8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: i * 0.05 }}
-                  className="bg-white rounded-2xl border border-[#1F243014] overflow-hidden"
+                  className="bg-card rounded-2xl border border-[var(--hairline)] overflow-hidden"
                 >
                   <button
                     onClick={() => {
@@ -118,13 +118,13 @@ export function Help({}: HelpProps) {
                       <Icon className="w-5 h-5" style={{ color: topic.color }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#1F2430]">{topic.title}</p>
-                      <p className="text-xs text-[#8A91A3]">
+                      <p className="text-[var(--ink)]">{topic.title}</p>
+                      <p className="text-xs text-[var(--ink-muted)]">
                         {topic.sections.length} answers
                       </p>
                     </div>
                     <ChevronDown
-                      className={`w-4 h-4 text-[#8A91A3] transition-transform ${
+                      className={`w-4 h-4 text-[var(--ink-muted)] transition-transform ${
                         isOpen ? "rotate-180" : ""
                       }`}
                     />
@@ -139,19 +139,19 @@ export function Help({}: HelpProps) {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-5 pb-2 border-t border-[#1F243014]">
+                        <div className="px-5 pb-2 border-t border-[var(--hairline)]">
                           {topic.sections.map((s, idx) => {
                             const key = `${topic.id}-${idx}`;
                             const qOpen = openQ === key;
                             return (
-                              <div key={key} className="border-b border-[#1F243014] last:border-b-0">
+                              <div key={key} className="border-b border-[var(--hairline)] last:border-b-0">
                                 <button
                                   onClick={() => setOpenQ(qOpen ? null : key)}
                                   className="w-full flex items-center justify-between gap-3 py-3.5 text-left"
                                 >
-                                  <span className="text-[#1F2430] text-sm">{s.question}</span>
+                                  <span className="text-[var(--ink)] text-sm">{s.question}</span>
                                   <ChevronDown
-                                    className={`w-4 h-4 text-[#8A91A3] flex-shrink-0 transition-transform ${
+                                    className={`w-4 h-4 text-[var(--ink-muted)] flex-shrink-0 transition-transform ${
                                       qOpen ? "rotate-180" : ""
                                     }`}
                                   />
@@ -160,7 +160,7 @@ export function Help({}: HelpProps) {
                                   <motion.p
                                     initial={{ opacity: 0, y: -4 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="pb-4 text-sm text-[#4B5266]"
+                                    className="pb-4 text-sm text-[var(--ink-soft)]"
                                   >
                                     {s.answer}
                                   </motion.p>
@@ -182,25 +182,25 @@ export function Help({}: HelpProps) {
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl p-6 border border-[#1F243014] mb-6"
+            className="bg-card rounded-2xl p-6 border border-[var(--hairline)] mb-6"
           >
             <div className="flex items-center gap-2.5 mb-5">
-              <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] flex items-center justify-center">
                 <BookOpen className="w-4 h-4 text-[#4F46E5]" />
               </div>
               <div>
-                <h2 className="text-lg text-[#1F2430] leading-tight">Quick tips</h2>
-                <p className="text-xs text-[#8A91A3]">Small habits that make a big difference</p>
+                <h2 className="text-lg text-[var(--ink)] leading-tight">Quick tips</h2>
+                <p className="text-xs text-[var(--ink-muted)]">Small habits that make a big difference</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {tips.map((t) => (
-                <div key={t.title} className="flex gap-3 p-4 rounded-xl bg-[#FAF7F2] border border-[#1F243014]">
+                <div key={t.title} className="flex gap-3 p-4 rounded-xl bg-[var(--paper)] border border-[var(--hairline)]">
                   <span className="text-2xl flex-shrink-0">{t.emoji}</span>
                   <div>
-                    <p className="text-[#1F2430]">{t.title}</p>
-                    <p className="text-xs text-[#4B5266] mt-0.5">{t.body}</p>
+                    <p className="text-[var(--ink)]">{t.title}</p>
+                    <p className="text-xs text-[var(--ink-soft)] mt-0.5">{t.body}</p>
                   </div>
                 </div>
               ))}
@@ -212,13 +212,13 @@ export function Help({}: HelpProps) {
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="bg-white rounded-2xl p-6 border border-[#1F243014] text-center"
+            className="bg-card rounded-2xl p-6 border border-[var(--hairline)] text-center"
           >
-            <p className="text-[#1F2430] mb-1">Still need help?</p>
-            <p className="text-sm text-[#4B5266]">
+            <p className="text-[var(--ink)] mb-1">Still need help?</p>
+            <p className="text-sm text-[var(--ink-soft)]">
               Ask your teacher or a parent if you'd like more guidance.
             </p>
-            <p className="text-xs text-[#8A91A3] mt-3">
+            <p className="text-xs text-[var(--ink-muted)] mt-3">
               Team 2526-sem2-it332-27 · Readlr Support
             </p>
           </motion.div>

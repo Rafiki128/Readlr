@@ -113,6 +113,15 @@ export class AuthService {
   }
 
   /**
+   * Permanently delete a user account and all associated data.
+   * Cascades to learner_profiles, learner_settings, sessions, progress, and
+   * achievements via the foreign key constraints defined in the schema.
+   */
+  async deleteAccount(userId: number): Promise<void> {
+    unwrap(await supabase.from('users').delete().eq('id', userId));
+  }
+
+  /**
    * Get user by ID
    */
   async getUserById(userId: number) {
