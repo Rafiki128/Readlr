@@ -26,7 +26,7 @@ const STAGE_THEMES = {
 const STAGE_AUDIO_DIR: Record<number, string> = {
   1: "stage1",
   2: "stage2",
-  3: "stage 3",
+  3: "stage3",
 };
 
 const VOWEL_STORIES: Record<number, { message: string; doorCount: string }> = {

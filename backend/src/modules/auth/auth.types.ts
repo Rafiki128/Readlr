@@ -18,7 +18,7 @@ export interface AuthResponse {
   user?: {
     id: number;
     email: string;
-    role: 'learner' | 'teacher';
+    role: 'learner' | 'teacher' | 'admin';
     name: string;
   };
 }

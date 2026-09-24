@@ -166,7 +166,7 @@ export function UnifiedDashboard({
 }: UnifiedDashboardProps) {
   const [activeTab, setActiveTab] = useState<'progress' | 'heatmap'>('progress');
 
-  const stageTotals: Record<number, number> = { 1: 55, 2: 8, 3: 10 };
+  const stageTotals: Record<number, number> = { 1: 20, 2: 8, 3: 10 };
   const totalLevels = Object.values(stageTotals).reduce((sum, total) => sum + total, 0);
   const levelsCompleted = Object.entries(stageTotals).reduce((sum, [stageId, total]) => {
     const completed = completedByStage[Number(stageId)] ?? 0;

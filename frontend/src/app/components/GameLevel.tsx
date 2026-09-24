@@ -1,11 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion } from "motion/react";
 import { Volume2, Mic, ArrowLeft } from "lucide-react";
 import confetti from "canvas-confetti";
 import { CharacterCompanion, CharacterState } from "./CharacterCompanion";
 import { useAudioManager } from "../../hooks/useAudioManager";
+import { VowelChallengeView } from "./VowelChallengeView";
 
 type FluencyTier = "fluent" | "halting" | "syllabic";
+type StageOneLevelType =
+  | "sound-gem"
+  | "mouth-shape"
+  | "letter-match"
+  | "anchor-echo"
+  | "blend-bridge"
+  | "missing-vowel"
+  | "mixed-review";
 
 // SDD §2.5 / UC-07 fluency classification rules (confidence threshold = 0.70):
 // durationMs is wall-clock (tap → ASR result), so thresholds are scaled up to
@@ -48,6 +57,19 @@ const TIER_LABEL: Record<FluencyTier, { label: string; color: string }> = {
   syllabic: { label: "Keep Trying 💪", color: "#EF4444" },
 };
 
+const VOWEL_CHOICES = ["A", "E", "I", "O", "U"];
+
+function shuffleItems<T>(items: T[], seed: number): T[] {
+  const result = [...items];
+  let value = Math.floor(seed * 1_000_000) || 1;
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    value = (value * 9301 + 49297) % 233280;
+    const j = value % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 interface GameLevelProps {
   stageId: number;
   levelId: number;
@@ -66,6 +88,17 @@ interface Challenge {
   acceptedTranscripts: string[];
   storyContext: string;
   expectedDurationMs: number; // SDD §2.5: 600ms per syllable default
+  levelType?: StageOneLevelType;
+  targetSound?: string;
+  anchorWord?: string;
+  skillLabel?: string;
+  reward?: string;
+  promptVariants?: string[];
+  choices?: string[];
+  correctChoice?: string;
+  frame?: string;
+  mouthHint?: string;
+  visualHint?: string;
 }
 
 type Outcome = "success" | "incorrect" | "silent";
@@ -76,15 +109,256 @@ const STAGE_ACCENTS: Record<number, { accent: string; tint: string }> = {
   3: { accent: "#10B981", tint: "#D1FAE5" },
 };
 
+type VowelKey = "A" | "E" | "I" | "O" | "U";
+
+interface VowelDoorData {
+  vowel: VowelKey;
+  sound: string;
+  title: string;
+  intro: string;
+  audioPath: string;
+  trainAudioPath: string;
+  abilityIntroAudioPath: string;
+  mouthHintAudioPath: string;
+  readyAudioPath: string;
+  useAudioPath: string;
+  gainedAudioPath: string;
+  abilityName: string;
+  abilityIcon: string;
+  ability: string;
+  rewardTitle: string;
+  rewardSubtitle: string;
+  mouthHint: string;
+  steps: string[];
+}
+
+interface StageOneNarrationStep {
+  message: string;
+  revealCount: number;
+  audioPath?: string;
+}
+
+interface VowelPowerChallenge {
+  title: string;
+  obstacle: string;
+  action: string;
+  success: string;
+  audioPath: string;
+  successAudioPath: string;
+  steps: string[];
+}
+
+const VOWEL_POWER_STORAGE_KEY = "readlr_vowel_powers";
+const STAGE_ONE_DOOR_COUNT = 5;
+const STAGE_ONE_VOWEL_ORDER: VowelKey[] = ["A", "E", "I", "O", "U"];
+
+const VOWEL_POWER_KIT: Record<VowelKey, VowelDoorData> = {
+  A: {
+    vowel: "A",
+    sound: "/a/",
+    title: "A Training Door",
+    intro: "The A door opens wide. Milo needs your open /a/ sound to forge the first valley power.",
+    audioPath: "/audio/stage1/A.wav",
+    trainAudioPath: "/audio/stage1/TrainA.wav",
+    abilityIntroAudioPath: "/audio/stage1/AArmorWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/AArmorMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnAArmor.wav",
+    useAudioPath: "/audio/stage1/UseAArmor.wav",
+    gainedAudioPath: "/audio/stage1/GainedAArmor.wav",
+    abilityName: "A Armor",
+    abilityIcon: "A",
+    ability: "A strong open sound that clears blocked trail gates.",
+    rewardTitle: "You gained A Armor",
+    rewardSubtitle: "Your /a/ sound can push open heavy valley gates.",
+    mouthHint: "Open your mouth wide like a bright morning yawn.",
+    steps: ["Listen", "Open wide", "Say /a/"],
+  },
+  E: {
+    vowel: "E",
+    sound: "/e/",
+    title: "E Training Door",
+    intro: "The E door twinkles with tiny lights. Milo needs your quick /e/ sound to reveal hidden marks.",
+    audioPath: "/audio/stage1/E.wav",
+    trainAudioPath: "/audio/stage1/TrainE.wav",
+    abilityIntroAudioPath: "/audio/stage1/EEchoWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/EEchoMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnEEcho.wav",
+    useAudioPath: "/audio/stage1/UseEEcho.wav",
+    gainedAudioPath: "/audio/stage1/GainedEEcho.wav",
+    abilityName: "E Echo",
+    abilityIcon: "E",
+    ability: "A bright echo that wakes small clue lights.",
+    rewardTitle: "You gained E Echo",
+    rewardSubtitle: "Your /e/ sound can light hidden marks on the road.",
+    mouthHint: "Make a small smile and keep the sound quick.",
+    steps: ["Listen", "Small smile", "Say /e/"],
+  },
+  I: {
+    vowel: "I",
+    sound: "/i/",
+    title: "I Training Door",
+    intro: "The I door shivers like a tiny bell. Milo needs your short /i/ sound to sharpen the path.",
+    audioPath: "/audio/stage1/I.wav",
+    trainAudioPath: "/audio/stage1/TrainI.wav",
+    abilityIntroAudioPath: "/audio/stage1/IInsightWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/IInsightMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnIInsight.wav",
+    useAudioPath: "/audio/stage1/UseIInsight.wav",
+    gainedAudioPath: "/audio/stage1/GainedIInsight.wav",
+    abilityName: "I Insight",
+    abilityIcon: "I",
+    ability: "A sharp sound that draws missing paths back onto the map.",
+    rewardTitle: "You gained I Insight",
+    rewardSubtitle: "Your /i/ sound can reveal tiny secret trail lines.",
+    mouthHint: "Keep the sound short and light.",
+    steps: ["Listen", "Short sound", "Say /i/"],
+  },
+  O: {
+    vowel: "O",
+    sound: "/o/",
+    title: "O Training Door",
+    intro: "The O door rolls like a round moon. Milo needs your round /o/ sound to open circle gates.",
+    audioPath: "/audio/stage1/O.wav",
+    trainAudioPath: "/audio/stage1/TrainO.wav",
+    abilityIntroAudioPath: "/audio/stage1/OOrbWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/OOrbMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnOOrb.wav",
+    useAudioPath: "/audio/stage1/UseOOrb.wav",
+    gainedAudioPath: "/audio/stage1/GainedOOrb.wav",
+    abilityName: "O Orb",
+    abilityIcon: "O",
+    ability: "A round sound that unlocks circle gates and rolling stones.",
+    rewardTitle: "You gained O Orb",
+    rewardSubtitle: "Your /o/ sound can open the valley's round gates.",
+    mouthHint: "Round your lips like a little circle.",
+    steps: ["Listen", "Round lips", "Say /o/"],
+  },
+  U: {
+    vowel: "U",
+    sound: "/u/",
+    title: "U Training Door",
+    intro: "The U door lifts with a whoosh. Milo needs your soft /u/ sound to raise bridges and shields.",
+    audioPath: "/audio/stage1/U.wav",
+    trainAudioPath: "/audio/stage1/TrainU.wav",
+    abilityIntroAudioPath: "/audio/stage1/UUpliftWaiting.wav",
+    mouthHintAudioPath: "/audio/stage1/UUpliftMouth.wav",
+    readyAudioPath: "/audio/stage1/LearnUUplift.wav",
+    useAudioPath: "/audio/stage1/UseUUplift.wav",
+    gainedAudioPath: "/audio/stage1/GainedUUplift.wav",
+    abilityName: "U Uplift",
+    abilityIcon: "U",
+    ability: "A lifting sound that raises bridges and shields rainy paths.",
+    rewardTitle: "You gained U Uplift",
+    rewardSubtitle: "Your /u/ sound can lift the valley road when it sinks.",
+    mouthHint: "Make a soft sound from your tummy.",
+    steps: ["Listen", "Soft voice", "Say /u/"],
+  },
+};
+
+const DEFAULT_POWER_CHALLENGE: VowelPowerChallenge = {
+  title: "Quiet Trail Stone",
+  obstacle: "A trail stone is waiting for a voice spark.",
+  action: "Say the vowel sound to make the stone glow.",
+  success: "The trail stone glowed and showed Milo the way forward.",
+  audioPath: "/audio/stage1/ChallengeQuietTrailStone.wav",
+  successAudioPath: "/audio/stage1/SuccessQuietTrailStone.wav",
+  steps: ["Listen", "Say", "Replay"],
+};
+
+const POWER_CHALLENGES: Record<VowelKey, VowelPowerChallenge[]> = {
+  A: [
+    { title: "Heavy Gate", obstacle: "A sleepy gate blocks the trail.", action: "Use A Armor. Say /a/ with an open mouth.", success: "A Armor pushed the heavy gate open. Milo steps through the first bright doorway.", audioPath: "/audio/stage1/ChallengeAHeavyGate.wav", successAudioPath: "/audio/stage1/SuccessAHeavyGate.wav", steps: ["Open", "Say /a/", "Push"] },
+    { title: "Branch Wall", obstacle: "A branch wall leans across the road.", action: "Use A Armor to make a strong sound wave.", success: "The /a/ sound wave cleared the branches. The meadow trail is open again.", audioPath: "/audio/stage1/ChallengeABranchWall.wav", successAudioPath: "/audio/stage1/SuccessABranchWall.wav", steps: ["Breathe", "Say /a/", "Clear"] },
+    { title: "Stone Step", obstacle: "A stone step needs a strong voice to rise.", action: "Say /a/ and send the sound under the stone.", success: "The stone rose into a safe step. Milo climbs higher on the valley path.", audioPath: "/audio/stage1/ChallengeAStoneStep.wav", successAudioPath: "/audio/stage1/SuccessAStoneStep.wav", steps: ["Aim", "Say /a/", "Rise"] },
+  ],
+  E: [
+    { title: "Hidden Marks", obstacle: "Tiny trail marks are hiding in the grass.", action: "Use E Echo. Say /e/ quickly and clearly.", success: "E Echo lit the hidden marks. Milo can follow the secret trail.", audioPath: "/audio/stage1/ChallengeEHiddenMarks.wav", successAudioPath: "/audio/stage1/SuccessEHiddenMarks.wav", steps: ["Smile", "Say /e/", "Reveal"] },
+    { title: "Blinking Sign", obstacle: "A small sign blinks but cannot shine.", action: "Send your /e/ sound to wake the sign.", success: "The sign blinked bright and pointed ahead. Milo knows where to go next.", audioPath: "/audio/stage1/ChallengeEBlinkingSign.wav", successAudioPath: "/audio/stage1/SuccessEBlinkingSign.wav", steps: ["Listen", "Say /e/", "Shine"] },
+    { title: "Little Light Path", obstacle: "The path needs tiny lights to appear.", action: "Say /e/ to spark each little light.", success: "Little lights popped awake one by one. Milo walks the glowing path.", audioPath: "/audio/stage1/ChallengeELittleLightPath.wav", successAudioPath: "/audio/stage1/SuccessELittleLightPath.wav", steps: ["Tap", "Say /e/", "Follow"] },
+  ],
+  I: [
+    { title: "Missing Map Line", obstacle: "The map lost the next trail line.", action: "Use I Insight. Say a short /i/ sound.", success: "I Insight drew the missing line. Milo can see the trail again.", audioPath: "/audio/stage1/ChallengeIMissingMapLine.wav", successAudioPath: "/audio/stage1/SuccessIMissingMapLine.wav", steps: ["Focus", "Say /i/", "Trace"] },
+    { title: "Tiny Clue", obstacle: "A clue is too small for Milo to see.", action: "Say /i/ to sharpen the clue.", success: "The tiny clue grew clear. Milo found the mark he needed.", audioPath: "/audio/stage1/ChallengeITinyClue.wav", successAudioPath: "/audio/stage1/SuccessITinyClue.wav", steps: ["Look", "Say /i/", "Spot"] },
+    { title: "Needle Bridge", obstacle: "A narrow bridge needs careful steps.", action: "Say /i/ and help Milo focus.", success: "I Insight steadied the bridge. Milo crossed with careful little steps.", audioPath: "/audio/stage1/ChallengeINeedleBridge.wav", successAudioPath: "/audio/stage1/SuccessINeedleBridge.wav", steps: ["Steady", "Say /i/", "Cross"] },
+  ],
+  O: [
+    { title: "Round Gate", obstacle: "A round gate is sealed shut.", action: "Use O Orb. Round your lips and say /o/.", success: "O Orb rolled the round gate open. Milo follows the circle road ahead.", audioPath: "/audio/stage1/ChallengeORoundGate.wav", successAudioPath: "/audio/stage1/SuccessORoundGate.wav", steps: ["Round", "Say /o/", "Open"] },
+    { title: "Rolling Stone", obstacle: "A round stone waits on the road.", action: "Say /o/ to roll it aside.", success: "The round stone rolled away. Milo found a smooth path underneath.", audioPath: "/audio/stage1/ChallengeORollingStone.wav", successAudioPath: "/audio/stage1/SuccessORollingStone.wav", steps: ["Circle", "Say /o/", "Roll"] },
+    { title: "Moon Door", obstacle: "A moon door only hears round sounds.", action: "Say /o/ with your lips like a circle.", success: "The moon door opened softly. Silver light spills across Milo's trail.", audioPath: "/audio/stage1/ChallengeOMoonDoor.wav", successAudioPath: "/audio/stage1/SuccessOMoonDoor.wav", steps: ["Shape", "Say /o/", "Glow"] },
+  ],
+  U: [
+    { title: "Low Bridge", obstacle: "A little bridge sank into the stream.", action: "Use U Uplift. Say /u/ to raise it.", success: "U Uplift raised the bridge. Milo crosses above the sparkling water.", audioPath: "/audio/stage1/ChallengeULowBridge.wav", successAudioPath: "/audio/stage1/SuccessULowBridge.wav", steps: ["Soft", "Say /u/", "Lift"] },
+    { title: "Rainy Shield", obstacle: "Rain covers the valley road.", action: "Say /u/ to lift a shield over Milo.", success: "The shield rose and caught the rain. Milo walks forward warm and dry.", audioPath: "/audio/stage1/ChallengeURainyShield.wav", successAudioPath: "/audio/stage1/SuccessURainyShield.wav", steps: ["Breathe", "Say /u/", "Shield"] },
+    { title: "Updraft Path", obstacle: "The next platform is too high.", action: "Say /u/ to call an updraft.", success: "A soft updraft lifted Milo safely. The high path is ready.", audioPath: "/audio/stage1/ChallengeUUpdraftPath.wav", successAudioPath: "/audio/stage1/SuccessUUpdraftPath.wav", steps: ["Ready", "Say /u/", "Rise"] },
+  ],
+};
+
+function readEarnedVowelPowers(): Partial<Record<VowelKey, boolean>> {
+  try {
+    return JSON.parse(localStorage.getItem(VOWEL_POWER_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function writeEarnedVowelPower(vowel: VowelKey) {
+  const saved = readEarnedVowelPowers();
+  localStorage.setItem(VOWEL_POWER_STORAGE_KEY, JSON.stringify({ ...saved, [vowel]: true }));
+}
+
+function makeStageOneEncounter(levelId: number) {
+  const roadLevel = Math.max(1, levelId - STAGE_ONE_DOOR_COUNT);
+  const seed = (levelId * 7 + roadLevel * 11) % STAGE_ONE_VOWEL_ORDER.length;
+  const vowel = STAGE_ONE_VOWEL_ORDER[seed];
+  const power = VOWEL_POWER_KIT[vowel];
+  const challenges = POWER_CHALLENGES[vowel] ?? [DEFAULT_POWER_CHALLENGE];
+  const challenge = challenges[(roadLevel - 1) % challenges.length];
+  const prompt = `${challenge.obstacle} ${challenge.action}`;
+
+  return {
+    roadLevel,
+    vowel,
+    power,
+    challenge,
+    prompt,
+    title: `Trail Level ${roadLevel}`,
+  };
+}
+
+function makeDoorNarrationSteps(door: VowelDoorData): StageOneNarrationStep[] {
+  const trainingInstructions: Record<VowelKey, string> = {
+    A: "Open your mouth wide and say /a/.",
+    E: "Make a small smile and say /e/.",
+    I: "Keep it short and light. Say /i/.",
+    O: "Round your lips and say /o/.",
+    U: "Use a soft voice and say /u/.",
+  };
+  return [
+    {
+      message: `Let us train the ${door.vowel} sound. ${trainingInstructions[door.vowel]}`,
+      revealCount: 0,
+      audioPath: door.trainAudioPath,
+    },
+    {
+      message: `${door.abilityName} is waiting behind this door. ${door.ability}`,
+      revealCount: 1,
+      audioPath: door.abilityIntroAudioPath,
+    },
+    {
+      message: `${door.mouthHint} When you record it, Milo will play your voice back so you can hear your sound.`,
+      revealCount: 1,
+      audioPath: door.mouthHintAudioPath,
+    },
+  ];
+}
+
 const ALL_CHALLENGES: Record<number, Record<number, Challenge>> = {
   1: {
-    // Apple = 2 syllables (1200ms), Egg = 1 (600ms), Igloo = 2 (1200ms),
-    // Octopus = 3 (1800ms), Umbrella = 3 (1800ms)
-    1: { id: 1, word: "Apple", phoneme: "A", audioPath: "/audio/stage1/Apple.wav", acceptedTranscripts: ["apple", "a", "ah"], storyContext: "Say 'Apple' to open the door!", expectedDurationMs: 1200 },
-    2: { id: 2, word: "Egg", phoneme: "E", audioPath: "/audio/stage1/Egg.wav", acceptedTranscripts: ["egg", "e", "eh"], storyContext: "Say 'Egg' to help the bird hatch!", expectedDurationMs: 600 },
-    3: { id: 3, word: "Igloo", phoneme: "I", audioPath: "/audio/stage1/Igloo.wav", acceptedTranscripts: ["igloo", "i", "ee"], storyContext: "Say 'Igloo' to unlock the chest!", expectedDurationMs: 1200 },
-    4: { id: 4, word: "Octopus", phoneme: "O", audioPath: "/audio/stage1/Octopus.wav", acceptedTranscripts: ["octopus", "o", "oh"], storyContext: "Say 'Octopus' to wake up the octopus!", expectedDurationMs: 1800 },
-    5: { id: 5, word: "Umbrella", phoneme: "U", audioPath: "/audio/stage1/Umbrella.wav", acceptedTranscripts: ["umbrella", "u", "uh"], storyContext: "Say 'Umbrella' to move the boulder!", expectedDurationMs: 1800 },
+    1: { id: 1, word: "A", phoneme: "A", audioPath: "/audio/stage1/A.wav", acceptedTranscripts: ["a", "ah"], storyContext: "Say the vowel sound /a/ to open the door.", expectedDurationMs: 700 },
+    2: { id: 2, word: "E", phoneme: "E", audioPath: "/audio/stage1/E.wav", acceptedTranscripts: ["e", "eh"], storyContext: "Say the vowel sound /e/ to open the door.", expectedDurationMs: 700 },
+    3: { id: 3, word: "I", phoneme: "I", audioPath: "/audio/stage1/I.wav", acceptedTranscripts: ["i", "ih"], storyContext: "Say the vowel sound /i/ to open the door.", expectedDurationMs: 700 },
+    4: { id: 4, word: "O", phoneme: "O", audioPath: "/audio/stage1/O.wav", acceptedTranscripts: ["o", "oh"], storyContext: "Say the vowel sound /o/ to open the door.", expectedDurationMs: 700 },
+    5: { id: 5, word: "U", phoneme: "U", audioPath: "/audio/stage1/U.wav", acceptedTranscripts: ["u", "uh"], storyContext: "Say the vowel sound /u/ to open the door.", expectedDurationMs: 700 },
   },
   2: { // Chapter 2: Blending Bridges — all CV blends are 1 syllable (600ms)
     1: {
@@ -208,106 +482,306 @@ const ALL_CHALLENGES: Record<number, Record<number, Challenge>> = {
   },
 };
 
-const VOWEL_WORD_SETS: Array<{
-  phoneme: string;
-  audioWord: string;
-  audioPath: string;
-  words: { word: string; audioPath: string }[];
-}> = [
+const VOWEL_GATE_CHALLENGES: Challenge[] = [
   {
+    id: 1,
+    word: "A",
     phoneme: "A",
-    audioWord: "Apple",
-    audioPath: "/audio/stage1/Apple.wav",
-    words: [
-      { word: "Apple", audioPath: "/audio/stage1/Apple.wav" },
-      { word: "Ant", audioPath: "/audio/stage1/Ant.wav" },
-      { word: "Axe", audioPath: "/audio/stage1/Axe.wav" },
-      { word: "Alligator", audioPath: "/audio/stage1/Alligator.wav" },
-      { word: "Astronaut", audioPath: "/audio/stage1/Astronaut.wav" },
-      { word: "Anchor", audioPath: "/audio/stage1/Anchor.wav" },
-      { word: "Arrow", audioPath: "/audio/stage1/Arrow.wav" },
-      { word: "Acorn", audioPath: "/audio/stage1/Acorn.wav" },
-      { word: "Apron", audioPath: "/audio/stage1/Apron.wav" },
-      { word: "Album", audioPath: "/audio/stage1/Album.wav" },
+    vowel: "A",
+    audioPath: "/audio/stage1/A.wav",
+    acceptedTranscripts: ["a", "ah", "apple"],
+    storyContext: "Listen to the vowel sound. Say /a/ to light the A door. Apple is only the picture clue.",
+    expectedDurationMs: 700,
+    levelType: "sound-gem",
+    targetSound: "/a/",
+    anchorWord: "Apple",
+    skillLabel: "Vowel Door",
+    reward: "A Door",
+    promptVariants: [
+      "Listen to the A sound. Then say /a/.",
+      "This door opens with the vowel sound /a/.",
+      "Say the sound, not the word: /a/.",
     ],
   },
   {
+    id: 2,
+    word: "E",
     phoneme: "E",
-    audioWord: "Egg",
-    audioPath: "/audio/stage1/Egg.wav",
-    words: [
-      { word: "Egg", audioPath: "/audio/stage1/Egg.wav" },
-      { word: "Elephant", audioPath: "/audio/stage1/Elephant.wav" },
-      { word: "Elbow", audioPath: "/audio/stage1/Elbow.wav" },
-      { word: "Engine", audioPath: "/audio/stage1/Engine.wav" },
-      { word: "Envelope", audioPath: "/audio/stage1/Envelope.wav" },
-      { word: "Exit", audioPath: "/audio/stage1/Exit.wav" },
-      { word: "Echo", audioPath: "/audio/stage1/Echo.wav" },
-      { word: "Emerald", audioPath: "/audio/stage1/Emerald.wav" },
-      { word: "Eskimo", audioPath: "/audio/stage1/Eskimo.wav" },
-      { word: "Exercise", audioPath: "/audio/stage1/Exercise.wav" },
+    vowel: "E",
+    audioPath: "/audio/stage1/E.wav",
+    acceptedTranscripts: ["e", "eh", "egg"],
+    storyContext: "Listen to the vowel sound. Say /e/ to light the E door. Egg is only the picture clue.",
+    expectedDurationMs: 700,
+    levelType: "sound-gem",
+    targetSound: "/e/",
+    anchorWord: "Egg",
+    skillLabel: "Vowel Door",
+    reward: "E Door",
+    promptVariants: [
+      "Listen to the E sound. Then say /e/.",
+      "This door opens with the vowel sound /e/.",
+      "Say the sound, not the word: /e/.",
     ],
   },
   {
+    id: 3,
+    word: "I",
     phoneme: "I",
-    audioWord: "Igloo",
-    audioPath: "/audio/stage1/Igloo.wav",
-    words: [
-      { word: "Igloo", audioPath: "/audio/stage1/Igloo.wav" },
-      { word: "Insect", audioPath: "/audio/stage1/Insect.wav" },
-      { word: "Ink", audioPath: "/audio/stage1/Ink.wav" },
-      { word: "Island", audioPath: "/audio/stage1/Island.wav" },
-      { word: "Invitation", audioPath: "/audio/stage1/Invitation.wav" },
-      { word: "Iguana", audioPath: "/audio/stage1/Iguana.wav" },
-      { word: "Idea", audioPath: "/audio/stage1/Idea.wav" },
-      { word: "Ice", audioPath: "/audio/stage1/Ice.wav" },
-      { word: "Iron", audioPath: "/audio/stage1/Iron.wav" },
-      { word: "Inside", audioPath: "/audio/stage1/Inside.wav" },
+    vowel: "I",
+    audioPath: "/audio/stage1/I.wav",
+    acceptedTranscripts: ["i", "ih", "igloo"],
+    storyContext: "Listen to the vowel sound. Say /i/ to light the I door. Igloo is only the picture clue.",
+    expectedDurationMs: 700,
+    levelType: "sound-gem",
+    targetSound: "/i/",
+    anchorWord: "Igloo",
+    skillLabel: "Vowel Door",
+    reward: "I Door",
+    promptVariants: [
+      "Listen to the I sound. Then say /i/.",
+      "This door opens with the vowel sound /i/.",
+      "Say the sound, not the word: /i/.",
     ],
   },
   {
+    id: 4,
+    word: "O",
     phoneme: "O",
-    audioWord: "Octopus",
-    audioPath: "/audio/stage1/Octopus.wav",
-    words: [
-      { word: "Octopus", audioPath: "/audio/stage1/Octopus.wav" },
-      { word: "Orange", audioPath: "/audio/stage1/Orange.wav" },
-      { word: "Ostrich", audioPath: "/audio/stage1/Ostrich.wav" },
-      { word: "Oblong", audioPath: "/audio/stage1/Oblong.wav" },
-      { word: "Owl", audioPath: "/audio/stage1/Owl.wav" },
-      { word: "Ocean", audioPath: "/audio/stage1/Ocean.wav" },
-      { word: "Olive", audioPath: "/audio/stage1/Olive.wav" },
-      { word: "Oven", audioPath: "/audio/stage1/Oven.wav" },
-      { word: "Office", audioPath: "/audio/stage1/Office.wav" },
-      { word: "Orbit", audioPath: "/audio/stage1/Orbit.wav" },
+    vowel: "O",
+    audioPath: "/audio/stage1/O.wav",
+    acceptedTranscripts: ["o", "oh", "octopus"],
+    storyContext: "Listen to the vowel sound. Say /o/ to light the O door. Octopus is only the picture clue.",
+    expectedDurationMs: 700,
+    levelType: "sound-gem",
+    targetSound: "/o/",
+    anchorWord: "Octopus",
+    skillLabel: "Vowel Door",
+    reward: "O Door",
+    promptVariants: [
+      "Listen to the O sound. Then say /o/.",
+      "This door opens with the vowel sound /o/.",
+      "Say the sound, not the word: /o/.",
     ],
   },
   {
+    id: 5,
+    word: "U",
     phoneme: "U",
-    audioWord: "Umbrella",
-    audioPath: "/audio/stage1/Umbrella.wav",
-    words: [
-      { word: "Umbrella", audioPath: "/audio/stage1/Umbrella.wav" },
-      { word: "Unicorn", audioPath: "/audio/stage1/Unicorn.wav" },
-      { word: "Up", audioPath: "/audio/stage1/Up.wav" },
-      { word: "Under", audioPath: "/audio/stage1/Under.wav" },
-      { word: "Uniform", audioPath: "/audio/stage1/Uniform.wav" },
-      { word: "Ukulele", audioPath: "/audio/stage1/Ukulele.wav" },
-      { word: "Uncle", audioPath: "/audio/stage1/Uncle.wav" },
-      { word: "Utensil", audioPath: "/audio/stage1/Utensil.wav" },
-      { word: "Unit", audioPath: "/audio/stage1/Unit.wav" },
-      { word: "Us", audioPath: "/audio/stage1/Us.wav" },
+    vowel: "U",
+    audioPath: "/audio/stage1/U.wav",
+    acceptedTranscripts: ["u", "uh", "umbrella"],
+    storyContext: "Listen to the vowel sound. Say /u/ to light the U door. Umbrella is only the picture clue.",
+    expectedDurationMs: 700,
+    levelType: "sound-gem",
+    targetSound: "/u/",
+    anchorWord: "Umbrella",
+    skillLabel: "Vowel Door",
+    reward: "U Door",
+    promptVariants: [
+      "Listen to the U sound. Then say /u/.",
+      "This door opens with the vowel sound /u/.",
+      "Say the sound, not the word: /u/.",
     ],
   },
 ];
 
-const VOWEL_GATE_CHALLENGES: Challenge[] = [
-  { id: 1, word: "Apple", phoneme: "A", audioPath: "/audio/stage1/Apple.wav", acceptedTranscripts: ["apple", "a", "ah"], storyContext: "Say 'Apple' to light the A door!", expectedDurationMs: 1200 },
-  { id: 2, word: "Egg", phoneme: "E", audioPath: "/audio/stage1/Egg.wav", acceptedTranscripts: ["egg", "e", "eh"], storyContext: "Say 'Egg' to light the E door!", expectedDurationMs: 600 },
-  { id: 3, word: "Igloo", phoneme: "I", audioPath: "/audio/stage1/Igloo.wav", acceptedTranscripts: ["igloo", "i", "ee"], storyContext: "Say 'Igloo' to light the I door!", expectedDurationMs: 1200 },
-  { id: 4, word: "Octopus", phoneme: "O", audioPath: "/audio/stage1/Octopus.wav", acceptedTranscripts: ["octopus", "o", "oh"], storyContext: "Say 'Octopus' to light the O door!", expectedDurationMs: 1800 },
-  { id: 5, word: "Umbrella", phoneme: "U", audioPath: "/audio/stage1/Umbrella.wav", acceptedTranscripts: ["umbrella", "u", "uh"], storyContext: "Say 'Umbrella' to unlock the Valley of Vowels!", expectedDurationMs: 1800 },
+const STAGE_ONE_VOWELS = [
+  {
+    vowel: "A",
+    sound: "/a/",
+    anchor: "Apple",
+    audioPath: "/audio/stage1/A.wav",
+    accepted: ["a", "ah", "apple"],
+    mouthHint: "Open your mouth wide like a big smile.",
+    blend: { word: "MA", consonant: "M", accepted: ["ma", "mah", "m a"] },
+    missing: { frame: "c _ t", answer: "cat", accepted: ["a", "ah", "cat"] },
+    accent: "amber",
+  },
+  {
+    vowel: "E",
+    sound: "/e/",
+    anchor: "Egg",
+    audioPath: "/audio/stage1/E.wav",
+    accepted: ["e", "eh", "egg"],
+    mouthHint: "Make a small smile and say a quick sound.",
+    blend: { word: "ME", consonant: "M", accepted: ["me", "meh", "m e"] },
+    missing: { frame: "p _ n", answer: "pen", accepted: ["e", "eh", "pen"] },
+    accent: "pink",
+  },
+  {
+    vowel: "I",
+    sound: "/i/",
+    anchor: "Igloo",
+    audioPath: "/audio/stage1/I.wav",
+    accepted: ["i", "ih", "igloo"],
+    mouthHint: "Keep the sound short and light.",
+    blend: { word: "SI", consonant: "S", accepted: ["si", "see", "s i"] },
+    missing: { frame: "p _ n", answer: "pin", accepted: ["i", "ih", "pin"] },
+    accent: "cyan",
+  },
+  {
+    vowel: "O",
+    sound: "/o/",
+    anchor: "Octopus",
+    audioPath: "/audio/stage1/O.wav",
+    accepted: ["o", "oh", "octopus"],
+    mouthHint: "Round your lips like a small circle.",
+    blend: { word: "TO", consonant: "T", accepted: ["to", "toe", "t o"] },
+    missing: { frame: "d _ g", answer: "dog", accepted: ["o", "oh", "dog"] },
+    accent: "violet",
+  },
+  {
+    vowel: "U",
+    sound: "/u/",
+    anchor: "Umbrella",
+    audioPath: "/audio/stage1/U.wav",
+    accepted: ["u", "uh", "umbrella"],
+    mouthHint: "Make a soft sound from your tummy.",
+    blend: { word: "LU", consonant: "L", accepted: ["lu", "loo", "l u"] },
+    missing: { frame: "s _ n", answer: "sun", accepted: ["u", "uh", "sun"] },
+    accent: "green",
+  },
+] as const;
+
+const STAGE_ONE_ACTIVITY_PLAN: StageOneLevelType[] = [
+  "sound-gem",
+  "mouth-shape",
+  "letter-match",
+  "anchor-echo",
+  "blend-bridge",
+  "missing-vowel",
 ];
+
+function makeStageOneQuest(levelId: number): Challenge {
+  const valleyLevel = Math.max(1, Math.min(levelId - VOWEL_GATE_CHALLENGES.length, 35));
+  const isReview = valleyLevel > 30;
+  const vowelIndex = isReview
+    ? valleyLevel - 31
+    : Math.floor((valleyLevel - 1) / STAGE_ONE_ACTIVITY_PLAN.length);
+  const vowelData = STAGE_ONE_VOWELS[Math.max(0, Math.min(vowelIndex, STAGE_ONE_VOWELS.length - 1))];
+  const levelType = isReview
+    ? "mixed-review"
+    : STAGE_ONE_ACTIVITY_PLAN[(valleyLevel - 1) % STAGE_ONE_ACTIVITY_PLAN.length];
+
+  const base: Challenge = {
+    id: levelId,
+    word: vowelData.vowel,
+    phoneme: vowelData.vowel,
+    vowel: vowelData.vowel,
+    audioPath: vowelData.audioPath,
+    acceptedTranscripts: [...vowelData.accepted],
+    storyContext: `Earn the ${vowelData.vowel} Sound Charm for later reading adventures.`,
+    expectedDurationMs: 700,
+    levelType,
+    targetSound: vowelData.sound,
+    anchorWord: vowelData.anchor,
+    correctChoice: vowelData.vowel,
+    choices: VOWEL_CHOICES,
+    mouthHint: vowelData.mouthHint,
+  };
+
+  switch (levelType) {
+    case "sound-gem":
+      return {
+        ...base,
+        word: `${vowelData.vowel} Sound`,
+        skillLabel: "Sound Gem",
+        reward: `${vowelData.vowel} Gem`,
+        promptVariants: [
+          `Say the ${vowelData.vowel} sound to wake the gem.`,
+          `Give Milo a clear ${vowelData.sound} sound.`,
+          `Hold the ${vowelData.vowel} sound just long enough to glow.`,
+        ],
+        visualHint: "sound waves",
+      };
+    case "mouth-shape":
+      return {
+        ...base,
+        word: `${vowelData.vowel} Mouth`,
+        skillLabel: "Mouth Mirror",
+        reward: "Voice Spark",
+        promptVariants: [
+          vowelData.mouthHint,
+          `Copy Milo's mouth and say ${vowelData.sound}.`,
+          `Try the ${vowelData.vowel} mouth shape, then speak.`,
+        ],
+        visualHint: "mouth mirror",
+      };
+    case "letter-match":
+      return {
+        ...base,
+        word: `${vowelData.vowel} Letter`,
+        skillLabel: "Letter Tile",
+        reward: `${vowelData.vowel} Tile`,
+        promptVariants: [
+          `Pick the letter that makes ${vowelData.sound}, then say it.`,
+          `Find ${vowelData.vowel} among the vowel stones.`,
+          `Tap the right vowel tile before you speak.`,
+        ],
+        visualHint: "letter match",
+      };
+    case "anchor-echo":
+      return {
+        ...base,
+        word: vowelData.anchor,
+        skillLabel: "Anchor Echo",
+        reward: `${vowelData.anchor} Badge`,
+        promptVariants: [
+          `Say ${vowelData.sound}, then ${vowelData.anchor}.`,
+          `Echo Milo: ${vowelData.vowel} as in ${vowelData.anchor}.`,
+          `Use the sound in ${vowelData.anchor}.`,
+        ],
+        expectedDurationMs: vowelData.anchor.length > 5 ? 1200 : 700,
+        visualHint: "anchor picture",
+      };
+    case "blend-bridge":
+      return {
+        ...base,
+        word: vowelData.blend.word,
+        consonant: vowelData.blend.consonant,
+        acceptedTranscripts: [...vowelData.blend.accepted, ...vowelData.accepted],
+        skillLabel: "Blend Bridge",
+        reward: "Bridge Piece",
+        promptVariants: [
+          `Blend ${vowelData.blend.consonant} and ${vowelData.vowel}: ${vowelData.blend.word}.`,
+          `Tap the tiles in your mind, then say ${vowelData.blend.word}.`,
+          `Slide the sounds together: ${vowelData.blend.consonant} plus ${vowelData.vowel}.`,
+        ],
+        expectedDurationMs: 600,
+        visualHint: "blend tiles",
+      };
+    case "missing-vowel":
+      return {
+        ...base,
+        word: vowelData.missing.answer.toUpperCase(),
+        frame: vowelData.missing.frame,
+        acceptedTranscripts: [...vowelData.missing.accepted, ...vowelData.accepted],
+        skillLabel: "Missing Vowel",
+        reward: "Word Key",
+        promptVariants: [
+          `Choose the missing vowel in ${vowelData.missing.frame}, then say the sound.`,
+          `The word key needs ${vowelData.vowel}. Fill the blank.`,
+          `Tap ${vowelData.vowel} to repair the word bridge.`,
+        ],
+        expectedDurationMs: 700,
+        visualHint: "missing vowel",
+      };
+    case "mixed-review":
+    default:
+      return {
+        ...base,
+        word: `${vowelData.vowel} Review`,
+        skillLabel: "Mixed Review",
+        reward: "Review Star",
+        promptVariants: [
+          `Listen for ${vowelData.sound}. Pick ${vowelData.vowel}, then say it.`,
+          `Quick challenge: find and say ${vowelData.vowel}.`,
+          `Show Milo you remember the ${vowelData.vowel} sound.`,
+        ],
+        visualHint: "review spinner",
+      };
+  }
+}
 
 function getChallenge(stageId: number, levelId: number): Challenge {
   if (stageId === 1) {
@@ -315,23 +789,7 @@ function getChallenge(stageId: number, levelId: number): Challenge {
       return VOWEL_GATE_CHALLENGES[levelId - 1];
     }
 
-    const valleyLevel = Math.max(1, Math.min(levelId - VOWEL_GATE_CHALLENGES.length, 50));
-    const group = VOWEL_WORD_SETS[Math.floor((valleyLevel - 1) / 10)];
-    const wordData = group.words[(valleyLevel - 1) % 10]; // Now properly extracted as an object
-
-    return {
-      id: levelId,
-      word: wordData.word,
-      phoneme: group.phoneme,
-      audioPath: wordData.audioPath, // Uses the exact audio path for this specific word
-      acceptedTranscripts: [
-        wordData.word.toLowerCase(),
-        group.phoneme.toLowerCase(),
-        group.audioWord.toLowerCase(),
-      ],
-      storyContext: `Say '${wordData.word}' to restore the ${group.phoneme} part of the valley!`,
-      expectedDurationMs: 600,
-    };
+    return makeStageOneQuest(levelId);
   }
 
   return ALL_CHALLENGES[stageId]?.[levelId] ?? ALL_CHALLENGES[2][1];
@@ -339,16 +797,40 @@ function getChallenge(stageId: number, levelId: number): Challenge {
 
 export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelProps) {
   const { accent, tint } = STAGE_ACCENTS[stageId] ?? STAGE_ACCENTS[1];
-  const { playAudio, stopAudio, stopAllAudio } = useAudioManager();
+  const { playAudio, stopAudio, stopAllAudio, speakText } = useAudioManager();
 
   const [characterState, setCharacterState] = useState<CharacterState>("idle");
   const [bubbleMessage, setBubbleMessage] = useState<string>("Hi! Let's read together!");
   const [earnedTier, setEarnedTier] = useState<FluencyTier | null>(null);
   const [lastTranscript, setLastTranscript] = useState<string | null>(null);
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+  const [randomSeed, setRandomSeed] = useState(() => Math.random());
+  const [, setEarnedVowelPowers] = useState<Partial<Record<VowelKey, boolean>>>(() => readEarnedVowelPowers());
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [hasRecording, setHasRecording] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [stageOneIntroRevealed, setStageOneIntroRevealed] = useState(false);
+  const [, setStageOneVisibleChoiceCount] = useState(0);
+  const [stageOneRewardRevealed, setStageOneRewardRevealed] = useState(false);
+  const [stageOneAutoCompleting, setStageOneAutoCompleting] = useState(false);
 
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   const listenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<BlobPart[]>([]);
+  const learnerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const recordingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageOneCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageOneReplayCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageOneRecordingPlaybackFinishedRef = useRef(false);
+  const stageOneActiveRef = useRef(true);
+  const stageOneFinishingRef = useRef(false);
+  const stageOneCompletedRef = useRef(false);
+  const stageOneRecordingPendingRef = useRef(false);
+  const [preparingRecording, setPreparingRecording] = useState(false);
+  const recordingLeadInRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const attemptNumber = useRef(0);
   const attemptStartTime = useRef<number>(0);
@@ -362,28 +844,106 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   const challenge = getChallenge(stageId, levelId);
   const isBlendingMode = stageId === 2;
   const isCvcMode = stageId === 3;
+  const isStageOneQuest = stageId === 1;
+  const stageOneDoorVowel = isStageOneQuest && levelId <= STAGE_ONE_DOOR_COUNT
+    ? STAGE_ONE_VOWEL_ORDER[levelId - 1]
+    : null;
+  const stageOneDoor = stageOneDoorVowel ? VOWEL_POWER_KIT[stageOneDoorVowel] : null;
+  const stageOneEncounter = isStageOneQuest && !stageOneDoor ? makeStageOneEncounter(levelId) : null;
+  const activeVowel = stageOneDoor?.vowel ?? stageOneEncounter?.vowel ?? "A";
+  const activePower = stageOneDoor ?? stageOneEncounter?.power ?? VOWEL_POWER_KIT.A;
+  const activePowerChallenge = stageOneEncounter?.challenge ?? DEFAULT_POWER_CHALLENGE;
+  const stageOneNarrationSteps = useMemo<StageOneNarrationStep[]>(() => {
+    if (stageOneDoor) return makeDoorNarrationSteps(stageOneDoor);
+    if (stageOneEncounter) {
+      return [
+        {
+          message: `${stageOneEncounter.challenge.obstacle} ${stageOneEncounter.challenge.action}`,
+          revealCount: 0,
+          audioPath: stageOneEncounter.challenge.audioPath,
+        },
+        {
+          message: `${stageOneEncounter.power.abilityName} is the right power for this trail. Milo needs your ${stageOneEncounter.power.sound} sound to wake it up.`,
+          revealCount: 0,
+          audioPath: `/audio/stage1/Trail${stageOneEncounter.vowel}Power.wav`,
+        },
+        {
+          message: `When the button appears, record your ${stageOneEncounter.power.sound} sound. Then listen back as Milo uses it on the trail.`,
+          revealCount: 0,
+          audioPath: `/audio/stage1/Trail${stageOneEncounter.vowel}Record.wav`,
+        },
+      ];
+    }
+    return [];
+  }, [stageOneDoor, stageOneEncounter]);
+  const needsChoice =
+    isStageOneQuest &&
+    ["letter-match", "missing-vowel", "mixed-review"].includes(challenge.levelType ?? "");
+  const shuffledChoices = useMemo(
+    () => shuffleItems(challenge.choices ?? VOWEL_CHOICES, randomSeed),
+    [challenge.choices, randomSeed]
+  );
+  const activePrompt = useMemo(() => {
+    const prompts = challenge.promptVariants ?? [challenge.storyContext];
+    const index = Math.floor(randomSeed * prompts.length) % prompts.length;
+    return prompts[index];
+  }, [challenge.promptVariants, challenge.storyContext, randomSeed]);
 
   useEffect(() => {
+    stageOneActiveRef.current = true;
     return () => {
+      stageOneActiveRef.current = false;
+      if (recordingLeadInRef.current) clearTimeout(recordingLeadInRef.current);
       stopAllAudio();
       stopListening();
+      try {
+        if (recordingStopTimerRef.current) {
+          clearTimeout(recordingStopTimerRef.current);
+        }
+        if (stageOneCompleteTimerRef.current) {
+          clearTimeout(stageOneCompleteTimerRef.current);
+        }
+        if (stageOneReplayCompleteTimerRef.current) {
+          clearTimeout(stageOneReplayCompleteTimerRef.current);
+        }
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+          mediaRecorderRef.current.onstop = null;
+          mediaRecorderRef.current.stop();
+        }
+      } catch {
+        // The browser may already have stopped the recorder during teardown.
+      }
+      if (learnerAudioRef.current) {
+        learnerAudioRef.current.pause();
+        learnerAudioRef.current.src = "";
+        learnerAudioRef.current = null;
+      }
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, [stopAllAudio]);
+
+  useEffect(() => () => {
+    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
+  }, [recordingUrl]);
 
   const speakPhoneme = useCallback(() => {
     stopAudio();
     setCharacterState("speaking");
-    setBubbleMessage(`Listen to Milo: "${challenge.word}"`);
+    setBubbleMessage(isStageOneQuest ? activePrompt : `Listen to Milo: "${challenge.word}"`);
 
     const sound = playAudio(challenge.audioPath);
 
     if (sound) {
       sound.onended = () => {
         setCharacterState("idle");
-        setBubbleMessage(`Your turn! Say: "${isBlendingMode ? challenge.targetWord : challenge.word}"!`);
+        setBubbleMessage(
+          isStageOneQuest
+            ? activePrompt
+            : `Your turn! Say: "${isBlendingMode ? challenge.targetWord : challenge.word}"!`
+        );
       };
     }
-  }, [challenge, isBlendingMode, playAudio, stopAudio]);
+  }, [activePrompt, challenge, isBlendingMode, isStageOneQuest, playAudio, stopAudio]);
 
   useEffect(() => {
     attemptNumber.current = 0;
@@ -391,22 +951,139 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     userRequestedModel.current = false;
     sessionId.current = crypto.randomUUID();
     setEarnedTier(null);
+    setLastTranscript(null);
+    setSelectedChoice(null);
+    setHasRecording(false);
+    setStageOneIntroRevealed(false);
+    setStageOneVisibleChoiceCount(0);
+    setStageOneRewardRevealed(false);
+    setStageOneAutoCompleting(false);
+    stageOneRecordingPlaybackFinishedRef.current = false;
+    setRecordingUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    setRandomSeed(Math.random());
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let cancelled = false;
+
+    const revealStageOneActivity = () => {
+      if (cancelled) return;
+      const readyMessage = stageOneDoor ? `Tap once to learn ${stageOneDoor.abilityName}.` : `Tap once to use ${activePower.abilityName}.`;
+      setCharacterState("idle");
+      setStageOneVisibleChoiceCount(stageOneDoor ? 1 : 0);
+      setCharacterState("speaking");
+      setBubbleMessage(`Milo is saying ${activePower.sound}. Listen, then use your power.`);
+      const modelAudio = playAudio(activePower.audioPath);
+      const playReadyPrompt = () => {
+        if (cancelled) return;
+        setCharacterState("speaking");
+        setBubbleMessage(readyMessage);
+        const readyAudio = stageOneDoor ? playAudio(stageOneDoor.readyAudioPath) : playAudio("/audio/stage1/TapToUsePower.wav");
+        const finishReadyPrompt = () => {
+          if (cancelled) return;
+          setStageOneIntroRevealed(true);
+          setCharacterState("idle");
+          setBubbleMessage(readyMessage);
+        };
+        if (readyAudio) {
+          readyAudio.onended = finishReadyPrompt;
+          readyAudio.onerror = () => {
+            const spoken = speakText(readyMessage, 0.84);
+            if (spoken) {
+              spoken.addEventListener("end", finishReadyPrompt, { once: true });
+              spoken.addEventListener("error", finishReadyPrompt, { once: true });
+            } else {
+              finishReadyPrompt();
+            }
+          };
+        } else {
+          const spoken = speakText(readyMessage, 0.84);
+          if (spoken) {
+            spoken.addEventListener("end", finishReadyPrompt, { once: true });
+            spoken.addEventListener("error", finishReadyPrompt, { once: true });
+          } else {
+            finishReadyPrompt();
+          }
+        }
+      };
+      if (modelAudio) {
+        modelAudio.onerror = playReadyPrompt;
+        modelAudio.onended = () => {
+          playReadyPrompt();
+        };
+      } else {
+        playReadyPrompt();
+      }
+    };
+
+    const playStageOneNarrationStep = (stepIndex: number) => {
+      if (cancelled) return;
+      const step = stageOneNarrationSteps[stepIndex];
+      if (!step) {
+        revealStageOneActivity();
+        return;
+      }
+
+      setCharacterState("speaking");
+      setStageOneVisibleChoiceCount(step.revealCount);
+      setBubbleMessage(step.message);
+
+      let advanced = false;
+      const advance = () => {
+        if (advanced || cancelled) return;
+        advanced = true;
+        if (stepIndex >= stageOneNarrationSteps.length - 1) {
+          revealStageOneActivity();
+          return;
+        }
+        playStageOneNarrationStep(stepIndex + 1);
+      };
+
+      const speakStep = () => {
+        if (cancelled) return;
+        const narration = speakText(step.message, 0.84);
+        if (narration) {
+          narration.addEventListener("end", advance, { once: true });
+          narration.addEventListener("error", advance, { once: true });
+        } else {
+          advance();
+        }
+      };
+
+      const narrationAudio = step.audioPath ? playAudio(step.audioPath) : null;
+      if (narrationAudio) {
+        narrationAudio.onended = advance;
+        narrationAudio.onerror = speakStep;
+      } else {
+        speakStep();
+      }
+
+    };
 
     const autoplayTimer = setTimeout(() => {
+      if (isStageOneQuest) {
+        playStageOneNarrationStep(0);
+        return;
+      }
+
       speakPhoneme();
-    }, 1000);
+    }, 700);
 
     return () => {
+      cancelled = true;
       clearTimeout(autoplayTimer);
+      timers.forEach(clearTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageId, levelId]);
+  }, [stageId, levelId, isStageOneQuest]);
 
   const handleSpeechResult = (outcome: Outcome) => {
     stopAudio();
     if (outcome === "success") {
       setCharacterState("celebrating");
-      setBubbleMessage(`Great! You said "${challenge.targetWord || challenge.word}"!`);
+      setBubbleMessage(`Great! You earned ${challenge.reward ?? "a sound star"}!`);
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
       const feedbackAudio = playAudio("/audio/common/GreatJob.wav");
       if (feedbackAudio) {
@@ -416,11 +1093,22 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
       }
     } else {
       setCharacterState("encouraging");
-      setBubbleMessage(outcome === "silent" ? "Oops! Let's try again." : "Not quite, try saying the word clearly.");
+      setBubbleMessage(outcome === "silent" ? "Oops! Let's try again." : "Good try. Listen, then say it one more time.");
       const retryAudio = playAudio(outcome === "silent" ? "/audio/common/TryAgain.wav" : "/audio/common/IncorrectWord.wav");
       if (retryAudio) {
         retryAudio.onended = () => setCharacterState("idle");
       }
+    }
+  };
+
+  const handleChoice = (choice: string) => {
+    setSelectedChoice(choice);
+    if (choice === challenge.correctChoice) {
+      setCharacterState("celebrating");
+      setBubbleMessage(`Yes! ${choice} is the sound tile. Now say it.`);
+    } else {
+      setCharacterState("encouraging");
+      setBubbleMessage(`Try another vowel tile. Listen for ${challenge.targetSound ?? challenge.phoneme}.`);
     }
   };
 
@@ -432,6 +1120,11 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
 
   const handleListen = () => {
     if (isListening) return;
+    if (needsChoice && selectedChoice !== challenge.correctChoice) {
+      setCharacterState("encouraging");
+      setBubbleMessage("Pick the matching vowel tile first.");
+      return;
+    }
     stopAudio();
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) { alert("Use Chrome!"); return; }
@@ -507,16 +1200,263 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     recognition.start();
   };
 
+  const playStageOneModel = () => {
+    if (isRecording || stageOneAutoCompleting) return;
+    stopAudio();
+    learnerAudioRef.current?.pause();
+    setCharacterState("speaking");
+    setBubbleMessage(`Listen to Milo's ${activePower.sound} sound.`);
+    const modelAudio = playAudio(activePower.audioPath);
+    if (modelAudio) {
+      modelAudio.onended = () => {
+        setCharacterState("idle");
+        setBubbleMessage(`Now try the ${activePower.sound} sound with your explorer voice.`);
+      };
+    }
+  };
+
+  const finishStageOneAutomatically = () => {
+    if (!stageOneActiveRef.current || stageOneFinishingRef.current) return;
+    if (!stageOneRecordingPlaybackFinishedRef.current) return;
+    stageOneFinishingRef.current = true;
+
+    if (stageOneDoor) {
+      writeEarnedVowelPower(stageOneDoor.vowel);
+      setEarnedVowelPowers(readEarnedVowelPowers());
+    }
+
+    setStageOneAutoCompleting(true);
+    setStageOneRewardRevealed(true);
+    setCharacterState("celebrating");
+    setBubbleMessage(stageOneDoor ? `${stageOneDoor.abilityName} is ready. Milo can use it in the valley.` : activePowerChallenge.success);
+    confetti({ particleCount: 90, spread: 70, origin: { y: 0.62 } });
+
+    const rewardAudio = playAudio(stageOneDoor ? stageOneDoor.gainedAudioPath : activePowerChallenge.successAudioPath);
+    const completeAfterReward = () => {
+      if (!stageOneActiveRef.current || stageOneCompletedRef.current) return;
+      stageOneCompletedRef.current = true;
+      if (stageOneCompleteTimerRef.current) {
+        clearTimeout(stageOneCompleteTimerRef.current);
+      }
+      stageOneCompleteTimerRef.current = null;
+      onComplete();
+    };
+    const speakMatchingSuccessFallback = () => {
+      if (!stageOneActiveRef.current || stageOneCompletedRef.current) return;
+      const fallbackText = stageOneDoor
+        ? `${stageOneDoor.abilityName} is ready. Milo can use it in the valley.`
+        : activePowerChallenge.success;
+      const spoken = speakText(fallbackText, 0.84);
+      if (spoken) {
+        spoken.addEventListener("end", () => {
+          completeAfterReward();
+        }, { once: true });
+        spoken.addEventListener("error", () => {
+          if (stageOneActiveRef.current) stageOneCompleteTimerRef.current = setTimeout(completeAfterReward, 1800);
+        }, { once: true });
+      } else {
+        stageOneCompleteTimerRef.current = setTimeout(completeAfterReward, 2600);
+      }
+    };
+
+    if (rewardAudio) {
+      rewardAudio.onended = completeAfterReward;
+      rewardAudio.onerror = speakMatchingSuccessFallback;
+    } else {
+      speakMatchingSuccessFallback();
+    }
+  };
+
+  const stopStageOneRecording = () => {
+    if (recordingStopTimerRef.current) {
+      clearTimeout(recordingStopTimerRef.current);
+      recordingStopTimerRef.current = null;
+    }
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+  };
+
+  const playStageOneRecordingUrl = (url: string, autoReplay = false) => {
+    if (!stageOneActiveRef.current) return;
+    stopAudio();
+    learnerAudioRef.current?.pause();
+    const audio = new Audio(url);
+    learnerAudioRef.current = audio;
+    setCharacterState("listening");
+    setBubbleMessage(autoReplay ? "Listen. This is your vowel sound coming back to you." : "Listen closely. That is your explorer voice on the trail.");
+    audio.onended = () => {
+      if (!stageOneActiveRef.current || learnerAudioRef.current !== audio) return;
+      stageOneRecordingPlaybackFinishedRef.current = true;
+      setCharacterState(autoReplay ? "celebrating" : "idle");
+      if (stageOneDoor) {
+        setStageOneRewardRevealed(true);
+        setBubbleMessage(`${stageOneDoor.rewardTitle}. Milo is using it now.`);
+      } else {
+        setStageOneRewardRevealed(true);
+        setBubbleMessage(activePowerChallenge.success);
+      }
+
+      if (autoReplay) {
+        if (stageOneReplayCompleteTimerRef.current) {
+          clearTimeout(stageOneReplayCompleteTimerRef.current);
+        }
+        stageOneReplayCompleteTimerRef.current = setTimeout(() => {
+          stageOneReplayCompleteTimerRef.current = null;
+          finishStageOneAutomatically();
+        }, 650);
+      }
+    };
+    audio.play().catch(() => {
+      if (!stageOneActiveRef.current) return;
+      setHasRecording(false);
+      setCharacterState("encouraging");
+      setBubbleMessage("I could not play that recording. Try recording again.");
+    });
+  };
+
+  const startStageOneRecording = async () => {
+    if (!stageOneIntroRevealed || preparingRecording || isRecording || hasRecording || stageOneAutoCompleting || stageOneRecordingPendingRef.current) {
+      return;
+    }
+
+    stageOneRecordingPendingRef.current = true;
+    setPreparingRecording(true);
+    try {
+      if (stageOneReplayCompleteTimerRef.current) {
+        clearTimeout(stageOneReplayCompleteTimerRef.current);
+        stageOneReplayCompleteTimerRef.current = null;
+      }
+      if (stageOneCompleteTimerRef.current) {
+        clearTimeout(stageOneCompleteTimerRef.current);
+        stageOneCompleteTimerRef.current = null;
+      }
+      stageOneRecordingPlaybackFinishedRef.current = false;
+      stopAudio();
+      if (learnerAudioRef.current) {
+        learnerAudioRef.current.pause();
+        learnerAudioRef.current.src = "";
+        learnerAudioRef.current = null;
+      }
+      setStageOneRewardRevealed(false);
+      setStageOneAutoCompleting(false);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!stageOneActiveRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const recorder = new MediaRecorder(stream);
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recordingChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (!stageOneActiveRef.current) return;
+        mediaStreamRef.current = null;
+        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const nextUrl = URL.createObjectURL(blob);
+        setRecordingUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return nextUrl;
+        });
+        setHasRecording(true);
+        setIsRecording(false);
+        setCharacterState("speaking");
+        setBubbleMessage("Great. Milo is playing your sound back now.");
+        const doneAudio = playAudio("/audio/stage1/RecordingDone.wav");
+        if (doneAudio) {
+          doneAudio.onended = () => {
+            if (!stageOneActiveRef.current) return;
+            const listenBackAudio = playAudio("/audio/stage1/NowListenBack.wav");
+            if (listenBackAudio) {
+              listenBackAudio.onended = () => playStageOneRecordingUrl(nextUrl, true);
+              listenBackAudio.onerror = () => playStageOneRecordingUrl(nextUrl, true);
+            } else {
+              playStageOneRecordingUrl(nextUrl, true);
+            }
+          };
+          doneAudio.onerror = () => playStageOneRecordingUrl(nextUrl, true);
+        } else {
+          playStageOneRecordingUrl(nextUrl, true);
+        }
+      };
+
+      setCharacterState("speaking");
+      setBubbleMessage("Listen first. Get your voice ready!");
+      let queued = false;
+      const startAfterPrompt = () => {
+        if (queued || !stageOneActiveRef.current) return;
+        queued = true;
+        setCharacterState("idle");
+        setBubbleMessage("Get ready...");
+        recordingLeadInRef.current = setTimeout(() => {
+          recordingLeadInRef.current = null;
+          if (!stageOneActiveRef.current) return;
+          try {
+            recorder.start();
+            setPreparingRecording(false);
+            setIsRecording(true);
+            setHasRecording(false);
+            setCharacterState("listening");
+            setBubbleMessage(`Your turn! Say ${activePower.sound}.`);
+            recordingStopTimerRef.current = setTimeout(() => {
+              stopStageOneRecording();
+              recordingStopTimerRef.current = null;
+            }, 3000);
+          } catch {
+            stream.getTracks().forEach((track) => track.stop());
+            setPreparingRecording(false);
+            setBubbleMessage("The microphone stopped. Tap to try again.");
+          }
+        }, 900);
+      };
+      const prompt = playAudio("/audio/stage1/RecordingStarts.wav");
+      if (prompt) {
+        prompt.onended = startAfterPrompt;
+        prompt.onerror = startAfterPrompt;
+        prompt.play().catch(startAfterPrompt);
+      } else startAfterPrompt();
+    } catch {
+      if (!stageOneActiveRef.current) return;
+      setIsRecording(false);
+      setPreparingRecording(false);
+      setCharacterState("encouraging");
+      setBubbleMessage("I could not open the microphone. Check browser microphone permission.");
+    } finally {
+      stageOneRecordingPendingRef.current = false;
+    }
+  };
+
+  if (isStageOneQuest) {
+    return <VowelChallengeView
+      vowel={activeVowel} sound={activePower.sound} ability={activePower.abilityName}
+      title={stageOneDoor ? "Train your vowel power" : activePowerChallenge.title}
+      message={bubbleMessage} characterState={characterState}
+      preparing={preparingRecording}
+      training={Boolean(stageOneDoor)} ready={stageOneIntroRevealed}
+      recording={isRecording} recorded={hasRecording} celebrating={stageOneRewardRevealed}
+      onBack={onBack} onReplay={playStageOneModel} onRecord={startStageOneRecording}
+    />;
+  }
+
   return (
-    <div className="size-full bg-[var(--paper)] overflow-hidden relative flex flex-col">
+    <div className="size-full bg-[#FAF7F2] overflow-hidden relative flex flex-col">
       <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-60 pointer-events-none" style={{ background: tint }} />
       <div className="relative z-10 flex-1 flex flex-col px-4 sm:px-6 py-4 sm:py-6 items-center justify-center gap-4">
-        <button onClick={onBack} className="absolute top-6 left-6 px-3 py-2 rounded-xl bg-card border text-sm hover:bg-gray-50 transition-colors">
+        <button onClick={onBack} className="absolute top-6 left-6 px-3 py-2 rounded-xl bg-white border text-sm hover:bg-gray-50 transition-colors">
           <ArrowLeft className="w-4 h-4 inline mr-1" /> Back
         </button>
         
-        <motion.div className="bg-card rounded-2xl px-6 sm:px-8 py-4 shadow-lg text-center max-w-md w-full">
-          <p className="text-lg sm:text-xl font-bold text-[var(--ink)]">{bubbleMessage}</p>
+        <motion.div className="bg-white rounded-2xl px-6 sm:px-8 py-4 shadow-lg text-center max-w-md w-full">
+          <p className="text-lg sm:text-xl font-bold text-[#1F2430]">{bubbleMessage}</p>
         </motion.div>
         
         <motion.div 
@@ -527,8 +1467,108 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
           <CharacterCompanion state={characterState} phoneme={challenge.phoneme || challenge.vowel || ""} size={260} />
         </motion.div>
 
-        <motion.div className="bg-card px-6 sm:px-12 py-4 sm:py-6 rounded-3xl border-4 text-center max-w-2xl w-full" style={{ borderColor: accent }}>
-          {isBlendingMode ? (
+        <motion.div className="bg-white px-6 sm:px-12 py-4 sm:py-6 rounded-3xl border-4 text-center max-w-2xl w-full" style={{ borderColor: accent }}>
+          {isStageOneQuest ? (
+            <div className="flex flex-col items-center">
+              <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+                <span className="rounded-full px-3 py-1 text-xs uppercase tracking-widest text-white" style={{ background: accent }}>
+                  {challenge.skillLabel}
+                </span>
+                <span className="rounded-full bg-[#FFF7ED] px-3 py-1 text-xs font-bold text-[#B45309]">
+                  {challenge.reward}
+                </span>
+              </div>
+
+              <h2 className="text-xs sm:text-sm uppercase tracking-widest text-gray-400 mb-3">
+                {activePrompt}
+              </h2>
+
+              {challenge.levelType === "blend-bridge" ? (
+                <div className="flex items-center gap-2 sm:gap-4 font-bold justify-center flex-wrap" style={{ color: accent }}>
+                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F8FAFC] text-4xl sm:text-5xl border border-[#1F243014]">
+                    {challenge.consonant}
+                  </span>
+                  <span className="text-2xl sm:text-3xl text-gray-300">+</span>
+                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFF7ED] text-4xl sm:text-5xl border border-[#F59E0B]/30">
+                    {challenge.vowel}
+                  </span>
+                  <span className="text-2xl sm:text-3xl text-gray-300">=</span>
+                  <span className="text-4xl sm:text-6xl uppercase">{challenge.word}</span>
+                </div>
+              ) : challenge.levelType === "missing-vowel" ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-3 text-5xl sm:text-7xl font-bold" style={{ color: accent }}>
+                    {(challenge.frame ?? "_").split("").map((char, index) => (
+                      <span
+                        key={`${char}-${index}`}
+                        className={char === "_" ? "inline-flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-dashed border-[#D6D3D1] bg-[#FAF7F2]" : ""}
+                      >
+                        {char}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-[#8A91A3]">Choose the missing vowel, then say the sound.</p>
+                </div>
+              ) : challenge.levelType === "mouth-shape" ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative flex h-28 w-44 items-center justify-center rounded-[50%] border-4 bg-[#FFF1F2]" style={{ borderColor: accent }}>
+                    <motion.div
+                      animate={{ scaleX: [1, 1.16, 1], scaleY: [1, 0.86, 1] }}
+                      transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                      className="h-10 w-24 rounded-[50%] bg-[#7F1D1D]"
+                    />
+                  </div>
+                  <span className="text-5xl sm:text-7xl font-bold" style={{ color: accent }}>
+                    {challenge.targetSound}
+                  </span>
+                  <p className="text-sm text-[#4B5266]">{challenge.mouthHint}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <motion.div
+                    animate={{ rotate: [-4, 4, -4], scale: [1, 1.05, 1] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                    className="flex h-28 w-28 items-center justify-center rounded-[2rem] border-4 bg-[#FFF7ED] shadow-[0_16px_34px_-20px_rgba(245,158,11,0.8)]"
+                    style={{ borderColor: accent }}
+                  >
+                    <span className="text-6xl font-bold" style={{ color: accent }}>{challenge.vowel}</span>
+                  </motion.div>
+                  <span className="text-4xl sm:text-6xl font-bold" style={{ color: accent }}>
+                    {challenge.levelType === "anchor-echo" ? challenge.anchorWord : challenge.targetSound}
+                  </span>
+                  {challenge.levelType === "anchor-echo" && (
+                    <p className="text-sm text-[#4B5266]">
+                      Say the sound first, then the anchor picture.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {needsChoice && (
+                <div className="mt-5 grid grid-cols-5 gap-2 w-full max-w-sm">
+                  {shuffledChoices.map((choice) => {
+                    const isSelected = selectedChoice === choice;
+                    const isCorrect = choice === challenge.correctChoice;
+                    return (
+                      <button
+                        key={choice}
+                        onClick={() => handleChoice(choice)}
+                        className={`h-12 rounded-xl border-2 text-lg font-bold transition-all ${
+                          isSelected
+                            ? isCorrect
+                              ? "bg-[#DCFCE7] border-[#10B981] text-[#047857]"
+                              : "bg-[#FEE2E2] border-[#EF4444] text-[#B91C1C]"
+                            : "bg-white border-[#E6DED2] text-[#1F2430] hover:border-[#F59E0B]"
+                        }`}
+                      >
+                        {choice}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : isBlendingMode ? (
             <div className="flex flex-col items-center">
               <h2 className="text-xs sm:text-sm uppercase tracking-widest text-gray-400 mb-3 sm:mb-4">Blend the sounds:</h2>
               <div className="flex items-center gap-2 sm:gap-4 font-bold justify-center flex-wrap" style={{ color: accent }}>
@@ -567,7 +1607,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
         </motion.div>
 
         <div className="flex flex-col sm:flex-row gap-3 max-w-sm sm:max-w-md sm:gap-4 justify-center">
-          <button onClick={() => { userRequestedModel.current = true; speakPhoneme(); }} className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-card border flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium">
+          <button onClick={() => { userRequestedModel.current = true; speakPhoneme(); }} className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-white border flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium">
             <Volume2 className="w-4 h-4 flex-shrink-0" /> Listen
           </button>
           <button onClick={handleListen} disabled={isListening} className="px-6 sm:px-10 py-3 sm:py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: accent }}>

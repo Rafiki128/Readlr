@@ -1,0 +1,142 @@
+.vowel-adventure { height: 100%; display: flex; flex-direction: column; overflow: hidden; background: #FAF7F2; color: #1F2430; letter-spacing: 0; }
+.vowel-adventure button { cursor: pointer; }
+.vowel-adventure button:disabled { cursor: default; }
+.vowel-adventure button:focus-visible { outline: 3px solid #4F46E5; outline-offset: 5px; }
+.adventure-topbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 24px; background: #fff; border-bottom: 1px solid #EAE6DF; z-index: 5; }
+.adventure-topbar button,.adventure-topbar > span { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: var(--font-weight-medium); }
+.adventure-topbar button { min-height: 44px; padding: 6px 12px; border-radius: 12px; background: white; border: 1px solid var(--hairline); color: var(--ink-soft); }
+.adventure-topbar button:disabled { opacity: .45; }
+.adventure-topbar > span { color: #4B5266; }
+.adventure-topbar > span svg { color: #F59E0B; }
+.adventure-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.adventure-heading { text-align: center; padding: 26px 16px 20px; }
+.adventure-heading p { font-size: 11px; font-weight: var(--font-weight-medium); color: #F59E0B; margin-bottom: 6px; }
+.adventure-heading h1 { font-size: 48px; line-height: 1.15; font-weight: var(--font-weight-medium); letter-spacing: 0; margin-bottom: 6px; }
+.adventure-heading > span { font-size: 14px; color: #4B5266; }
+.dojo-world { max-width: 1000px; margin: 0 auto; padding: 0 22px 26px; background: #ECFCCA; border-top: 6px solid #A3E635; border-radius: 48% 48% 0 0 / 32px 32px 0 0; }
+.dojo-pavilion { width: 260px; margin: 0 auto; padding-top: 8px; text-align: center; }
+.dojo-pavilion svg { width: 100%; height: 160px; }
+.dojo-pavilion p { font-size: 12px; color: #4B5266; font-weight: var(--font-weight-medium); }
+.dojo-stations { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 14px; padding: 28px 0; }
+.dojo-station { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0; min-width: 0; text-align: center; }
+.dojo-station__figure { --symbol-size: 108px; position: relative; width: 116px; height: 132px; display: grid; place-items: center; color: var(--station-color); border-bottom: 9px solid #A3D96B; border-radius: 0 0 50% 50%; }
+.dojo-station__figure > svg { position: absolute; width: var(--symbol-size); height: var(--symbol-size); left: calc(50% - var(--symbol-size) / 2); fill: #FFFFFF; stroke-width: 1.3; opacity: 1; top: 0; }
+.dojo-station__figure strong { position: absolute; top: 0; left: 0; width: 100%; height: var(--symbol-size); display: flex; align-items: center; justify-content: center; font-size: 49px; line-height: 1; margin: 0; padding-bottom: .14em; z-index: 1; -webkit-text-stroke: 6px white; paint-order: stroke fill; text-shadow: 0 0 2px white; pointer-events: none; }
+.dojo-station__figure > .vowel-power-symbol { --power-size: var(--symbol-size); position: absolute; top: 0; }
+.dojo-station__figure > .dojo-station__badge { position: absolute; bottom: 9px; right: 0; width: 27px; height: 27px; border-radius: 50%; display: grid; place-items: center; background: var(--station-color); color: #fff; border: 3px solid #ECFCCA; }
+.dojo-station > strong { font-size: 16px; font-weight: var(--font-weight-medium); }
+.dojo-station small { font-size: 12px; color: #4B5266; }
+.dojo-station[data-locked="true"] { filter: grayscale(1); opacity: .58; }
+.dojo-station[data-next="true"] .dojo-station__figure { border-bottom-color: #F59E0B; }
+.dojo-station:not(:disabled):hover .dojo-station__figure { transform: translateY(-4px); }
+.dojo-station__figure { transition: transform 180ms; }
+.dojo-exit { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; padding-top: 20px; border-top: 1px solid #B9DF87; }
+.dojo-exit > span { font-size: 14px; color: #4B5266; }
+.dojo-exit button,.adventure-unlock { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 20px; border-radius: var(--radius); background: var(--sun); color: white; box-shadow: 0 10px 28px -14px #f59e0b99; font-weight: var(--font-weight-medium); }
+.dojo-exit button:disabled { background: #d2dfd9; color: #7b9086; }
+.valley-world { width: 100%; margin: 0; }
+.valley-dojo { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 230px; gap: 2px; border: 0; background: transparent; padding: 4px 12px 12px; color: #1F2430; }
+.valley-dojo:hover > svg:first-child { transform: translateY(-6px); }
+.valley-dojo:focus-visible { outline: 3px solid #4F46E5; outline-offset: 4px; }
+.valley-dojo > svg:first-child { width: 190px; height: 132px; transition: transform 200ms; }
+.valley-dojo > span { text-align: center; background: #FFFFFFEC; border: 2px solid #A3E635; border-radius: 8px; padding: 5px 12px; box-shadow: 0 4px 0 #86C95B; }
+.valley-dojo strong { display: block; font-size: 19px; font-weight: var(--font-weight-medium); }
+.valley-dojo small { display: block; color: #4B5266; margin-top: 4px; }
+.valley-dojo > svg:last-child { position: absolute; right: -7px; bottom: 20px; color: #065F46; }
+.valley-region { position: relative; height: clamp(470px, 38vw, 660px); isolation: isolate; }
+.valley-region--entrance { height: clamp(760px, 60vw, 980px); }
+.valley-region--entrance .valley-dojo { position: absolute; left: 50%; top: 7%; transform: translateX(-50%); }
+.valley-region--entrance .valley-region__label { top: 35%; }
+.valley-path path { vector-effect: non-scaling-stroke; }
+.adventure-landscape,.valley-path { position: absolute; width: 100%; height: 100%; inset: 0; pointer-events: none; }
+.adventure-landscape { transition: filter .6s; }
+.valley-region[data-sleeping="true"] .adventure-landscape { filter: grayscale(1); opacity: .5; }
+.valley-region[data-sleeping="true"] { background: #e0e6e3 !important; }
+.valley-region__label { position: absolute; left: 20px; top: 18px; z-index: 2; background: #ffffffdb; border-radius: 8px; padding: 10px 14px; }
+.valley-region__label h2 { font-size: 18px; font-weight: var(--font-weight-medium); margin: 0; letter-spacing: 0; }
+.valley-region__label span { font-size: 11px; color: #4B5266; }
+.valley-stop { position: absolute; transform: translate(-50%,-50%); display: flex; flex-direction: column; align-items: center; gap: 7px; z-index: 3; width: 116px; }
+.valley-stop__disc { width: 76px; height: 76px; display: grid; place-items: center; border-radius: 50%; border: 5px solid white; background: #e8eeeb; color: #8a9c97; box-shadow: 0 5px 0 #b3c6bc,0 8px 15px #426b4c20; }
+.valley-stop[data-done="true"] .valley-stop__disc { background: #FBBF24; color: #714409; box-shadow: 0 5px 0 #F59E0B,0 8px 15px #426b4c20; }
+.valley-stop[data-next="true"] .valley-stop__disc { background: #06B6D4; color: white; box-shadow: 0 5px 0 #0891B2,0 0 0 6px #ffffff70; }
+.valley-stop strong { font-size: 13px; font-weight: var(--font-weight-medium); padding: 4px 12px; background: #FFFFFF; border-radius: 20px; white-space: nowrap; }
+.valley-stop:not(:disabled):hover .valley-stop__disc { transform: translateY(-3px); }
+.valley-stop__disc { transition: transform .18s; }
+.valley-path .valley-path__reveal { vector-effect:none; stroke-dasharray:1; stroke-dashoffset:1; }
+.valley-path__reveal[data-started="true"] { animation:valley-path-arrive 2.2s ease-in-out forwards; }
+@keyframes valley-path-arrive { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+.valley-region--finale { height: clamp(780px, 60vw, 1000px); }
+.valley-region--finale::after { content:""; position:absolute; bottom:0; left:0; right:0; height:65px; background:linear-gradient(transparent,#ECFEFF); pointer-events:none; }
+.valley-onward { position:absolute; top:72%; left:8%; width:35%; max-width:340px; color:#312E81; z-index:2; text-align:center; }
+.valley-onward__celebration { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px; color:#065F46; font-size:17px; }
+.valley-onward__celebration svg { color:#D97706; flex-shrink:0; }
+.valley-onward__sign { position:relative; padding:18px 12px; background:#FFFEF5; border:4px solid #A78BFA; border-radius:8px; box-shadow:0 6px 0 #7C3AED; }
+.valley-onward__sign::after { content:""; position:absolute; top:calc(100% + 6px); left:calc(50% - 9px); width:18px; height:45px; background:#A78BFA; border-right:5px solid #7C3AED; }
+.valley-onward span { display:block; font-size:12px; text-transform:uppercase; color:#6D28D9; }
+.valley-onward h2 { font-size:25px; margin:6px 0; }
+.valley-onward p { display:flex; align-items:center; justify-content:center; gap:5px; font-size:13px; margin:8px 0 0; color:#475569; }
+.valley-onward[data-ready="false"] .valley-onward__sign { border-color:#94A3B8; box-shadow:0 6px 0 #64748B; }
+@media(max-width:600px) { .valley-region.valley-region--finale { height:800px; } .valley-onward { left:5%; width:49%; } .valley-onward h2 { font-size:22px; } }
+.adventure-bottom { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #fff; border-top: 1px solid #EAE6DF; padding: 10px 24px; }
+.adventure-bottom button { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 44px; padding: 8px 14px; font-size: 14px; font-weight: var(--font-weight-medium); border-radius: var(--radius); }
+.adventure-bottom button:first-child { color: var(--ink-soft); background: white; border: 1px solid var(--hairline); }
+.adventure-bottom button:last-child:not(:first-child) { background: var(--sun); color: white; box-shadow: 0 10px 28px -14px #f59e0b99; }
+@media(max-width:600px) {
+  .landscape-tree { transform: scaleX(2); }
+  .adventure-topbar { padding: 8px; }
+  .adventure-topbar button { padding: 6px 9px; font-size: 12px; }
+  .adventure-topbar > span { font-size: 12px; }
+  .adventure-heading { padding: 20px 12px 18px; }
+  .adventure-heading h1 { font-size: 30px; }
+  .dojo-world { padding: 0 14px 20px; }
+  .dojo-pavilion { width: 200px; }
+  .dojo-pavilion svg { height: 125px; }
+  .dojo-stations { grid-template-columns: repeat(6,minmax(0,1fr)); gap: 18px 6px; padding: 20px 0; }
+  .dojo-station { grid-column: span 2; }
+  .dojo-station:nth-child(4) { grid-column: 2 / span 2; }
+  .dojo-station__figure { --symbol-size: 80px; width: 84px; height: 96px; }
+  .dojo-station__figure strong { font-size: 35px; -webkit-text-stroke-width: 5px; }
+  .dojo-station > strong { font-size: 13px; }
+  .dojo-station small { font-size: 10px; }
+  .dojo-exit { gap: 10px; }
+  .valley-region { height: 440px; }
+  .valley-region--entrance { height: 740px; }
+  .valley-trailhead { height: 290px; }
+  .valley-trailhead__path { height: 100%; }
+  .valley-dojo > svg:first-child { width: 150px; height: 108px; }
+  .valley-region__label { top: 12px; left: 12px; padding: 7px 10px; }
+  .valley-region__label h2 { font-size: 16px; }
+  .valley-region__label span { font-size: 10px; }
+  .valley-stop { width: 90px; }
+  .valley-stop__disc { width: 64px; height: 64px; border-width: 4px; }
+  .valley-stop strong { font-size: 11px; padding: 3px 9px; }
+  .adventure-bottom { padding: 8px; }
+  .adventure-bottom button { font-size: 12px; padding: 7px 10px; }
+}
+@media(prefers-reduced-motion:reduce) { .dojo-station__figure,.valley-stop__disc,.adventure-landscape,.valley-dojo > svg:first-child { transition: none; } .valley-path .valley-path__reveal { animation:none; stroke-dashoffset:0; } }
+/* Match the story screen's UI; the illustrations carry the playful emphasis. */
+.dojo-station__figure strong { font-weight: 700; }
+.adventure-topbar button, .dojo-exit button, .adventure-bottom button, .adventure-unlock {
+  font-family: inherit;
+  transition: background-color 180ms, box-shadow 180ms, transform 180ms;
+}
+.dojo-exit button:not(:disabled):hover, .adventure-bottom button:last-child:not(:first-child):hover, .adventure-unlock:hover { background: #E99000; }
+.adventure-topbar button:not(:disabled):hover { background: var(--paper); }
+.dojo-exit button:not(:disabled):active, .adventure-bottom button:active { transform: translateY(1px); }
+.adventure-heading { animation: adventure-heading-enter 420ms ease-out both; }
+.dojo-pavilion { animation: adventure-art-enter 600ms ease-out both; }
+.dojo-station { animation: adventure-art-enter 450ms ease-out both; }
+.dojo-station:nth-child(1) { animation-delay: 100ms; }
+.dojo-station:nth-child(2) { animation-delay: 160ms; }
+.dojo-station:nth-child(3) { animation-delay: 220ms; }
+.dojo-station:nth-child(4) { animation-delay: 280ms; }
+.dojo-station:nth-child(5) { animation-delay: 340ms; }
+.valley-world { animation: adventure-map-enter 500ms ease-out both; }
+.dojo-exit { animation: adventure-heading-enter 500ms 250ms ease-out both; }
+@keyframes adventure-heading-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes adventure-art-enter { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes adventure-map-enter { from { opacity: 0; } to { opacity: 1; } }
+@media(prefers-reduced-motion: reduce) {
+  .adventure-heading, .dojo-pavilion, .dojo-station, .valley-world, .dojo-exit { animation: none; }
+  .adventure-topbar button, .dojo-exit button, .adventure-bottom button, .adventure-unlock { transition: none; }
+}

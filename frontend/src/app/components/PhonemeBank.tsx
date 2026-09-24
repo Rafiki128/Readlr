@@ -170,7 +170,7 @@ function buildEntries(): SoundEntry[] {
       stage: "Valley of Vowels",
       title,
       sound,
-      modelAudioPath: `/audio/stage1/${VOWEL_GATE_WORDS.includes(title) ? title : VOWEL_GATE_WORDS[Math.floor(index / 10)]}.wav`,
+      modelAudioPath: `/audio/stage1/${sound}.wav`,
       tint: "#FFF7ED",
       color: "#F59E0B",
     };
@@ -197,7 +197,7 @@ function buildEntries(): SoundEntry[] {
     stage: "CVC Kingdom",
     title: word,
     sound: word,
-    modelAudioPath: `/audio/stage 3/${word}.wav`,
+    modelAudioPath: `/audio/stage3/${word}.wav`,
     tint: "#D1FAE5",
     color: "#10B981",
   }));
@@ -207,8 +207,8 @@ function buildEntries(): SoundEntry[] {
 
 function unlockedLimit(stageId: number, completedByStage: Record<number, number>) {
   const completed = completedByStage[stageId] ?? 0;
-  if (stageId === 1) return Math.min(completed + 1, 55);
-  if (stageId === 2 && (completedByStage[1] ?? 0) >= 55) return Math.min(completed + 1, 8);
+  if (stageId === 1) return Math.min(completed + 1, 20);
+  if (stageId === 2 && (completedByStage[1] ?? 0) >= 20) return Math.min(completed + 1, 8);
   if (stageId === 3 && (completedByStage[2] ?? 0) >= 8) return Math.min(completed + 1, 10);
   return 0;
 }
