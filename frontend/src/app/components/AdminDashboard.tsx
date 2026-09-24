@@ -70,8 +70,8 @@ export function AdminDashboard() {
   }, [learners, query]);
 
   return (
-    <main className="min-h-screen bg-[#F6F7FB] text-[#1F2430]">
-      <header className="border-b border-[#DDE1EA] bg-white">
+    <main className="min-h-screen bg-[#F6F7FB] text-[var(--ink)]">
+      <header className="border-b border-[#DDE1EA] bg-card">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4F46E5]">Readlr Admin</p>
@@ -81,7 +81,7 @@ export function AdminDashboard() {
           <button
             type="button"
             onClick={logout}
-            className="flex items-center gap-2 rounded-lg border border-[#DDE1EA] px-3 py-2 text-sm font-medium text-[#4B5266] hover:bg-[#F6F7FB]"
+            className="flex items-center gap-2 rounded-lg border border-[#DDE1EA] px-3 py-2 text-sm font-medium text-[var(--ink-soft)] hover:bg-[#F6F7FB]"
           >
             <LogOut className="h-4 w-4" />
             Sign out
@@ -91,17 +91,17 @@ export function AdminDashboard() {
 
       <div className="mx-auto max-w-7xl px-6 py-8">
         <section className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-[#DDE1EA] bg-white p-5">
+          <div className="rounded-xl border border-[#DDE1EA] bg-card p-5">
             <div className="flex items-center gap-3 text-[#667085]"><Users className="h-5 w-5" /><span className="text-sm">Learners</span></div>
             <p className="mt-3 text-3xl font-semibold">{learners.length}</p>
           </div>
-          <div className="rounded-xl border border-[#DDE1EA] bg-white p-5">
+          <div className="rounded-xl border border-[#DDE1EA] bg-card p-5">
             <p className="text-sm text-[#667085]">Signed in as</p>
             <p className="mt-3 truncate text-lg font-semibold">{user?.email}</p>
           </div>
         </section>
 
-        <section className="mt-8 overflow-hidden rounded-xl border border-[#DDE1EA] bg-white">
+        <section className="mt-8 overflow-hidden rounded-xl border border-[#DDE1EA] bg-card">
           <div className="flex flex-col gap-4 border-b border-[#DDE1EA] p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-semibold">All learners</h2>
@@ -117,7 +117,7 @@ export function AdminDashboard() {
                   className="w-full rounded-lg border border-[#DDE1EA] py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4F46E5] sm:w-64"
                 />
               </label>
-              <button type="button" onClick={loadLearners} aria-label="Refresh learners" className="rounded-lg border border-[#DDE1EA] p-2 text-[#4B5266] hover:bg-[#F6F7FB]">
+              <button type="button" onClick={loadLearners} aria-label="Refresh learners" className="rounded-lg border border-[#DDE1EA] p-2 text-[var(--ink-soft)] hover:bg-[#F6F7FB]">
                 <RefreshCw className="h-4 w-4" />
               </button>
             </div>
@@ -146,10 +146,10 @@ export function AdminDashboard() {
                     return (
                       <tr key={learner.id} className="hover:bg-[#FAFBFF]">
                         <td className="px-5 py-4"><p className="font-medium">{learner.avatar} {learner.name}</p><p className="mt-1 text-xs text-[#667085]">{learner.email}</p></td>
-                        <td className="px-5 py-4 text-[#4B5266]">Grade {learner.grade}</td>
-                        <td className="px-5 py-4"><div className="flex items-center gap-3"><div className="h-2 w-24 overflow-hidden rounded-full bg-[#E7E9F0]"><div className="h-full rounded-full bg-[#4F46E5]" style={{ width: `${completion}%` }} /></div><span className="text-[#4B5266]">{completion}%</span></div></td>
-                        <td className="px-5 py-4 text-[#4B5266]">{formatDate(learner.lastActivity)}</td>
-                        <td className="px-5 py-4 text-[#4B5266]">{formatDate(learner.createdAt)}</td>
+                        <td className="px-5 py-4 text-[var(--ink-soft)]">Grade {learner.grade}</td>
+                        <td className="px-5 py-4"><div className="flex items-center gap-3"><div className="h-2 w-24 overflow-hidden rounded-full bg-[#E7E9F0]"><div className="h-full rounded-full bg-[#4F46E5]" style={{ width: `${completion}%` }} /></div><span className="text-[var(--ink-soft)]">{completion}%</span></div></td>
+                        <td className="px-5 py-4 text-[var(--ink-soft)]">{formatDate(learner.lastActivity)}</td>
+                        <td className="px-5 py-4 text-[var(--ink-soft)]">{formatDate(learner.createdAt)}</td>
                       </tr>
                     );
                   })}

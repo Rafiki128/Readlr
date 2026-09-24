@@ -135,12 +135,12 @@ export function StickerBook({ onBack, completedByStage = {}, learnerId }: Sticke
           {/* Sticker grid */}
           <section className="mb-8 border-y border-amber-200 py-5" aria-label="Trail points">
             <h2 className="flex items-center gap-2 text-xl font-bold"><Star className="h-5 w-5 text-amber-500" />{trailPoints} trail points</h2>
-            <p className="mt-2 text-sm text-[#4B5266]">{nextBonus ? `${nextBonus.points - trailPoints} more points to unlock ${nextBonus.name}.` : "You earned every valley bonus sticker!"}</p>
+            <p className="mt-2 text-sm text-[var(--ink-soft)]">{nextBonus ? `${nextBonus.points - trailPoints} more points to unlock ${nextBonus.name}.` : "You earned every valley bonus sticker!"}</p>
             <div className="mt-4 grid grid-cols-3 gap-3">
               {POINT_STICKERS.map((bonus) => (
                 <div key={bonus.id} className="flex min-w-0 flex-col items-center gap-1 text-center">
                   <span className={`flex h-14 w-14 items-center justify-center rounded-full text-3xl ${trailPoints >= bonus.points ? "bg-[#FFF0C2]" : "bg-[#ECEEF2] grayscale"}`} aria-hidden="true">{bonus.emoji}</span>
-                  <span className="text-sm font-bold text-[#4B5266]">{bonus.name}</span>
+                  <span className="text-sm font-bold text-[var(--ink-soft)]">{bonus.name}</span>
                   <span className="inline-flex items-center gap-1 text-xs text-[#707789]">{trailPoints >= bonus.points ? <><Check className="h-3 w-3" />Collected</> : `${bonus.points.toLocaleString()} points`}</span>
                 </div>
               ))}
