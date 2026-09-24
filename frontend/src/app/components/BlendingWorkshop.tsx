@@ -13,8 +13,9 @@ import "./blendingWorkshop.css";
 import "./bridgeJourney.css";
 import "./continuousLandscape.css";
 
-export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, onProgress }: {
+export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, onProgress, onActivityChange }: {
   learnerId?: number | null; initialView?: "workshop" | "bridges"; onBack: () => void; onProgress?: (completed: number, journey: object) => void;
+  onActivityChange?: (open: boolean) => void;
 }) {
   const [progress, setProgress] = useState(() => readBridgeJourney(learnerId));
   const [activity, setActivity] = useState<BridgeLesson | null>(null);
@@ -41,6 +42,11 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, 
     }
     onProgress?.(updated.training.length + updated.crossings.length, updated);
   }
+  // Lets the app hold reward popups until Milo's practice screen is closed.
+  useEffect(() => {
+    onActivityChange?.(activity !== null);
+    return () => onActivityChange?.(false);
+  }, [activity !== null]);
   useEffect(() => {
     if (activity) return;
     if (scroll.current) scroll.current.scrollTop = 0;

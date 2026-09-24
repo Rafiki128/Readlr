@@ -1,10 +1,15 @@
+import { useEffect } from "react";
 import { ArrowRight, BookOpen, Star, Check, Flag, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import type { TrailReward } from "./trailRewards";
 import { POINT_STICKERS } from "./trailRewards";
 import type { StickerReward } from "./stickers";
+import { useAudioManager } from "../../hooks/useAudioManager";
 import "./trailReward.css";
+
+// Placeholder cheer until a dedicated sticker line is recorded.
+const STICKER_SOUND = "/audio/common/GreatJob.wav";
 
 // Shows a trail reward with its points, or any other newly earned sticker on its own.
 export function TrailRewardDialog({ reward, onClose, onBook }: {
@@ -16,6 +21,12 @@ export function TrailRewardDialog({ reward, onClose, onBook }: {
   const reducedMotion = useReducedMotion();
   const previousMilestone = next ? next.points - 500 : 1000;
   const progress = trail ? Math.min(100, ((trail.totalPoints - previousMilestone) / 500) * 100) : 0;
+  const { playAudio } = useAudioManager();
+
+  // Trail levels already cheer before this dialog opens, so only other stickers play the sound.
+  useEffect(() => {
+    if (!trail) playAudio(STICKER_SOUND);
+  }, []);
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="trail-reward">

@@ -269,6 +269,7 @@ function AppContent() {
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
   const [stageComplete, setStageComplete] = useState<{ stageId: number; frames: UnlockedFrame[] } | null>(null);
+  const [journeyActivityOpen, setJourneyActivityOpen] = useState(false);
   const completionHandledRef = useRef(false);
 
   useEffect(() => { setStickerReward(null); setStageComplete(null); }, [user?.id]);
@@ -781,6 +782,7 @@ function AppContent() {
             onBack={handleBackToStages}
             onSelectLevel={handleSelectLevel}
             onProgress={handleJourneyProgress}
+            onActivityChange={setJourneyActivityOpen}
           />
         )}
 
@@ -794,14 +796,14 @@ function AppContent() {
           />
         )}
 
-        {(currentScreen === "level-map" || currentScreen === "vowel-power-complete") && stickerReward && (
+        {(currentScreen === "level-map" || currentScreen === "vowel-power-complete") && stickerReward && !journeyActivityOpen && (
           <TrailRewardDialog reward={stickerReward} onClose={() => setStickerReward(null)} onBook={() => {
             setStickerReward(null);
             setCurrentScreen("sticker-book");
           }} />
         )}
 
-        {stageComplete && !stickerReward && (
+        {stageComplete && !stickerReward && !journeyActivityOpen && (
           <StageCompleteDialog
             stageTitle={STAGE_CONFIG[stageComplete.stageId]?.title ?? "this stage"}
             frames={stageComplete.frames}
