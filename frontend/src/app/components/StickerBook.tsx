@@ -82,7 +82,7 @@ export function StickerBook({ onBack, completedByStage = {}, avatar = "" }: Stic
             <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Collection</p>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
               <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">My Sticker Book</h1>
-              <p className="text-[var(--ink-soft)]">Finish a level to earn an animal friend.</p>
+              <p className="text-[var(--ink-soft)]">Finish levels to collect friends. Finish a stage to unlock its frames.</p>
             </div>
           </motion.div>
 

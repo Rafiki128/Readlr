@@ -40,7 +40,7 @@ export function Help({}: HelpProps) {
       tint: "#FFF7ED",
       color: "#F59E0B",
       sections: [
-        { question: "How do I earn stickers?", answer: "Complete levels successfully to earn stickers. Each level gives you a different animal sticker." },
+        { question: "How do I earn stickers?", answer: "In the Valley of Vowels, every level gives you a new sticker friend. In Blending Bridges and CVC Kingdom, you earn a sticker every few steps. Finish a whole stage to unlock new frames for your picture!" },
         { question: "Where can I see my progress?", answer: "Open My Progress to see scores, accuracy, completed levels, and your learning streak." },
         { question: "What are achievements?", answer: "Special badges you earn for milestones — completing levels, learning streaks, and perfect scores." },
       ],
