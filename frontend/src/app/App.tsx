@@ -18,10 +18,7 @@ import { ChapterBridge } from "./components/ChapterBridge";
 import { LevelMap } from "./components/LevelMap";
 import { StickerBook } from "./components/StickerBook";
 import { UnifiedDashboard } from "./components/UnifiedDashboard";
-import { LevelComplete } from "./components/LevelComplete";
-import { ChapterCelebration } from "./components/ChapterCelebration";
 import { VowelPowerComplete } from "./components/VowelPowerComplete";
-import { SessionSummary } from "./components/SessionSummary";
 import { PhonemeBank } from "./components/PhonemeBank";
 import { Settings } from "./components/Settings";
 import { Achievements } from "./components/Achievements";
@@ -158,10 +155,7 @@ type Screen =
   | "chapter-bridge"
   | "level-map"
   | "game"
-  | "chapter-celebration"
   | "vowel-power-complete"
-  | "level-complete"
-  | "session-summary"
   | "sticker-book"
   | "dashboard"
   | "phoneme-bank"
@@ -210,10 +204,9 @@ function parseAppPath(pathname: string): AppRouteState {
     if (stageId !== 1) return { screen: "level-map", stageId, levelId: 1 };
     if (stageSection === "chapters") return { screen: "level-map", stageId, levelId: 1 };
     if (chapterSection === "intro") return { screen: "chapter-bridge", stageId, levelId };
-    if (chapterSection === "complete") return { screen: "chapter-celebration", stageId, levelId };
     if (chapterSection === "power-complete") return { screen: "vowel-power-complete", stageId, levelId };
-    if (chapterSection === "summary") return { screen: "session-summary", stageId, levelId };
-    if (chapterSection === "level-complete") return { screen: "level-complete", stageId, levelId };
+    // The old celebration and summary screens were removed; their links open the map.
+    if (chapterSection) return { screen: "level-map", stageId, levelId: 1 };
 
     return { screen: "game", stageId, levelId };
   }
@@ -241,14 +234,8 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
       return `/stage-${stageId}/chapters`;
     case "game":
       return `/stage-${stageId}/chapter-${levelId}`;
-    case "chapter-celebration":
-      return `/stage-${stageId}/chapter-${levelId}/complete`;
     case "vowel-power-complete":
       return `/stage-${stageId}/chapter-${levelId}/power-complete`;
-    case "level-complete":
-      return `/stage-${stageId}/chapter-${levelId}/level-complete`;
-    case "session-summary":
-      return `/stage-${stageId}/chapter-${levelId}/summary`;
     case "sticker-book":
       return "/stickers";
     case "dashboard":
@@ -280,7 +267,6 @@ function AppContent() {
   const [selectedLevel, setSelectedLevel] = useState<number>(initialRoute.levelId ?? 1);
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
-  const [levelScore] = useState(300);
   const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
   const [stageComplete, setStageComplete] = useState<{ stageId: number; frames: UnlockedFrame[] } | null>(null);
   const completionHandledRef = useRef(false);
@@ -318,7 +304,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const route = parseAppPath(window.location.pathname);
-      if ((route.screen === "chapter-celebration" || route.screen === "vowel-power-complete") && !isLevelJustCompleted) {
+      if (route.screen === "vowel-power-complete" && !isLevelJustCompleted) {
         setCurrentScreen("level-map");
         setIsLevelJustCompleted(false);
         return;
@@ -348,7 +334,7 @@ function AppContent() {
 
   useEffect(() => {
     const route = parseAppPath(window.location.pathname);
-    if ((route.screen === "chapter-celebration" || route.screen === "vowel-power-complete") && !isLevelJustCompleted) {
+    if (route.screen === "vowel-power-complete" && !isLevelJustCompleted) {
       setCurrentScreen("level-map");
     }
   }, []);
@@ -563,8 +549,8 @@ function AppContent() {
       ? getTrailReward(selectedLevel, previous) ?? newStickerReward(1, previous, completed)
       : null;
 
-    setIsLevelJustCompleted(selectedStage !== 1 || selectedLevel <= 5);
-    setCurrentScreen(selectedStage === 1 ? (selectedLevel <= 5 ? "vowel-power-complete" : "level-map") : "chapter-celebration");
+    setIsLevelJustCompleted(selectedStage === 1 && selectedLevel <= 5);
+    setCurrentScreen(selectedStage === 1 && selectedLevel <= 5 ? "vowel-power-complete" : "level-map");
     if (reward) setStickerReward(reward);
 
     await recordStageProgress(selectedStage, completed);
@@ -630,14 +616,6 @@ function AppContent() {
     setCurrentScreen("level-map");
   };
 
-  const handleContinueAfterLevel = () => {
-    setCurrentScreen("session-summary");
-  };
-
-  const handleSessionSummaryComplete = () => {
-    setCurrentScreen("stage-selection");
-  };
-
   const handleViewProgress = () => {
     setCurrentScreen("dashboard");
   };
@@ -678,7 +656,7 @@ function AppContent() {
     setCompletedByStage({ ...DEFAULT_PROGRESS });
   };
 
-  const noHeaderScreens = ["landing", "auth", "learner-profile", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "level-complete", "vowel-power-complete"];
+  const noHeaderScreens = ["landing", "auth", "learner-profile", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "vowel-power-complete"];
   const showLearnerHeader = user?.role === "learner" && !noHeaderScreens.includes(currentScreen);
 
   if (currentScreen === "landing") {
@@ -807,17 +785,6 @@ function AppContent() {
           />
         )}
 
-        {currentScreen === "chapter-celebration" && (
-          <ChapterCelebration
-            score={levelScore}
-            currentLevel={selectedLevel}
-            totalLevels={STAGE_CONFIG[selectedStage]?.totalLevels ?? 5}
-            stageName={STAGE_CONFIG[selectedStage]?.title ?? "Chapter"}
-            onContinueStory={handleContinueToNextStory}
-            onBackToMap={handleBackFromCelebration}
-          />
-        )}
-
         {(currentScreen === "level-map" || currentScreen === "vowel-power-complete") && stickerReward && (
           <TrailRewardDialog reward={stickerReward} onClose={() => setStickerReward(null)} onBook={() => {
             setStickerReward(null);
@@ -840,25 +807,6 @@ function AppContent() {
             onContinueTraining={(completedByStage[1] ?? 0) < 5 ? handleContinueDojoTraining : undefined}
             onContinue={handleContinueToNextStory}
             onBackToMap={handleBackFromCelebration}
-          />
-        )}
-
-        {currentScreen === "level-complete" && (
-          <LevelComplete
-            score={levelScore}
-            onContinue={handleContinueAfterLevel}
-          />
-        )}
-
-        {currentScreen === "session-summary" && (
-          <SessionSummary
-            levelsCompleted={3}
-            totalScore={300}
-            accuracy={85}
-            stickersEarned={3}
-            timeSpent={15}
-            nextLevel="Valley of Vowels - Level 4: The Sound of O"
-            onContinue={handleSessionSummaryComplete}
           />
         )}
 

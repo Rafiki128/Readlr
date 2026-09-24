@@ -10,8 +10,6 @@ export type Screen =
   | "story-scene"
   | "level-map"
   | "game"
-  | "level-complete"
-  | "session-summary"
   | "sticker-book"
   | "progress"
   | "phoneme-bank"
