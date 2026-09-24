@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { BRIDGE_LINES, type BridgeLine } from "../app/components/stageTwoContent";
 import { stopAllGlobalAudio } from "./useAudioManager";
 import { narrationLines } from "./bridgeNarrationLines";
+import { resolveStageTwoAudioPath } from "../app/components/stageTwoAudio";
 
 export function useBridgeAudio(basePath = "/audio/stage2") {
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -40,7 +41,7 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
 
   function play(path: string, onProgress?: (fraction: number) => void) {
     return new Promise<void>((resolve, reject) => {
-      const player = new Audio(path);
+      const player = new Audio(resolveStageTwoAudioPath(path));
       audio.current = player;
       let settled = false;
       let watchdog: ReturnType<typeof setTimeout>;

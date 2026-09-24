@@ -34,7 +34,7 @@ export function NavigationHeader({
   const { equippedAssetKey } = useFrames();
 
   const menuItems = [
-    { id: "stage-selection", label: "Home", icon: Home },
+    { id: "stage-selection", label: "Stages", icon: Home },
     { id: "dashboard", label: "Progress", icon: User },
     { id: "settings", label: "Settings", icon: Settings },
     { id: "help", label: "Help", icon: HelpCircle },

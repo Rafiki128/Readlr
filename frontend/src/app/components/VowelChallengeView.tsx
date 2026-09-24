@@ -3,6 +3,7 @@ import { ArrowLeft, Volume2, Mic, Headphones, Check } from "lucide-react";
 import { VowelPowerSymbol } from "./VowelPowerSymbol";
 import { CharacterCompanion, type CharacterState } from "./CharacterCompanion";
 import "./vowelChallenge.css";
+import "./challengeControls.css";
 import { TrailPowerScene } from "./TrailPowerScene";
 
 interface Props {
