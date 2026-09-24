@@ -508,15 +508,15 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   };
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-hidden relative flex flex-col">
+    <div className="size-full bg-[var(--paper)] overflow-hidden relative flex flex-col">
       <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-60 pointer-events-none" style={{ background: tint }} />
       <div className="relative z-10 flex-1 flex flex-col px-4 sm:px-6 py-4 sm:py-6 items-center justify-center gap-4">
-        <button onClick={onBack} className="absolute top-6 left-6 px-3 py-2 rounded-xl bg-white border text-sm hover:bg-gray-50 transition-colors">
+        <button onClick={onBack} className="absolute top-6 left-6 px-3 py-2 rounded-xl bg-card border text-sm hover:bg-gray-50 transition-colors">
           <ArrowLeft className="w-4 h-4 inline mr-1" /> Back
         </button>
         
-        <motion.div className="bg-white rounded-2xl px-6 sm:px-8 py-4 shadow-lg text-center max-w-md w-full">
-          <p className="text-lg sm:text-xl font-bold text-[#1F2430]">{bubbleMessage}</p>
+        <motion.div className="bg-card rounded-2xl px-6 sm:px-8 py-4 shadow-lg text-center max-w-md w-full">
+          <p className="text-lg sm:text-xl font-bold text-[var(--ink)]">{bubbleMessage}</p>
         </motion.div>
         
         <motion.div 
@@ -527,7 +527,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
           <CharacterCompanion state={characterState} phoneme={challenge.phoneme || challenge.vowel || ""} size={260} />
         </motion.div>
 
-        <motion.div className="bg-white px-6 sm:px-12 py-4 sm:py-6 rounded-3xl border-4 text-center max-w-2xl w-full" style={{ borderColor: accent }}>
+        <motion.div className="bg-card px-6 sm:px-12 py-4 sm:py-6 rounded-3xl border-4 text-center max-w-2xl w-full" style={{ borderColor: accent }}>
           {isBlendingMode ? (
             <div className="flex flex-col items-center">
               <h2 className="text-xs sm:text-sm uppercase tracking-widest text-gray-400 mb-3 sm:mb-4">Blend the sounds:</h2>
@@ -567,7 +567,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
         </motion.div>
 
         <div className="flex flex-col sm:flex-row gap-3 max-w-sm sm:max-w-md sm:gap-4 justify-center">
-          <button onClick={() => { userRequestedModel.current = true; speakPhoneme(); }} className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-white border flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium">
+          <button onClick={() => { userRequestedModel.current = true; speakPhoneme(); }} className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-card border flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium">
             <Volume2 className="w-4 h-4 flex-shrink-0" /> Listen
           </button>
           <button onClick={handleListen} disabled={isListening} className="px-6 sm:px-10 py-3 sm:py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: accent }}>

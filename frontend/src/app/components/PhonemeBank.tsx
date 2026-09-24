@@ -338,34 +338,34 @@ export function PhonemeBank({ onBack, completedByStage = {} }: PhonemeBankProps)
   };
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-6 md:px-10 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] transition-colors text-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] transition-colors text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </button>
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[#8A91A3]">
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
               <BookOpen className="w-3.5 h-3.5" />
               Sound Library
             </span>
           </div>
 
           <motion.div initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-8">
-            <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">Practice shelf</p>
+            <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Practice shelf</p>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-              <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">Sound Library</h1>
-              <p className="text-[#4B5266] max-w-md">
+              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">Sound Library</h1>
+              <p className="text-[var(--ink-soft)] max-w-md">
                 Listen to unlocked words, record your voice, then compare and rerecord.
               </p>
             </div>
           </motion.div>
 
-          <div className="mb-8 inline-flex p-1 bg-white border border-[#1F243014] rounded-xl">
+          <div className="mb-8 inline-flex p-1 bg-card border border-[var(--hairline)] rounded-xl">
             {categories.map((category) => {
               const categoryEntries = entries.filter((entry) => entry.category === category.id);
               const unlockedCount = categoryEntries.filter(isUnlocked).length;
@@ -375,7 +375,7 @@ export function PhonemeBank({ onBack, completedByStage = {} }: PhonemeBankProps)
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
                   className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                    isActive ? "text-[#1F2430]" : "text-[#8A91A3] hover:text-[#4B5266]"
+                    isActive ? "text-[var(--ink)]" : "text-[var(--ink-muted)] hover:text-[var(--ink-soft)]"
                   }`}
                   style={isActive ? { background: category.tint } : undefined}
                 >
@@ -384,7 +384,7 @@ export function PhonemeBank({ onBack, completedByStage = {} }: PhonemeBankProps)
                     style={{ background: isActive ? category.color : "#D1D5DB" }}
                   />
                   {category.name}
-                  <span className="ml-2 text-xs text-[#8A91A3]">
+                  <span className="ml-2 text-xs text-[var(--ink-muted)]">
                     {unlockedCount}/{categoryEntries.length}
                   </span>
                 </button>
@@ -407,16 +407,16 @@ export function PhonemeBank({ onBack, completedByStage = {} }: PhonemeBankProps)
                   transition={{ delay: index * 0.025 }}
                   className={`rounded-2xl p-5 border transition-colors ${
                     unlocked
-                      ? "bg-white border-[#1F243014] hover:border-[#1F243029]"
-                      : "bg-[#F6F3EE] border-[#D8D2C8] grayscale-[0.35]"
+                      ? "bg-card border-[var(--hairline)] hover:border-[var(--hairline-strong)]"
+                      : "bg-[var(--paper-soft)] border-[#D8D2C8] grayscale-[0.35]"
                   }`}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[#8A91A3]">{entry.stage}</p>
-                      <p className="text-xs text-[#8A91A3] mt-1">Level {entry.levelId}</p>
+                      <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">{entry.stage}</p>
+                      <p className="text-xs text-[var(--ink-muted)] mt-1">Level {entry.levelId}</p>
                     </div>
-                    {!unlocked && <Lock className="w-4 h-4 text-[#8A91A3]" />}
+                    {!unlocked && <Lock className="w-4 h-4 text-[var(--ink-muted)]" />}
                   </div>
 
                   <div
@@ -426,16 +426,16 @@ export function PhonemeBank({ onBack, completedByStage = {} }: PhonemeBankProps)
                     <span className="text-4xl tracking-tight" style={{ color: unlocked ? entry.color : "#78716C" }}>
                       {entry.sound}
                     </span>
-                    <span className="text-[#4B5266] mt-2">{entry.title}</span>
+                    <span className="text-[var(--ink-soft)] mt-2">{entry.title}</span>
                   </div>
 
                   <div className="mb-2">
-                    <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">Compare</p>
+                    <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Compare</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handlePlayModel(entry)}
                         disabled={!unlocked}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#FAF7F2] border border-[#1F243014] text-[#1F2430] hover:border-[#4F46E5] hover:text-[#4F46E5] text-sm transition-colors disabled:cursor-not-allowed disabled:text-[#8A91A3]"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--paper)] border border-[var(--hairline)] text-[var(--ink)] hover:border-[#4F46E5] hover:text-[#4F46E5] text-sm transition-colors disabled:cursor-not-allowed disabled:text-[var(--ink-muted)]"
                       >
                         <Volume2 className="w-4 h-4" />
                         Model
@@ -444,7 +444,7 @@ export function PhonemeBank({ onBack, completedByStage = {} }: PhonemeBankProps)
                       <button
                         onClick={() => handlePlayRecording(entry)}
                         disabled={!saved}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] text-sm transition-colors disabled:cursor-not-allowed disabled:text-[#A8A29E] disabled:bg-[#F6F3EE]"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] text-sm transition-colors disabled:cursor-not-allowed disabled:text-[#A8A29E] disabled:bg-[var(--paper-soft)]"
                       >
                         <Play className="w-4 h-4" />
                         My voice
@@ -476,11 +476,11 @@ export function PhonemeBank({ onBack, completedByStage = {} }: PhonemeBankProps)
 
                   <div className="mt-3 min-h-5">
                     {unlocked ? (
-                      <p className="text-xs text-[#8A91A3]">
+                      <p className="text-xs text-[var(--ink-muted)]">
                         {status || (saved ? `Saved ${new Date(saved.updatedAt).toLocaleDateString()}` : "Listen first, then record your voice.")}
                       </p>
                     ) : (
-                      <p className="text-xs text-[#8A91A3]">Complete earlier levels to unlock this sound.</p>
+                      <p className="text-xs text-[var(--ink-muted)]">Complete earlier levels to unlock this sound.</p>
                     )}
                   </div>
                 </motion.div>

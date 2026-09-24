@@ -84,7 +84,7 @@ export function StageSelection({
   }>;
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-6 md:px-10 py-10">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -94,14 +94,14 @@ export function StageSelection({
             className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4"
           >
             <div>
-              <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">
+              <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">
                 Pick a stage
               </p>
-              <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">
+              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">
                 Choose your adventure
               </h1>
             </div>
-            <p className="text-[#4B5266] max-w-sm">
+            <p className="text-[var(--ink-soft)] max-w-sm">
               Three stages, one path. Start with the vowel sounds and build up to your first words.
             </p>
           </motion.div>
@@ -114,7 +114,7 @@ export function StageSelection({
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onClick}
-                className="bg-white border border-[#1F243014] rounded-2xl p-4 flex items-center gap-3 hover:border-[#1F243029] transition-all text-left"
+                className="bg-card border border-[var(--hairline)] rounded-2xl p-4 flex items-center gap-3 hover:border-[var(--hairline-strong)] transition-all text-left"
               >
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -122,7 +122,7 @@ export function StageSelection({
                 >
                   <Icon className="w-5 h-5" style={{ color }} />
                 </div>
-                <p className="text-[#1F2430] text-sm md:text-base">{label}</p>
+                <p className="text-[var(--ink)] text-sm md:text-base">{label}</p>
               </motion.button>
             ))}
           </div>
@@ -145,8 +145,8 @@ export function StageSelection({
                   disabled={stage.locked}
                   className={`rounded-2xl border text-left overflow-hidden transition-all relative min-h-[284px] ${
                     stage.locked
-                      ? "bg-[#F6F3EE] border-[#D8D2C8] cursor-not-allowed grayscale-[0.35]"
-                      : "bg-white border-[#1F243014] cursor-pointer hover:border-[#1F243029] hover:shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)]"
+                      ? "bg-[var(--paper-soft)] border-[#D8D2C8] cursor-not-allowed grayscale-[0.35]"
+                      : "bg-card border-[var(--hairline)] cursor-pointer hover:border-[var(--hairline-strong)] hover:shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)]"
                   }`}
                 >
                   {/* Top color band — single solid color, not a gradient */}
@@ -166,34 +166,34 @@ export function StageSelection({
                         {stage.icon}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                        <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                           Stage {stage.id}
                         </span>
                         {stage.locked && (
-                          <Lock className="w-3.5 h-3.5 text-[#8A91A3]" />
+                          <Lock className="w-3.5 h-3.5 text-[var(--ink-muted)]" />
                         )}
                       </div>
                     </div>
 
-                    <h3 className={`text-xl mb-1.5 ${stage.locked ? "text-[#6B7280]" : "text-[#1F2430]"}`}>
+                    <h3 className={`text-xl mb-1.5 ${stage.locked ? "text-[#6B7280]" : "text-[var(--ink)]"}`}>
                       {stage.title}
                     </h3>
-                    <p className={`text-sm mb-6 ${stage.locked ? "text-[#8A91A3]" : "text-[#4B5266]"}`}>
+                    <p className={`text-sm mb-6 ${stage.locked ? "text-[var(--ink-muted)]" : "text-[var(--ink-soft)]"}`}>
                       {stage.subtitle}
                     </p>
 
                     {/* Progress */}
                     <div className="space-y-2 mb-5">
                       <div className="flex items-baseline justify-between">
-                        <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                        <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                           Progress
                         </span>
-                        <span className="text-sm text-[#1F2430]">
+                        <span className="text-sm text-[var(--ink)]">
                           <span style={{ color: progressColor }}>{completed}</span>
-                          <span className="text-[#8A91A3]"> / {stage.total}</span>
+                          <span className="text-[var(--ink-muted)]"> / {stage.total}</span>
                         </span>
                       </div>
-                      <div className="w-full bg-[#F2EEE6] rounded-full h-1.5 overflow-hidden">
+                      <div className="w-full bg-[var(--paper-deep)] rounded-full h-1.5 overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${pct}%` }}
@@ -206,7 +206,7 @@ export function StageSelection({
 
                     {/* CTA */}
                     {stage.locked ? (
-                      <p className="text-sm text-[#8A91A3] inline-flex items-center gap-1.5">
+                      <p className="text-sm text-[var(--ink-muted)] inline-flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5" />
                         Finish the previous stage to unlock
                       </p>

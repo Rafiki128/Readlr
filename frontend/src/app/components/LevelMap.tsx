@@ -255,16 +255,16 @@ function ValleyHeader({
 
   return (
     <>
-      <div className="sticky top-0 z-40 -mx-4 sm:-mx-6 md:-mx-10 px-4 sm:px-6 md:px-10 py-3 bg-[#FAF7F2]/95 backdrop-blur border-b border-[#1F243014]">
+      <div className="sticky top-0 z-40 -mx-4 sm:-mx-6 md:-mx-10 px-4 sm:px-6 md:px-10 py-3 bg-[var(--paper)]/95 backdrop-blur border-b border-[var(--hairline)]">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] text-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             Stages
           </button>
-          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[#8A91A3]">
+          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
             <MapIcon className="w-3.5 h-3.5" />
             Valley Map
           </span>
@@ -281,23 +281,23 @@ function ValleyHeader({
         </p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
-            <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">
+            <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">
               Valley of Vowels
             </h1>
-            <p className="text-[#4B5266] mt-2 max-w-2xl">
+            <p className="text-[var(--ink-soft)] mt-2 max-w-2xl">
               Open the five vowel doors first. Then follow the winding valley road through 50 pronunciation levels.
             </p>
           </div>
-          <div className="w-full lg:w-96 bg-white rounded-2xl p-5 border border-[#1F243014]">
+          <div className="w-full lg:w-96 bg-card rounded-2xl p-5 border border-[var(--hairline)]">
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+              <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                 Valley restored
               </span>
-              <span className="text-sm text-[#1F2430]">
+              <span className="text-sm text-[var(--ink)]">
                 {completed} / {total}
               </span>
             </div>
-            <div className="w-full h-2 bg-[#F2EEE6] rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-[var(--paper-deep)] rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}
@@ -329,12 +329,12 @@ function VowelDoorIntro({
   const allDoorsOpen = completed >= GATE_LEVELS.length;
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-4 sm:px-6 md:px-10 py-6">
         <ValleyHeader completed={completed} total={55} onBack={onBack} />
 
         <div className="max-w-7xl mx-auto">
-          <div className="relative min-h-[620px] overflow-hidden rounded-[2rem] border border-[#1F243014] bg-[#D9F99D] shadow-[0_18px_48px_-28px_rgba(31,36,48,0.35)]">
+          <div className="relative min-h-[620px] overflow-hidden rounded-[2rem] border border-[var(--hairline)] bg-[#D9F99D] shadow-[0_18px_48px_-28px_rgba(31,36,48,0.35)]">
             <div className="absolute inset-0 bg-gradient-to-b from-[#BDEB77] via-[#DFF8A6] to-[#A7F3D0]" />
             <div className="absolute left-0 right-0 bottom-0 h-40 bg-[#8DD7A8]" />
             <svg className="absolute inset-x-0 top-0 h-52 w-full" viewBox="0 0 1200 220" preserveAspectRatio="none">
@@ -350,11 +350,11 @@ function VowelDoorIntro({
               <path d="M 100 430 C 260 160, 440 500, 600 350 C 760 190, 910 480, 1100 260" stroke="#86EFAC" strokeWidth="8" strokeDasharray="18 16" strokeLinecap="round" fill="none" />
             </svg>
 
-            <div className="absolute right-8 top-8 z-20 flex items-center gap-4 rounded-2xl border border-white bg-white/95 px-5 py-4 shadow-[0_14px_32px_-20px_rgba(31,36,48,0.5)]">
+            <div className="absolute right-8 top-8 z-20 flex items-center gap-4 rounded-2xl border border-white bg-card/95 px-5 py-4 shadow-[0_14px_32px_-20px_rgba(31,36,48,0.5)]">
               <motion.div
                 animate={allDoorsOpen ? { scale: [1, 1.05, 1] } : {}}
                 transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                className="flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-[#F59E0B] bg-white"
+                className="flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-[#F59E0B] bg-card"
               >
                 {allDoorsOpen ? (
                   <DoorOpen className="h-9 w-9 text-[#F59E0B]" />
@@ -363,10 +363,10 @@ function VowelDoorIntro({
                 )}
               </motion.div>
               <div>
-                <p className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                   {completed}/5 doors
                 </p>
-                <p className="text-base font-bold text-[#1F2430]">
+                <p className="text-base font-bold text-[var(--ink)]">
                   {allDoorsOpen ? "Valley door open" : "Open vowel doors"}
                 </p>
               </div>
@@ -377,19 +377,19 @@ function VowelDoorIntro({
                 initial={{ opacity: 0, y: 18, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.55, ease: "easeOut" }}
-                className="absolute left-1/2 top-[44%] z-20 -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-white bg-white/95 px-8 py-6 text-center shadow-[0_24px_48px_-24px_rgba(31,36,48,0.5)]"
+                className="absolute left-1/2 top-[44%] z-20 -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-white bg-card/95 px-8 py-6 text-center shadow-[0_24px_48px_-24px_rgba(31,36,48,0.5)]"
               >
                 <motion.div
                   animate={{ rotate: [0, -5, 5, 0], scale: [1, 1.08, 1] }}
                   transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
-                  className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-[#F59E0B] bg-[#FFF7ED]"
+                  className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-[#F59E0B] bg-[var(--tint-amber)]"
                 >
                   <DoorOpen className="h-11 w-11 text-[#F59E0B]" />
                 </motion.div>
-                <p className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                   Gate unlocked
                 </p>
-                <p className="text-xl font-bold text-[#1F2430]">
+                <p className="text-xl font-bold text-[var(--ink)]">
                   The Valley road is open
                 </p>
               </motion.div>
@@ -412,7 +412,7 @@ function VowelDoorIntro({
                   style={{ left: `${node.x}%`, top: `${node.y}%` }}
                 >
                   <span
-                    className={`relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border-[6px] bg-white text-4xl font-bold shadow-[0_12px_28px_-16px_rgba(31,36,48,0.5)] ${
+                    className={`relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border-[6px] bg-card text-4xl font-bold shadow-[0_12px_28px_-16px_rgba(31,36,48,0.5)] ${
                       status === "locked" ? "grayscale" : ""
                     }`}
                     style={{ borderColor: status === "locked" ? "#D6D3D1" : accent, color: accent }}
@@ -424,7 +424,7 @@ function VowelDoorIntro({
                       </span>
                     )}
                   </span>
-                  <span className="mt-2 block rounded-full bg-white/90 px-3 py-1 text-sm font-bold text-[#1F2430] shadow-sm">
+                  <span className="mt-2 block rounded-full bg-card/90 px-3 py-1 text-sm font-bold text-[var(--ink)] shadow-sm">
                     {node.word}
                   </span>
                 </motion.button>
@@ -432,13 +432,13 @@ function VowelDoorIntro({
             })}
           </div>
 
-          <div className="sticky bottom-4 z-30 mt-6 rounded-2xl border border-[#1F243014] bg-white/95 p-4 shadow-[0_18px_38px_-24px_rgba(31,36,48,0.35)] backdrop-blur">
+          <div className="sticky bottom-4 z-30 mt-6 rounded-2xl border border-[var(--hairline)] bg-card/95 p-4 shadow-[0_18px_38px_-24px_rgba(31,36,48,0.35)] backdrop-blur">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-bold text-[#1F2430]">
+                <p className="text-sm font-bold text-[var(--ink)]">
                   {allDoorsOpen ? "The full valley road is ready" : `Next door: ${GATE_LEVELS[completed]?.word ?? "Valley"}`}
                 </p>
-                <p className="text-xs text-[#8A91A3]">
+                <p className="text-xs text-[var(--ink-muted)]">
                   {allDoorsOpen ? "Continue to the first valley road level." : "Complete the original vowel words to unlock the map."}
                 </p>
               </div>
@@ -482,12 +482,12 @@ function ValleyRoadMap({
   const recentNodeId = valleyCompleted > 0 ? VALLEY_LEVELS[valleyCompleted - 1]?.id : null;
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-4 sm:px-6 md:px-10 py-6">
         <ValleyHeader completed={completed} total={55} onBack={onBack} />
 
         <div className="max-w-7xl mx-auto">
-          <div className="relative overflow-x-auto rounded-[2rem] border border-[#1F243014] bg-white shadow-[0_18px_48px_-28px_rgba(31,36,48,0.35)]">
+          <div className="relative overflow-x-auto rounded-[2rem] border border-[var(--hairline)] bg-card shadow-[0_18px_48px_-28px_rgba(31,36,48,0.35)]">
             <div
               className="relative min-w-[980px]"
               style={{ width: BOARD_WIDTH, height: BOARD_HEIGHT + 140 }}
@@ -605,10 +605,10 @@ function ValleyRoadMap({
               {VOWEL_SECTIONS.map((section, index) => (
                 <div key={section.vowel}>
                   <div
-                    className="pointer-events-none absolute left-10 z-30 w-[300px] rounded-2xl border border-white bg-white px-5 py-3 shadow-[0_12px_28px_-18px_rgba(31,36,48,0.45)]"
+                    className="pointer-events-none absolute left-10 z-30 w-[300px] rounded-2xl border border-white bg-card px-5 py-3 shadow-[0_12px_28px_-18px_rgba(31,36,48,0.45)]"
                     style={{ top: index * SECTION_HEIGHT + 26 }}
                   >
-                    <p className="text-[11px] uppercase tracking-wider text-[#8A91A3]">
+                    <p className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)]">
                       {sectionCompletedCount(index, completed) >= 10
                         ? "Restored"
                         : sectionCompletedCount(index, completed) > 0
@@ -618,7 +618,7 @@ function ValleyRoadMap({
                     <p className="text-xl font-bold leading-tight" style={{ color: section.accent }}>
                       {section.title}
                     </p>
-                    <p className="mt-1 text-xs text-[#4B5266]">
+                    <p className="mt-1 text-xs text-[var(--ink-soft)]">
                       {sectionCompletedCount(index, completed)}/10 sounds
                     </p>
                   </div>
@@ -669,7 +669,7 @@ function ValleyRoadMap({
                     aria-label={`Level ${node.id}: ${node.word}`}
                   >
                     <span
-                      className={`relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border-[7px] bg-white text-2xl font-bold shadow-[0_14px_30px_-16px_rgba(31,36,48,0.55)] ${
+                      className={`relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border-[7px] bg-card text-2xl font-bold shadow-[0_14px_30px_-16px_rgba(31,36,48,0.55)] ${
                         status === "locked" ? "grayscale brightness-90" : ""
                       }`}
                       style={{ borderColor: status === "locked" ? "#D6D3D1" : section.accent, color: section.accent }}
@@ -695,7 +695,7 @@ function ValleyRoadMap({
                         />
                       )}
                     </span>
-                    <span className="mt-2 block rounded-full bg-white/90 px-3 py-1 text-sm font-bold text-[#1F2430] shadow-sm">
+                    <span className="mt-2 block rounded-full bg-card/90 px-3 py-1 text-sm font-bold text-[var(--ink)] shadow-sm">
                       {node.word}
                     </span>
                   </motion.button>
@@ -705,13 +705,13 @@ function ValleyRoadMap({
           </div>
 
           {completed < 55 && (
-            <div className="sticky bottom-4 z-30 mt-6 rounded-2xl border border-[#1F243014] bg-white/95 p-4 shadow-[0_18px_38px_-24px_rgba(31,36,48,0.35)] backdrop-blur">
+            <div className="sticky bottom-4 z-30 mt-6 rounded-2xl border border-[var(--hairline)] bg-card/95 p-4 shadow-[0_18px_38px_-24px_rgba(31,36,48,0.35)] backdrop-blur">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-bold text-[#1F2430]">
+                  <p className="text-sm font-bold text-[var(--ink)]">
                     Next: Level {completed + 1}
                   </p>
-                  <p className="text-xs text-[#8A91A3]">
+                  <p className="text-xs text-[var(--ink-muted)]">
                     {VALLEY_LEVELS.find((node) => node.id === completed + 1)?.word ?? "Valley"} sound practice
                   </p>
                 </div>
@@ -771,18 +771,18 @@ function StandardLevelMap({
   };
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto relative">
+    <div className="size-full bg-[var(--paper)] overflow-auto relative">
       <div className="relative z-10 min-h-full px-6 md:px-10 py-8">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] text-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </button>
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[#8A91A3]">
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
               <MapIcon className="w-3.5 h-3.5" />
               Level Map
             </span>
@@ -793,20 +793,20 @@ function StandardLevelMap({
               {stage.chapter}
             </p>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-              <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">{stage.title}</h1>
-              <p className="text-[#4B5266]">
+              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">{stage.title}</h1>
+              <p className="text-[var(--ink-soft)]">
                 <span style={{ color: stage.accent }}>{completed}</span>
-                <span className="text-[#8A91A3]"> / {total} levels</span>
+                <span className="text-[var(--ink-muted)]"> / {total} levels</span>
               </p>
             </div>
           </motion.div>
 
-          <div className="bg-white rounded-2xl p-5 border border-[#1F243014] mb-8">
+          <div className="bg-card rounded-2xl p-5 border border-[var(--hairline)] mb-8">
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-xs uppercase tracking-wider text-[#8A91A3]">Chapter progress</span>
-              <span className="text-sm text-[#1F2430]">{pct}%</span>
+              <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">Chapter progress</span>
+              <span className="text-sm text-[var(--ink)]">{pct}%</span>
             </div>
-            <div className="w-full h-1.5 bg-[#F2EEE6] rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-[var(--paper-deep)] rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}
@@ -817,7 +817,7 @@ function StandardLevelMap({
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 md:p-10 border border-[#1F243014]">
+          <div className="bg-card rounded-3xl p-6 md:p-10 border border-[var(--hairline)]">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-4 gap-y-8">
               {stage.nodes.map((node, i) => {
                 const status = getStatus(i, completed);
@@ -832,7 +832,7 @@ function StandardLevelMap({
                       onClick={() => handleClick(i, node)}
                       disabled={status === "locked"}
                       className={`relative z-10 rounded-2xl flex items-center justify-center text-xl transition-all border-2 ${
-                        status === "locked" ? "bg-[#F2EEE6] text-[#8A91A3] cursor-not-allowed" : "bg-white text-[#1F2430] cursor-pointer"
+                        status === "locked" ? "bg-[var(--paper-deep)] text-[var(--ink-muted)] cursor-not-allowed" : "bg-card text-[var(--ink)] cursor-pointer"
                       }`}
                       style={{
                         width: 72,
@@ -859,8 +859,8 @@ function StandardLevelMap({
                       )}
                     </motion.button>
                     <div className="mt-3 text-center">
-                      <p className={`text-sm ${status === "locked" ? "text-[#8A91A3]" : "text-[#1F2430]"}`}>Level {i + 1}</p>
-                      <p className="text-xs text-[#8A91A3] mt-0.5">{node.hint}</p>
+                      <p className={`text-sm ${status === "locked" ? "text-[var(--ink-muted)]" : "text-[var(--ink)]"}`}>Level {i + 1}</p>
+                      <p className="text-xs text-[var(--ink-muted)] mt-0.5">{node.hint}</p>
                     </div>
                   </div>
                 );

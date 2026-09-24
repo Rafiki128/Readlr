@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, Pencil, Check, X, Star, Trophy, Flame } from "lucide-react";
+import { ArrowLeft, Pencil, Check, X, Star, Trophy, Flame, Lock } from "lucide-react";
 import { useAuth } from "../../modules/auth/auth.context";
+import { useFrames } from "../hooks/useFrames";
+import { AvatarFrame } from "./AvatarFrame";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -48,6 +50,7 @@ interface ProgressSummary {
 export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePageProps) {
   const { user, token } = useAuth();
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const { frames, equipFrame, equippedAssetKey } = useFrames();
 
   const [profile, setProfile] = useState<LearnerProfile | null>(null);
   const [progress, setProgress] = useState<ProgressSummary | null>(null);
@@ -79,13 +82,18 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
           const data = await profileRes.json();
           setProfile(data.learner);
           setEditedName(data.learner.name);
+        } else {
+          toast.error("Could not load your profile. Try refreshing!");
         }
         if (progressRes.ok) {
           const data = await progressRes.json();
           setProgress(data);
+        } else {
+          toast.error("Could not load your progress. Try refreshing!");
         }
       } catch (err) {
         console.error("Failed to fetch profile data:", err);
+        toast.error("Something went wrong loading your profile!");
       } finally {
         setIsLoading(false);
       }
@@ -171,13 +179,22 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
     setShowAvatarConfirm(false);
   };
 
+  const handleSelectFrame = async (frameId: number, name: string) => {
+    const ok = await equipFrame(frameId);
+    if (ok) {
+      toast.success("Frame equipped!", { description: `Wearing "${name}" now` });
+    } else {
+      toast.error("Could not equip that frame. Try again!");
+    }
+  };
+
   const totalCompleted = progress?.stages.reduce((sum, s) => sum + s.completed_levels, 0) ?? 0;
   const totalLevels = progress?.stages.reduce((sum, s) => sum + (s.total_levels ?? 0), 0) ?? 0;
   const overallPct = progress?.overall_completion_percentage ?? 0;
 
   if (isLoading) {
     return (
-      <div className="size-full bg-[#FAF7F2] flex items-center justify-center">
+      <div className="size-full bg-[var(--paper)] flex items-center justify-center">
         <motion.div
           animate={{ scale: [1, 1.1, 1] }}
           transition={{ repeat: Infinity, duration: 1.2 }}
@@ -194,7 +211,7 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
   const displayGrade = profile?.grade || 1;
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-6 md:px-10 py-8">
         <div className="max-w-2xl mx-auto">
 
@@ -203,18 +220,18 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
             initial={{ x: -8, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             onClick={onBack}
-            className="flex items-center gap-2 text-[#4B5266] hover:text-[#1F2430] mb-8 transition-colors bg-white border border-[#1F243014] rounded-full px-4 py-2 hover:bg-[#F2EEE6]"
+            className="flex items-center gap-2 text-[var(--ink-soft)] hover:text-[var(--ink)] mb-8 transition-colors bg-card border border-[var(--hairline)] rounded-full px-4 py-2 hover:bg-[var(--paper-deep)]"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">Back</span>
           </motion.button>
 
-          <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">My Account</p>
+          <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">My Account</p>
 
           <motion.h1
             initial={{ y: -8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="text-4xl md:text-5xl text-[#1F2430] tracking-tight mb-8"
+            className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight mb-8"
           >
             My Profile
           </motion.h1>
@@ -224,14 +241,14 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
             initial={{ y: 12, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.05 }}
-            className="bg-white rounded-2xl p-6 border border-[#1F243014] mb-4"
+            className="bg-card rounded-2xl p-6 border border-[var(--hairline)] mb-4"
           >
             <div className="flex items-center gap-5">
               {/* Avatar */}
               <div className="relative">
-                <div className="w-20 h-20 bg-[#F2EEE6] rounded-full flex items-center justify-center text-4xl border-2 border-[#1F243014]">
-                  {displayAvatar}
-                </div>
+                <AvatarFrame assetKey={equippedAssetKey} size={80}>
+                  <span className="text-4xl">{displayAvatar}</span>
+                </AvatarFrame>
                 <button
                   onClick={() => setIsPickingAvatar(true)}
                   className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#4F46E5] rounded-full flex items-center justify-center shadow-sm hover:bg-[#4338CA] transition-colors"
@@ -255,7 +272,7 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
                           setEditedName(profile?.name || "");
                         }
                       }}
-                      className="text-2xl text-[#1F2430] bg-[#FAF7F2] border border-[#4F46E5] rounded-lg px-3 py-1 outline-none w-full"
+                      className="text-2xl text-[var(--ink)] bg-[var(--paper)] border border-[#4F46E5] rounded-lg px-3 py-1 outline-none w-full"
                       maxLength={30}
                     />
                     <button
@@ -267,23 +284,23 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
                     </button>
                     <button
                       onClick={() => { setIsEditingName(false); setEditedName(profile?.name || ""); }}
-                      className="w-8 h-8 bg-white border border-[#1F243014] rounded-lg flex items-center justify-center hover:bg-[#FAF7F2] transition-colors"
+                      className="w-8 h-8 bg-card border border-[var(--hairline)] rounded-lg flex items-center justify-center hover:bg-[var(--paper)] transition-colors"
                     >
-                      <X className="w-4 h-4 text-[#4B5266]" />
+                      <X className="w-4 h-4 text-[var(--ink-soft)]" />
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <h2 className="text-2xl text-[#1F2430]">{displayName}</h2>
+                    <h2 className="text-2xl text-[var(--ink)]">{displayName}</h2>
                     <button
                       onClick={() => setIsEditingName(true)}
-                      className="w-7 h-7 bg-[#FAF7F2] rounded-lg flex items-center justify-center hover:bg-[#F2EEE6] transition-colors"
+                      className="w-7 h-7 bg-[var(--paper)] rounded-lg flex items-center justify-center hover:bg-[var(--paper-deep)] transition-colors"
                     >
-                      <Pencil className="w-3 h-3 text-[#8A91A3]" />
+                      <Pencil className="w-3 h-3 text-[var(--ink-muted)]" />
                     </button>
                   </div>
                 )}
-                <p className="text-xs uppercase tracking-wider text-[#8A91A3] mt-1">
+                <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mt-1">
                   Grade {displayGrade} Learner
                 </p>
               </div>
@@ -295,15 +312,15 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-6 border border-[#4F46E5]/30 mb-4"
+              className="bg-card rounded-2xl p-6 border border-[#4F46E5]/30 mb-4"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[#1F2430]">Pick your avatar!</h3>
+                <h3 className="text-[var(--ink)]">Pick your avatar!</h3>
                 <button
                   onClick={() => setIsPickingAvatar(false)}
-                  className="w-7 h-7 bg-[#FAF7F2] rounded-lg flex items-center justify-center hover:bg-[#F2EEE6] transition-colors"
+                  className="w-7 h-7 bg-[var(--paper)] rounded-lg flex items-center justify-center hover:bg-[var(--paper-deep)] transition-colors"
                 >
-                  <X className="w-4 h-4 text-[#4B5266]" />
+                  <X className="w-4 h-4 text-[var(--ink-soft)]" />
                 </button>
               </div>
               <div className="grid grid-cols-8 gap-2">
@@ -313,13 +330,52 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
                     onClick={() => handlePickAvatar(emoji)}
                     className={`w-10 h-10 rounded-xl text-2xl flex items-center justify-center transition-all hover:scale-110 ${
                       displayAvatar === emoji
-                        ? "bg-[#EEF2FF] ring-2 ring-[#4F46E5]"
-                        : "bg-[#FAF7F2] hover:bg-[#F2EEE6]"
+                        ? "bg-[var(--accent-soft)] ring-2 ring-[#4F46E5]"
+                        : "bg-[var(--paper)] hover:bg-[var(--paper-deep)]"
                     }`}
                   >
                     {emoji}
                   </button>
                 ))}
+              </div>
+
+              {/* Frame picker */}
+              <div className="mt-5 pt-5 border-t border-[var(--hairline)]">
+                <h3 className="text-[var(--ink)] mb-3">Pick a frame!</h3>
+                <div className="grid grid-cols-5 gap-3">
+                  {frames.map((frame) => (
+                    <button
+                      key={frame.id}
+                      onClick={() => frame.unlocked && handleSelectFrame(frame.id, frame.name)}
+                      disabled={!frame.unlocked}
+                      title={
+                        frame.unlocked
+                          ? frame.name
+                          : `${frame.name} — finish ${frame.unlock_stage_title ?? `Stage ${frame.unlock_stage_number}`} to unlock`
+                      }
+                      className={`flex flex-col items-center gap-1 ${frame.unlocked ? "cursor-pointer" : "cursor-not-allowed"}`}
+                    >
+                      <div className={`relative ${frame.unlocked ? "" : "opacity-40 grayscale"}`}>
+                        <AvatarFrame assetKey={frame.asset_key} size={48}>
+                          <span className="text-lg">{displayAvatar}</span>
+                        </AvatarFrame>
+                        {frame.equipped && (
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#4F46E5] rounded-full flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-white" />
+                          </div>
+                        )}
+                        {!frame.unlocked && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Lock className="w-4 h-4 text-[var(--ink-soft)]" />
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-[var(--ink-muted)] text-center leading-tight">
+                        {frame.unlocked ? frame.name : `Stage ${frame.unlock_stage_number}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}
@@ -329,21 +385,21 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
             initial={{ y: 12, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl p-6 border border-[#1F243014] mb-4"
+            className="bg-card rounded-2xl p-6 border border-[var(--hairline)] mb-4"
           >
-            <h3 className="text-xs uppercase tracking-wider text-[#8A91A3] mb-4">Account Info</h3>
+            <h3 className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-4">Account Info</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-[#1F243014]">
-                <span className="text-sm text-[#4B5266]">Email</span>
-                <span className="text-sm text-[#1F2430]">{user?.email}</span>
+              <div className="flex items-center justify-between py-2 border-b border-[var(--hairline)]">
+                <span className="text-sm text-[var(--ink-soft)]">Email</span>
+                <span className="text-sm text-[var(--ink)]">{user?.email}</span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-[#1F243014]">
-                <span className="text-sm text-[#4B5266]">Role</span>
-                <span className="text-sm text-[#1F2430] capitalize">{user?.role}</span>
+              <div className="flex items-center justify-between py-2 border-b border-[var(--hairline)]">
+                <span className="text-sm text-[var(--ink-soft)]">Role</span>
+                <span className="text-sm text-[var(--ink)] capitalize">{user?.role}</span>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-[#4B5266]">Grade</span>
-                <span className="text-sm text-[#1F2430]">Grade {displayGrade}</span>
+                <span className="text-sm text-[var(--ink-soft)]">Grade</span>
+                <span className="text-sm text-[var(--ink)]">Grade {displayGrade}</span>
               </div>
             </div>
           </motion.div>
@@ -353,35 +409,35 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
             initial={{ y: 12, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.15 }}
-            className="bg-white rounded-2xl p-6 border border-[#1F243014] mb-4"
+            className="bg-card rounded-2xl p-6 border border-[var(--hairline)] mb-4"
           >
-            <h3 className="text-xs uppercase tracking-wider text-[#8A91A3] mb-4">My Progress</h3>
+            <h3 className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-4">My Progress</h3>
             <div className="grid grid-cols-3 gap-3 mb-5">
-              <div className="bg-[#FFF7ED] rounded-xl p-4 text-center">
+              <div className="bg-[var(--tint-amber)] rounded-xl p-4 text-center">
                 <Trophy className="w-6 h-6 text-[#F59E0B] mx-auto mb-2" />
-                <p className="text-2xl text-[#1F2430]">{totalCompleted}</p>
-                <p className="text-xs text-[#8A91A3] mt-1">Levels Done</p>
+                <p className="text-2xl text-[var(--ink)]">{totalCompleted}</p>
+                <p className="text-xs text-[var(--ink-muted)] mt-1">Levels Done</p>
               </div>
-              <div className="bg-[#EEF2FF] rounded-xl p-4 text-center">
+              <div className="bg-[var(--accent-soft)] rounded-xl p-4 text-center">
                 <Star className="w-6 h-6 text-[#4F46E5] mx-auto mb-2" />
-                <p className="text-2xl text-[#1F2430]">{overallPct}%</p>
-                <p className="text-xs text-[#8A91A3] mt-1">Overall</p>
+                <p className="text-2xl text-[var(--ink)]">{overallPct}%</p>
+                <p className="text-xs text-[var(--ink-muted)] mt-1">Overall</p>
               </div>
-              <div className="bg-[#D1FAE5] rounded-xl p-4 text-center">
+              <div className="bg-[var(--tint-mint)] rounded-xl p-4 text-center">
                 <Flame className="w-6 h-6 text-[#10B981] mx-auto mb-2" />
-                <p className="text-2xl text-[#1F2430]">{totalLevels}</p>
-                <p className="text-xs text-[#8A91A3] mt-1">Total Levels</p>
+                <p className="text-2xl text-[var(--ink)]">{totalLevels}</p>
+                <p className="text-xs text-[var(--ink-muted)] mt-1">Total Levels</p>
               </div>
             </div>
             {progress && progress.stages.length > 0 ? (
               <div className="space-y-3">
                 {progress.stages.map((stage) => (
                   <div key={stage.stage_id}>
-                    <div className="flex justify-between text-xs text-[#4B5266] mb-1">
+                    <div className="flex justify-between text-xs text-[var(--ink-soft)] mb-1">
                       <span>Stage {stage.stage_id}</span>
                       <span>{stage.completed_levels} / {stage.total_levels} levels</span>
                     </div>
-                    <div className="h-2 bg-[#F2EEE6] rounded-full overflow-hidden">
+                    <div className="h-2 bg-[var(--paper-deep)] rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${stage.completion_percentage}%` }}
@@ -393,7 +449,7 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-[#8A91A3] text-center py-2">
+              <p className="text-sm text-[var(--ink-muted)] text-center py-2">
                 No progress yet — go complete some levels! 🚀
               </p>
             )}
@@ -404,14 +460,14 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
 
       {/* Name confirmation dialog */}
       <AlertDialog open={showNameConfirm} onOpenChange={setShowNameConfirm}>
-        <AlertDialogContent className="bg-white rounded-2xl border border-[#1F243014]">
+        <AlertDialogContent className="bg-card rounded-2xl border border-[var(--hairline)]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[#1F2430] text-xl">
+            <AlertDialogTitle className="text-[var(--ink)] text-xl">
               Change your name? ✏️
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-[#4B5266]">
+            <AlertDialogDescription className="text-[var(--ink-soft)]">
               Your name will change from{" "}
-              <span className="font-medium text-[#1F2430]">"{profile?.name}"</span>{" "}
+              <span className="font-medium text-[var(--ink)]">"{profile?.name}"</span>{" "}
               to{" "}
               <span className="font-medium text-[#4F46E5]">"{pendingName}"</span>.
             </AlertDialogDescription>
@@ -419,15 +475,16 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={handleCancelName}
-              className="rounded-xl border border-[#1F243014] text-[#4B5266] hover:bg-[#FAF7F2]"
+              className="rounded-xl border border-[var(--hairline)] text-[var(--ink-soft)] hover:bg-[var(--paper)]"
             >
               Keep old name
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmName}
+              disabled={isSaving}
               className="rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white"
             >
-              Yes, change it!
+              {isSaving ? "Saving..." : "Yes, change it!"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -435,20 +492,20 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
 
       {/* Avatar confirmation dialog */}
       <AlertDialog open={showAvatarConfirm} onOpenChange={setShowAvatarConfirm}>
-        <AlertDialogContent className="bg-white rounded-2xl border border-[#1F243014]">
+        <AlertDialogContent className="bg-card rounded-2xl border border-[var(--hairline)]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-[#1F2430] text-xl">
+            <AlertDialogTitle className="text-[var(--ink)] text-xl">
               Change your avatar? 🎨
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="text-[#4B5266]">
+              <div className="text-[var(--ink-soft)]">
                 <p className="mb-3">Switch your avatar from</p>
                 <div className="flex items-center justify-center gap-4">
-                  <div className="w-14 h-14 bg-[#F2EEE6] rounded-full flex items-center justify-center text-3xl">
+                  <div className="w-14 h-14 bg-[var(--paper-deep)] rounded-full flex items-center justify-center text-3xl">
                     {displayAvatar}
                   </div>
-                  <span className="text-[#8A91A3]">→</span>
-                  <div className="w-14 h-14 bg-[#EEF2FF] rounded-full flex items-center justify-center text-3xl ring-2 ring-[#4F46E5]">
+                  <span className="text-[var(--ink-muted)]">→</span>
+                  <div className="w-14 h-14 bg-[var(--accent-soft)] rounded-full flex items-center justify-center text-3xl ring-2 ring-[#4F46E5]">
                     {pendingAvatar}
                   </div>
                 </div>
@@ -458,15 +515,16 @@ export function ProfilePage({ onBack, onAvatarUpdate, onNameUpdate }: ProfilePag
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={handleCancelAvatar}
-              className="rounded-xl border border-[#1F243014] text-[#4B5266] hover:bg-[#FAF7F2]"
+              className="rounded-xl border border-[var(--hairline)] text-[var(--ink-soft)] hover:bg-[var(--paper)]"
             >
               Keep old one
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmAvatar}
+              disabled={isSaving}
               className="rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white"
             >
-              Yes, switch it!
+              {isSaving ? "Saving..." : "Yes, switch it!"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

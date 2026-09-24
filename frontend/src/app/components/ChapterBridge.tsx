@@ -18,9 +18,9 @@ interface ChapterBridgeProps {
 }
 
 const STAGE_THEMES = {
-  1: { from: "from-[#FFF7ED]", to: "to-[#FAF7F2]", border: "border-[#F59E0B]/30", text: "text-[#F59E0B]", bg: "bg-[#F59E0B]", panel: "from-[#FFF7ED] to-[#FEF3C7]" },
-  2: { from: "from-[#EEF2FF]", to: "to-[#E0E7FF]", border: "border-[#4F46E5]/30", text: "text-[#4F46E5]", bg: "bg-[#4F46E5]", panel: "from-[#EEF2FF] to-[#E0E7FF]" },
-  3: { from: "from-[#ECFDF5]", to: "to-[#FAF7F2]", border: "border-[#10B981]/30", text: "text-[#10B981]", bg: "bg-[#10B981]", panel: "from-[#ECFDF5] to-[#D1FAE5]" },
+  1: { from: "from-[var(--tint-amber)]", to: "to-[var(--paper)]", border: "border-[#F59E0B]/30", text: "text-[#F59E0B]", bg: "bg-[#F59E0B]", panel: "from-[var(--tint-amber)] to-[var(--tint-yellow)]" },
+  2: { from: "from-[var(--accent-soft)]", to: "to-[var(--tint-indigo)]", border: "border-[#4F46E5]/30", text: "text-[#4F46E5]", bg: "bg-[#4F46E5]", panel: "from-[var(--accent-soft)] to-[var(--tint-indigo)]" },
+  3: { from: "from-[var(--tint-green)]", to: "to-[var(--paper)]", border: "border-[#10B981]/30", text: "text-[#10B981]", bg: "bg-[#10B981]", panel: "from-[var(--tint-green)] to-[var(--tint-mint)]" },
 };
 
 const STAGE_AUDIO_DIR: Record<number, string> = {
@@ -136,27 +136,27 @@ export function ChapterBridge({
         <div className="max-w-3xl mx-auto w-full flex flex-col h-full justify-between">
           
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-2">
-            <span className="text-xs sm:text-sm font-medium text-[#8A91A3]">
+            <span className="text-xs sm:text-sm font-medium text-[var(--ink-muted)]">
               <span className={theme.text}>{story.doorCount}</span> - {stageName}
             </span>
             {/* The level indicator still shows the current active level they are about to play */}
-            <span className="text-xs uppercase tracking-wider text-[#8A91A3]">Level {currentLevel}</span>
+            <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">Level {currentLevel}</span>
           </motion.div>
 
           <div className="flex-1 flex flex-col justify-center gap-4 sm:gap-6 md:gap-8">
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-4 sm:gap-6">
               <CharacterCompanion state="encouraging" phoneme={vowel} size={typeof window !== 'undefined' ? Math.max(120, Math.min(220, window.innerWidth < 640 ? 120 : window.innerWidth < 768 ? 160 : 200)) : 160} />
 
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-lg border-2 ${theme.border} max-w-md w-full relative`}>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-lg border-2 ${theme.border} max-w-md w-full relative`}>
                 <button onClick={handleRepeatStory} className={`absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] font-bold ${theme.text} hover:opacity-80 transition-colors bg-current/10 px-2 py-1 rounded-full`}>
                   <Volume2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Repeat
                 </button>
 
                 {/* This will now show the -1 story message */}
-                <p className="text-center text-sm sm:text-base md:text-lg text-[#1F2430] leading-relaxed mb-4 sm:mb-6 mt-3 sm:mt-4">{story.message}</p>
+                <p className="text-center text-sm sm:text-base md:text-lg text-[var(--ink)] leading-relaxed mb-4 sm:mb-6 mt-3 sm:mt-4">{story.message}</p>
                 
                 <div className={`bg-gradient-to-br ${theme.panel} rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6`}>
-                  <p className="text-[9px] sm:text-xs uppercase tracking-widest text-[#8A91A3] text-center mb-2 sm:mb-3 font-medium">
+                  <p className="text-[9px] sm:text-xs uppercase tracking-widest text-[var(--ink-muted)] text-center mb-2 sm:mb-3 font-medium">
                     {stageId === 3 ? "THE WORD" : "THE SOUND"}
                   </p>
                   <div className="text-center flex items-center justify-center gap-2 sm:gap-3 md:gap-4">
@@ -173,7 +173,7 @@ export function ChapterBridge({
           </div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2 sm:gap-4 mt-4 sm:mt-6 flex-col sm:flex-row">
-            <motion.button whileHover={{ y: -2 }} onClick={onBack} className={`flex-1 px-3 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-white border-2 text-[#4B5266] font-bold text-sm sm:text-base md:text-lg hover:bg-gray-50 flex items-center justify-center gap-2 sm:gap-3`} style={{ borderColor: `${theme.bg.replace('bg-', '')}33` }}>
+            <motion.button whileHover={{ y: -2 }} onClick={onBack} className={`flex-1 px-3 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-card border-2 text-[var(--ink-soft)] font-bold text-sm sm:text-base md:text-lg hover:bg-gray-50 flex items-center justify-center gap-2 sm:gap-3`} style={{ borderColor: `${theme.bg.replace('bg-', '')}33` }}>
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Back to Chapter Map</span><span className="sm:hidden">Back</span>
             </motion.button>
             <motion.button whileHover={{ y: -2 }} onClick={onBeginChapter} className={`flex-1 px-3 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl ${theme.bg} text-white font-bold text-sm sm:text-base md:text-lg hover:opacity-90 flex items-center justify-center gap-2 sm:gap-3`}>

@@ -8,9 +8,9 @@ interface LandingProps {
 
 export function Landing({ onGetStarted, onSignIn }: LandingProps) {
   return (
-    <div className="size-full bg-[#FAF7F2] flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
-      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#EEF2FF] opacity-70" />
-      <div className="absolute -bottom-32 -right-20 w-[28rem] h-[28rem] rounded-full bg-[#FEF3C7] opacity-60" />
+    <div className="size-full bg-[var(--paper)] flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[var(--accent-soft)] opacity-70" />
+      <div className="absolute -bottom-32 -right-20 w-[28rem] h-[28rem] rounded-full bg-[var(--tint-yellow)] opacity-60" />
       <div className="absolute top-1/3 right-1/4 w-3 h-3 rounded-full bg-[#FB7185]" />
       <div className="absolute bottom-1/4 left-1/4 w-2 h-2 rounded-full bg-[#10B981]" />
 
@@ -26,8 +26,8 @@ export function Landing({ onGetStarted, onSignIn }: LandingProps) {
             alt="Readlr"
             className="w-24 h-24 rounded-3xl mx-auto mb-6 shadow-[0_18px_40px_-18px_rgba(79,70,229,0.6)]"
           />
-          <h1 className="text-5xl md:text-6xl text-[#1F2430] mb-3 tracking-tight font-bold">Readlr</h1>
-          <p className="text-lg text-[#4B5266] max-w-xl mx-auto">
+          <h1 className="text-5xl md:text-6xl text-[var(--ink)] mb-3 tracking-tight font-bold">Readlr</h1>
+          <p className="text-lg text-[var(--ink-soft)] max-w-xl mx-auto">
             A gamified phonetics companion that helps Grade 1 learners read English with confidence.
           </p>
         </div>
@@ -47,16 +47,16 @@ export function Landing({ onGetStarted, onSignIn }: LandingProps) {
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
             onClick={onSignIn}
-            className="border-2 border-[#4F46E5] text-[#4F46E5] font-semibold py-3 px-8 rounded-2xl hover:bg-[#EEF2FF] transition-all"
+            className="border-2 border-[#4F46E5] text-[#4F46E5] font-semibold py-3 px-8 rounded-2xl hover:bg-[var(--accent-soft)] transition-all"
           >
             Already have an account? Sign In
           </motion.button>
         </div>
       </motion.div>
 
-      <div className="mt-auto flex items-center gap-3 text-xs text-[#8A91A3]">
+      <div className="mt-auto flex items-center gap-3 text-xs text-[var(--ink-muted)]">
         <span>© 2026 Readlr</span>
-        <span className="w-1 h-1 rounded-full bg-[#8A91A3]" />
+        <span className="w-1 h-1 rounded-full bg-[var(--ink-muted)]" />
         <span>All Rights Reserved</span>
       </div>
     </div>
