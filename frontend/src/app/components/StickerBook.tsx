@@ -168,7 +168,7 @@ export function StickerBook({ onBack, completedByStage = {}, avatar = "" }: Stic
                       <div className="aspect-square rounded-xl flex items-center justify-center gap-1 mb-4">
                         {pageFrames.map((frame) => (
                           <div key={frame.id} className={framesUnlocked ? "" : "opacity-40 grayscale"}>
-                            <AvatarFrame assetKey={frame.asset_key} size={64}>
+                            <AvatarFrame assetKey={frame.asset_key} size={56}>
                               {framesUnlocked ? <span className="text-2xl">{avatar}</span> : <Lock className="w-4 h-4 text-[var(--ink-muted)]" />}
                             </AvatarFrame>
                           </div>

@@ -29,7 +29,7 @@ export function StageCompleteDialog({ stageTitle, frames, avatar, onClose }: {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="top-0 left-0 translate-x-0 translate-y-0 h-[100dvh] w-screen max-w-none sm:max-w-none rounded-none border-0 bg-[var(--paper)] overflow-y-auto content-center justify-items-center gap-6 p-6">
+      <DialogContent className="top-0 left-0 translate-x-0 translate-y-0 h-[100dvh] w-screen max-w-none sm:max-w-none rounded-none border-0 bg-[var(--paper)] overflow-y-auto [align-content:safe_center] justify-items-center gap-5 p-6">
         <motion.div
           initial={reducedMotion ? false : { scale: 0.6, rotate: -10, opacity: 0 }}
           animate={{ scale: 1, rotate: 0, opacity: 1 }}
@@ -54,7 +54,7 @@ export function StageCompleteDialog({ stageTitle, frames, avatar, onClose }: {
               transition={{ delay: 0.25 + index * 0.15 }}
               className="flex flex-col items-center gap-3"
             >
-              <AvatarFrame assetKey={frame.asset_key} size={132}>
+              <AvatarFrame assetKey={frame.asset_key} size={120}>
                 <span className="text-5xl">{avatar}</span>
               </AvatarFrame>
               <p className="font-bold text-[var(--ink)]">{frame.name}</p>
