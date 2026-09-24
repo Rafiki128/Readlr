@@ -37,6 +37,11 @@ export function normalizeCvcJourney(value: unknown): CvcJourney {
   const jewels = completed < 19 ? 0 : Math.max(0, Math.min(3, Number.isInteger(raw.jewels) ? raw.jewels! : 0));
   return {version:1, completed:completed === 20 && jewels < 3 ? 19 : completed, jewels};
 }
+// Keeps the device journey unless the server copy has more lessons or crown jewels.
+export function furtherCvcJourney(local:CvcJourney, remote:unknown):CvcJourney {
+  const other = normalizeCvcJourney(remote);
+  return other.completed > local.completed || (other.completed === local.completed && other.jewels > local.jewels) ? other : local;
+}
 export function finishCvcLesson(journey:CvcJourney, id:number):CvcJourney {
   if (id !== journey.completed + 1 || id > 19) return journey;
   return {...journey, completed:id};

@@ -62,7 +62,7 @@ export async function handleGetStageProgress(req: Request, res: Response) {
 export async function handleUpdateProgress(req: Request, res: Response) {
   try {
     const { learnerId, stageId } = req.params;
-    const { completed_levels, total_levels } = req.body;
+    const { completed_levels, total_levels, journey } = req.body;
     const parsedLearnerId = parseInt(learnerId);
 
     await ensureOwnLearner(req, parsedLearnerId);
@@ -81,7 +81,8 @@ export async function handleUpdateProgress(req: Request, res: Response) {
       parsedLearnerId,
       parsedStageId,
       completed_levels,
-      total_levels
+      total_levels,
+      journey
     );
 
     const isStageComplete = progress.completed_levels >= progress.total_levels;

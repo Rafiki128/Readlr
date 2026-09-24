@@ -12,8 +12,8 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StageSelection } from "./components/StageSelection";
 import { GameLevel } from "./components/GameLevel";
 import { StoryScene } from "./components/StoryScene";
-import { readBridgeJourney } from "./components/stageTwoContent";
-import { readCvcJourney } from "./components/cvcContent";
+import { bridgeStorageKey, furtherBridgeJourney, readBridgeJourney } from "./components/stageTwoContent";
+import { cvcStorageKey, furtherCvcJourney, readCvcJourney } from "./components/cvcContent";
 import { ChapterBridge } from "./components/ChapterBridge";
 import { LevelMap } from "./components/LevelMap";
 import { StickerBook } from "./components/StickerBook";
@@ -427,14 +427,22 @@ function AppContent() {
               return mergedProgress;
             });
 
-            // Journeys saved only on this device before progress sync existed are pushed up once.
-            const bridge = readBridgeJourney(learnerId);
-            const localCounts: Record<number, number> = {
-              2: bridge.training.length + bridge.crossings.length,
-              3: readCvcJourney(learnerId).completed,
-            };
-            Object.entries(localCounts).forEach(([stageId, count]) => {
-              if (count > newCompletedByStage[Number(stageId)]) recordStageProgress(Number(stageId), count);
+            // Keep whichever journey is further along on both the device and the server.
+            const serverJourney = (stageId: number) => stages.find((progress: any) => progress.stage_id === stageId)?.journey;
+            const bridge = furtherBridgeJourney(readBridgeJourney(learnerId), serverJourney(2));
+            const cvc = furtherCvcJourney(readCvcJourney(learnerId), serverJourney(3));
+            try {
+              localStorage.setItem(bridgeStorageKey(learnerId)!, JSON.stringify(bridge));
+              localStorage.setItem(cvcStorageKey(learnerId)!, JSON.stringify(cvc));
+            } catch (error) {
+              console.error('Failed to restore journeys on this device:', error);
+            }
+            const journeys: Array<[number, number, object]> = [
+              [2, bridge.training.length + bridge.crossings.length, bridge],
+              [3, cvc.completed, cvc],
+            ];
+            journeys.forEach(([stageId, count, journey]) => {
+              if (count > newCompletedByStage[stageId] || (count > 0 && !serverJourney(stageId))) recordStageProgress(stageId, count, journey);
             });
           }
         } catch (error) {
@@ -507,7 +515,7 @@ function AppContent() {
   };
 
   // Saves a stage's completed-level count on this device and the server without ever lowering it.
-  const recordStageProgress = async (stageId: number, completed: number) => {
+  const recordStageProgress = async (stageId: number, completed: number, journey?: object) => {
     setCompletedByStage((prev) => {
       const nextProgress = { ...prev, [stageId]: Math.max(prev[stageId] ?? 0, completed) };
       saveProgressToStorage(user?.id, nextProgress);
@@ -528,6 +536,7 @@ function AppContent() {
           body: JSON.stringify({
             completed_levels: completed,
             total_levels: stageConfig.totalLevels,
+            journey,
           }),
         });
         if (progressRes.ok) {
@@ -556,10 +565,10 @@ function AppContent() {
     await recordStageProgress(selectedStage, completed);
   };
 
-  const handleJourneyProgress = (completed: number) => {
+  const handleJourneyProgress = (completed: number, journey: object) => {
     const reward = newStickerReward(selectedStage, completedByStage[selectedStage] ?? 0, completed);
     if (reward) setStickerReward(reward);
-    recordStageProgress(selectedStage, completed);
+    recordStageProgress(selectedStage, completed, journey);
   };
 
   const handleContinueDojoTraining = () => {

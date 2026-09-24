@@ -25,7 +25,7 @@ interface LevelMapProps {
   initialView?: "dojo" | "valley" | "bridges";
   onBack: () => void;
   onSelectLevel: (levelId: number) => void;
-  onProgress?: (completed: number) => void;
+  onProgress?: (completed: number, journey: object) => void;
 }
 
 type NodeStatus = "done" | "next" | "locked";

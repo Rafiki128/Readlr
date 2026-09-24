@@ -14,7 +14,7 @@ import "./bridgeJourney.css";
 import "./continuousLandscape.css";
 
 export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, onProgress }: {
-  learnerId?: number | null; initialView?: "workshop" | "bridges"; onBack: () => void; onProgress?: (completed: number) => void;
+  learnerId?: number | null; initialView?: "workshop" | "bridges"; onBack: () => void; onProgress?: (completed: number, journey: object) => void;
 }) {
   const [progress, setProgress] = useState(() => readBridgeJourney(learnerId));
   const [activity, setActivity] = useState<BridgeLesson | null>(null);
@@ -39,7 +39,7 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, 
       try { localStorage.setItem(key, JSON.stringify(updated)); setSaveError(false); }
       catch { setSaveError(true); }
     }
-    onProgress?.(updated.training.length + updated.crossings.length);
+    onProgress?.(updated.training.length + updated.crossings.length, updated);
   }
   useEffect(() => {
     if (activity) return;

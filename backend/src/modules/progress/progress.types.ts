@@ -10,6 +10,7 @@ export interface ProgressResponse {
   total_levels: number;
   completion_percentage: number;
   last_updated: string;
+  journey?: unknown;
 }
 
 export interface LearnerProgressSummary {
