@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import confetti from "canvas-confetti";
 
 interface ChapterCelebrationProps {
-  sticker: string;
+  sticker?: string;
   score: number;
   currentLevel: number;
   totalLevels: number;
@@ -122,6 +122,7 @@ export function ChapterCelebration({
                 <span className="text-xl sm:text-2xl md:text-3xl font-bold text-[var(--ink)]">+{score} points</span>
               </div>
 
+              {sticker && <>
               {/* Divider */}
               <div className="h-px bg-[#F59E0B]/20 mb-4 sm:mb-8" />
 
@@ -138,6 +139,7 @@ export function ChapterCelebration({
                   {sticker}
                 </motion.div>
               </div>
+              </>}
             </motion.div>
 
             {/* Action buttons */}

@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, Star, Lock, Check, Sparkles } from "lucide-react";
-import { TRAIL_STICKERS, POINT_STICKERS, getTrailPoints } from "./trailRewards";
-import { readBridgeJourney } from "./stageTwoContent";
-import { readCvcJourney } from "./cvcContent";
+import { POINT_STICKERS, getTrailPoints } from "./trailRewards";
+import { STICKERS, isStickerEarned } from "./stickers";
 
 interface AttemptRecord {
   wordId: number;
@@ -33,55 +32,14 @@ function loadSelfCorrections(): AttemptRecord[] {
 }
 
 interface StickerBookProps {
-  learnerId?: number | null;
   onBack: () => void;
   completedByStage?: Record<number, number>;
 }
 
-interface Sticker {
-  id: number;
-  emoji: string;
-  name: string;
-  stage: string;
-  stageId: number;
-  levelId: number;
-}
-
-const STICKER_DEFS: Sticker[] = [
-  { id: 1,  emoji: "🦋", name: "Butterfly", stage: "Valley of Vowels — A",  stageId: 1, levelId: 1 },
-  { id: 2,  emoji: "🐝", name: "Bee",       stage: "Valley of Vowels — E",  stageId: 1, levelId: 2 },
-  { id: 3,  emoji: "🐞", name: "Ladybug",   stage: "Valley of Vowels — I",  stageId: 1, levelId: 3 },
-  { id: 4,  emoji: "🦉", name: "Owl",       stage: "Valley of Vowels — O",  stageId: 1, levelId: 4 },
-  { id: 5,  emoji: "🦄", name: "Unicorn",   stage: "Valley of Vowels — U",  stageId: 1, levelId: 5 },
-  { id: 6,  emoji: "🐸", name: "Frog",      stage: "Blending Bridges 1",    stageId: 2, levelId: 1 },
-  { id: 7,  emoji: "🐢", name: "Turtle",    stage: "Blending Bridges 2",    stageId: 2, levelId: 2 },
-  { id: 8,  emoji: "🦎", name: "Lizard",    stage: "Blending Bridges 3",    stageId: 2, levelId: 3 },
-  { id: 9,  emoji: "🦜", name: "Parrot",    stage: "CVC Kingdom 1",         stageId: 3, levelId: 1 },
-  { id: 10, emoji: "🦚", name: "Peacock",   stage: "CVC Kingdom 2",         stageId: 3, levelId: 2 },
-  { id: 11, emoji: "🦁", name: "Lion",      stage: "CVC Kingdom 3",         stageId: 3, levelId: 3 },
-  { id: 12, emoji: "🐯", name: "Tiger",     stage: "CVC Kingdom Final",     stageId: 3, levelId: 4 },
-];
-
-export function StickerBook({ onBack, completedByStage = {}, learnerId }: StickerBookProps) {
-  const bridgeProgress = readBridgeJourney(learnerId);
-  const cvcProgress = readCvcJourney(learnerId);
+export function StickerBook({ onBack, completedByStage = {} }: StickerBookProps) {
   const trailPoints = getTrailPoints(completedByStage[1] ?? 0);
   const nextBonus = POINT_STICKERS.find((item) => item.points > trailPoints);
-  const stickers = [...STICKER_DEFS, ...TRAIL_STICKERS].map((s) => ({
-    ...s,
-    earned: (completedByStage[s.stageId] ?? 0) >= s.levelId,
-  })).concat(POINT_STICKERS.map((item) => ({
-    id: item.id, emoji: item.emoji, name: item.name,
-    stage: `${item.points} trail points`, stageId: 1, levelId: 0,
-    earned: trailPoints >= item.points,
-  })));
-
-  [{name:"Bridge Builder",points:100,emoji:"🌉"},{name:"Brook Keeper",points:500,emoji:"💧"},{name:"Waterfall Explorer",points:1000,emoji:"🌈"},{name:"Sky Connector",points:1500,emoji:"☁️"}].forEach((reward,index)=> {
-    stickers.push({ id:2001+index, emoji:reward.emoji, name:reward.name, stage:`Blending Bridges - ${reward.points} bridge points`, stageId:2, levelId:0, earned:bridgeProgress.points>=reward.points });
-  });
-  [{name:"Word Alchemist",at:5,emoji:"✨"},{name:"Garden Magician",at:10,emoji:"🌷"},{name:"Castle Storyteller",at:15,emoji:"📖"},{name:"Crown of Three Lights",at:20,emoji:"👑"}].forEach((reward,index)=> {
-    stickers.push({id:3001+index,emoji:reward.emoji,name:reward.name,stage:"CVC Kingdom - word magic",stageId:3,levelId:reward.at,earned:cvcProgress.completed>=reward.at});
-  });
+  const stickers = STICKERS.map((s) => ({ ...s, earned: isStickerEarned(s, completedByStage) }));
   const earnedCount = stickers.filter((s) => s.earned).length;
   const pct = Math.round((earnedCount / stickers.length) * 100);
   const selfCorrections = useMemo(() => loadSelfCorrections(), []);
@@ -141,15 +99,6 @@ export function StickerBook({ onBack, completedByStage = {}, learnerId }: Sticke
           <section className="mb-8 border-y border-amber-200 py-5" aria-label="Trail points">
             <h2 className="flex items-center gap-2 text-xl font-bold"><Star className="h-5 w-5 text-amber-500" />{trailPoints} trail points</h2>
             <p className="mt-2 text-sm text-[var(--ink-soft)]">{nextBonus ? `${nextBonus.points - trailPoints} more points to unlock ${nextBonus.name}.` : "You earned every valley bonus sticker!"}</p>
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {POINT_STICKERS.map((bonus) => (
-                <div key={bonus.id} className="flex min-w-0 flex-col items-center gap-1 text-center">
-                  <span className={`flex h-14 w-14 items-center justify-center rounded-full text-3xl ${trailPoints >= bonus.points ? "bg-[#FFF0C2]" : "bg-[#ECEEF2] grayscale"}`} aria-hidden="true">{bonus.emoji}</span>
-                  <span className="text-sm font-bold text-[var(--ink-soft)]">{bonus.name}</span>
-                  <span className="inline-flex items-center gap-1 text-xs text-[#707789]">{trailPoints >= bonus.points ? <><Check className="h-3 w-3" />Collected</> : `${bonus.points.toLocaleString()} points`}</span>
-                </div>
-              ))}
-            </div>
           </section>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {stickers.map((sticker, index) => (

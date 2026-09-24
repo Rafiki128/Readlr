@@ -5,7 +5,7 @@ import confetti from "canvas-confetti";
 
 interface LevelCompleteProps {
   score: number;
-  sticker: string;
+  sticker?: string;
   onContinue: () => void;
 }
 
@@ -65,7 +65,7 @@ export function LevelComplete({ score, sticker, onContinue }: LevelCompleteProps
             <span className="text-3xl font-bold text-purple-600">+{score} points</span>
           </div>
 
-          <div className="border-t-2 border-purple-200 pt-4">
+          {sticker && <div className="border-t-2 border-purple-200 pt-4">
             <p className="text-lg text-gray-700 mb-3 font-medium">
               New Sticker Unlocked!
             </p>
@@ -76,7 +76,7 @@ export function LevelComplete({ score, sticker, onContinue }: LevelCompleteProps
             >
               {sticker}
             </motion.div>
-          </div>
+          </div>}
         </div>
 
         <motion.button

@@ -670,8 +670,6 @@ function AppContent() {
     setCompletedByStage({ ...DEFAULT_PROGRESS });
   };
 
-  const stickers = ["🦋", "🐝", "🐞", "🦉", "🦄"];
-
   const noHeaderScreens = ["landing", "auth", "learner-profile", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "level-complete", "vowel-power-complete"];
   const showLearnerHeader = user?.role === "learner" && !noHeaderScreens.includes(currentScreen);
 
@@ -803,7 +801,6 @@ function AppContent() {
 
         {currentScreen === "chapter-celebration" && (
           <ChapterCelebration
-            sticker={stickers[Math.floor(Math.random() * stickers.length)]}
             score={levelScore}
             currentLevel={selectedLevel}
             totalLevels={STAGE_CONFIG[selectedStage]?.totalLevels ?? 5}
@@ -832,7 +829,6 @@ function AppContent() {
         {currentScreen === "level-complete" && (
           <LevelComplete
             score={levelScore}
-            sticker={stickers[Math.floor(Math.random() * stickers.length)]}
             onContinue={handleContinueAfterLevel}
           />
         )}
@@ -850,7 +846,7 @@ function AppContent() {
         )}
 
         {currentScreen === "sticker-book" && (
-          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} learnerId={learnerId} />
+          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} />
         )}
 
         {currentScreen === "dashboard" && (
