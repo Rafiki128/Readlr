@@ -8,6 +8,7 @@ export function createAuthRouter(authController: AuthController): Router {
   router.post('/register', authController.register);
   router.post('/login', authController.login);
   router.get('/profile', authMiddleware, authController.getProfile);
+  router.delete('/me', authMiddleware, authController.deleteAccount);
 
   return router;
 }

@@ -152,6 +152,6 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
       </div>}
     </div>
     {!room && <footer className="adventure-bottom"><button onClick={() => setRoom(true)}><DoorOpen size={20} />Train in the Dojo</button>{completed < 20 && <button onClick={() => onSelectLevel(next)}>Continue <ArrowRight size={20} /></button>}</footer>}
-    <Dialog open={notice && room} onOpenChange={(open) => { if (!open) dismiss(); }}><DialogContent className="bg-white text-center"><DoorOpen className="mx-auto h-12 w-12 text-amber-500" /><DialogTitle>The valley is open!</DialogTitle><DialogDescription>Your five powers are ready. Come back to the Dojo whenever you like.</DialogDescription><button className="adventure-unlock" onClick={() => { dismiss(); setRoom(false); }}>Let's explore <ArrowRight size={20} /></button></DialogContent></Dialog>
+    <Dialog open={notice && room} onOpenChange={(open) => { if (!open) dismiss(); }}><DialogContent className="bg-card text-center"><DoorOpen className="mx-auto h-12 w-12 text-amber-500" /><DialogTitle>The valley is open!</DialogTitle><DialogDescription>Your five powers are ready. Come back to the Dojo whenever you like.</DialogDescription><button className="adventure-unlock" onClick={() => { dismiss(); setRoom(false); }}>Let's explore <ArrowRight size={20} /></button></DialogContent></Dialog>
   </div>;
 }

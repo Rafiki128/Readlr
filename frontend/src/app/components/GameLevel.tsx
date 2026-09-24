@@ -1448,15 +1448,15 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   }
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-hidden relative flex flex-col">
+    <div className="size-full bg-[var(--paper)] overflow-hidden relative flex flex-col">
       <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-60 pointer-events-none" style={{ background: tint }} />
       <div className="relative z-10 flex-1 flex flex-col px-4 sm:px-6 py-4 sm:py-6 items-center justify-center gap-4">
-        <button onClick={onBack} className="absolute top-6 left-6 px-3 py-2 rounded-xl bg-white border text-sm hover:bg-gray-50 transition-colors">
+        <button onClick={onBack} className="absolute top-6 left-6 px-3 py-2 rounded-xl bg-card border text-sm hover:bg-gray-50 transition-colors">
           <ArrowLeft className="w-4 h-4 inline mr-1" /> Back
         </button>
         
-        <motion.div className="bg-white rounded-2xl px-6 sm:px-8 py-4 shadow-lg text-center max-w-md w-full">
-          <p className="text-lg sm:text-xl font-bold text-[#1F2430]">{bubbleMessage}</p>
+        <motion.div className="bg-card rounded-2xl px-6 sm:px-8 py-4 shadow-lg text-center max-w-md w-full">
+          <p className="text-lg sm:text-xl font-bold text-[var(--ink)]">{bubbleMessage}</p>
         </motion.div>
         
         <motion.div 
@@ -1467,14 +1467,14 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
           <CharacterCompanion state={characterState} phoneme={challenge.phoneme || challenge.vowel || ""} size={260} />
         </motion.div>
 
-        <motion.div className="bg-white px-6 sm:px-12 py-4 sm:py-6 rounded-3xl border-4 text-center max-w-2xl w-full" style={{ borderColor: accent }}>
+        <motion.div className="bg-card px-6 sm:px-12 py-4 sm:py-6 rounded-3xl border-4 text-center max-w-2xl w-full" style={{ borderColor: accent }}>
           {isStageOneQuest ? (
             <div className="flex flex-col items-center">
               <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
                 <span className="rounded-full px-3 py-1 text-xs uppercase tracking-widest text-white" style={{ background: accent }}>
                   {challenge.skillLabel}
                 </span>
-                <span className="rounded-full bg-[#FFF7ED] px-3 py-1 text-xs font-bold text-[#B45309]">
+                <span className="rounded-full bg-[var(--tint-amber)] px-3 py-1 text-xs font-bold text-[#B45309]">
                   {challenge.reward}
                 </span>
               </div>
@@ -1485,11 +1485,11 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
 
               {challenge.levelType === "blend-bridge" ? (
                 <div className="flex items-center gap-2 sm:gap-4 font-bold justify-center flex-wrap" style={{ color: accent }}>
-                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F8FAFC] text-4xl sm:text-5xl border border-[#1F243014]">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F8FAFC] text-4xl sm:text-5xl border border-[var(--hairline)]">
                     {challenge.consonant}
                   </span>
                   <span className="text-2xl sm:text-3xl text-gray-300">+</span>
-                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFF7ED] text-4xl sm:text-5xl border border-[#F59E0B]/30">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--tint-amber)] text-4xl sm:text-5xl border border-[#F59E0B]/30">
                     {challenge.vowel}
                   </span>
                   <span className="text-2xl sm:text-3xl text-gray-300">=</span>
@@ -1501,13 +1501,13 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
                     {(challenge.frame ?? "_").split("").map((char, index) => (
                       <span
                         key={`${char}-${index}`}
-                        className={char === "_" ? "inline-flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-dashed border-[#D6D3D1] bg-[#FAF7F2]" : ""}
+                        className={char === "_" ? "inline-flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-dashed border-[#D6D3D1] bg-[var(--paper)]" : ""}
                       >
                         {char}
                       </span>
                     ))}
                   </div>
-                  <p className="text-xs text-[#8A91A3]">Choose the missing vowel, then say the sound.</p>
+                  <p className="text-xs text-[var(--ink-muted)]">Choose the missing vowel, then say the sound.</p>
                 </div>
               ) : challenge.levelType === "mouth-shape" ? (
                 <div className="flex flex-col items-center gap-4">
@@ -1521,14 +1521,14 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
                   <span className="text-5xl sm:text-7xl font-bold" style={{ color: accent }}>
                     {challenge.targetSound}
                   </span>
-                  <p className="text-sm text-[#4B5266]">{challenge.mouthHint}</p>
+                  <p className="text-sm text-[var(--ink-soft)]">{challenge.mouthHint}</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
                   <motion.div
                     animate={{ rotate: [-4, 4, -4], scale: [1, 1.05, 1] }}
                     transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                    className="flex h-28 w-28 items-center justify-center rounded-[2rem] border-4 bg-[#FFF7ED] shadow-[0_16px_34px_-20px_rgba(245,158,11,0.8)]"
+                    className="flex h-28 w-28 items-center justify-center rounded-[2rem] border-4 bg-[var(--tint-amber)] shadow-[0_16px_34px_-20px_rgba(245,158,11,0.8)]"
                     style={{ borderColor: accent }}
                   >
                     <span className="text-6xl font-bold" style={{ color: accent }}>{challenge.vowel}</span>
@@ -1537,7 +1537,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
                     {challenge.levelType === "anchor-echo" ? challenge.anchorWord : challenge.targetSound}
                   </span>
                   {challenge.levelType === "anchor-echo" && (
-                    <p className="text-sm text-[#4B5266]">
+                    <p className="text-sm text-[var(--ink-soft)]">
                       Say the sound first, then the anchor picture.
                     </p>
                   )}
@@ -1557,8 +1557,8 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
                           isSelected
                             ? isCorrect
                               ? "bg-[#DCFCE7] border-[#10B981] text-[#047857]"
-                              : "bg-[#FEE2E2] border-[#EF4444] text-[#B91C1C]"
-                            : "bg-white border-[#E6DED2] text-[#1F2430] hover:border-[#F59E0B]"
+                              : "bg-[var(--tint-red)] border-[#EF4444] text-[#B91C1C]"
+                            : "bg-card border-[#E6DED2] text-[var(--ink)] hover:border-[#F59E0B]"
                         }`}
                       >
                         {choice}
@@ -1607,7 +1607,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
         </motion.div>
 
         <div className="flex flex-col sm:flex-row gap-3 max-w-sm sm:max-w-md sm:gap-4 justify-center">
-          <button onClick={() => { userRequestedModel.current = true; speakPhoneme(); }} className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-white border flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium">
+          <button onClick={() => { userRequestedModel.current = true; speakPhoneme(); }} className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl bg-card border flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium">
             <Volume2 className="w-4 h-4 flex-shrink-0" /> Listen
           </button>
           <button onClick={handleListen} disabled={isListening} className="px-6 sm:px-10 py-3 sm:py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: accent }}>

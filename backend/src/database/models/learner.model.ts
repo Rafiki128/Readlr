@@ -1,5 +1,5 @@
 import { supabase, unwrap } from '../db.js';
-export interface Learner { id: number; user_id: number; name: string; avatar: string; grade: number; created_at: string; updated_at: string; }
+export interface Learner { id: number; user_id: number; name: string; avatar: string; grade: number; equipped_frame_id: number | null; created_at: string; updated_at: string; }
 export async function createLearner(userId: number, name: string, avatar = '🦊'): Promise<Learner> { return unwrap(await supabase.from('learner_profiles').insert({ user_id: userId, name, avatar }).select().single()) as Learner; }
 export async function getLearnerById(id: number): Promise<Learner> { return unwrap(await supabase.from('learner_profiles').select('*').eq('id', id).maybeSingle()) as Learner; }
 export async function getLearnerByUserId(userId: number): Promise<Learner> { return unwrap(await supabase.from('learner_profiles').select('*').eq('user_id', userId).maybeSingle()) as Learner; }

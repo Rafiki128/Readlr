@@ -41,7 +41,7 @@ export function LevelComplete({ score, sticker, onContinue }: LevelCompleteProps
         initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
         animate={{ scale: 1, opacity: 1, rotate: 0 }}
         transition={{ type: "spring", duration: 0.8 }}
-        className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-center"
+        className="bg-card rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-center"
       >
         <motion.div
           animate={{ rotate: [0, 10, -10, 0] }}

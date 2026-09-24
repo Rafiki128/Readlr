@@ -188,19 +188,19 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
   };
 
   return (
-    <MotionConfig reducedMotion="user"><div className="chapter-story size-full bg-[#FAF7F2] relative">
+    <MotionConfig reducedMotion="user"><div className="chapter-story size-full bg-[var(--paper)] relative">
       <div className="chapter-story__content px-4 sm:px-6 md:px-10 py-6 sm:py-8">
         <div className="max-w-5xl mx-auto w-full">
           {/* Top bar */}
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <button
               onClick={() => { cancelNarration(); onBack(); }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] transition-colors text-xs sm:text-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] transition-colors text-xs sm:text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Stages
             </button>
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[#8A91A3]">
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
               <BookOpen className="w-3.5 h-3.5" />
               Story scene
             </span>
@@ -219,7 +219,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
             >
               {scene.chapter}
             </p>
-            <h1 className="text-2xl sm:text-4xl md:text-5xl text-[#1F2430] tracking-tight">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl text-[var(--ink)] tracking-tight">
               {scene.title}
             </h1>
           </motion.div>
@@ -229,7 +229,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
             initial={{ y: 18, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.12, duration: 0.55, ease: "easeOut" }}
-            className="chapter-story__panel bg-white rounded-3xl border border-[#1F243014] overflow-hidden shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)]"
+            className="chapter-story__panel bg-card rounded-3xl border border-[var(--hairline)] overflow-hidden shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)]"
           >
             {/* Top color band */}
             <div className="h-1" style={{ background: scene.accent }} />
@@ -237,10 +237,10 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
             <div className="chapter-story__grid">
               {/* Left — narrative */}
               <div className="p-5 sm:p-8 md:p-10">
-                <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">
+                <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">
                   Scene
                 </p>
-                <p className="text-sm sm:text-base md:text-lg text-[#1F2430] leading-relaxed mb-6 sm:mb-8">
+                <p className="text-sm sm:text-base md:text-lg text-[var(--ink)] leading-relaxed mb-6 sm:mb-8">
                   <span style={{ background: speaking && beat === 0 ? "#FEF3C7" : "transparent", transition: "background 300ms" }}>
                   {scene.scene}
                   </span>
@@ -251,7 +251,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                   initial={{ y: 8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.28, duration: 0.45, ease: "easeOut" }}
-                  className="bg-[#FAF7F2] rounded-2xl p-4 sm:p-5 border border-[#1F243014] mb-6"
+                  className="bg-[var(--paper)] rounded-2xl p-4 sm:p-5 border border-[var(--hairline)] mb-6"
                   style={{ borderColor: speaking && (beat === 1 || (stageId === 1 && beat === 2)) ? scene.accent : undefined }}
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -259,18 +259,18 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                       className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                       style={{ background: scene.accent }}
                     />
-                    <span className="text-xs uppercase tracking-wider text-[#8A91A3]">
+                    <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                       Milo says
                     </span>
                   </div>
-                  <p className="text-sm sm:text-base text-[#1F2430] leading-relaxed">
+                  <p className="text-sm sm:text-base text-[var(--ink)] leading-relaxed">
                     "{scene.narration}"
                   </p>
                   <button
                     onClick={handleListen}
                     disabled={beginning}
                     aria-label={speaking ? "Stop narration" : "Listen to the story again"}
-                    className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] transition-colors text-xs sm:text-sm"
+                    className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] transition-colors text-xs sm:text-sm"
                   >
                     {speaking ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 flex-shrink-0" />}
                     {speaking ? "Stop narration" : "Listen again"}
@@ -286,10 +286,10 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                     <span style={{ color: scene.accent }}>🎯</span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-0.5">
+                    <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-0.5">
                       Your goal
                     </p>
-                    <p className="text-sm sm:text-base text-[#1F2430]" style={{ background: speaking && beat === (stageId === 1 ? 3 : 2) ? "#FEF3C7" : "transparent", transition: "background 300ms" }}>{scene.goal}</p>
+                    <p className="text-sm sm:text-base text-[var(--ink)]" style={{ background: speaking && beat === (stageId === 1 ? 3 : 2) ? "#FEF3C7" : "transparent", transition: "background 300ms" }}>{scene.goal}</p>
                   </div>
                 </div>
 
@@ -317,7 +317,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                       cancelNarration();
                       onGoToValley();
                     }}
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#F59E0B]/30 bg-white px-5 py-3 text-sm font-medium text-[#4B5266] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50 sm:w-auto"
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#F59E0B]/30 bg-card px-5 py-3 text-sm font-medium text-[var(--ink-soft)] transition-colors hover:bg-[var(--tint-amber)] disabled:opacity-50 sm:w-auto"
                   >
                     Go directly to the valley <ArrowRight className="h-4 w-4" />
                   </button>
@@ -331,7 +331,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                       cancelNarration();
                       onGoToBridgeMap();
                     }}
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#4F46E5]/30 bg-white px-5 py-3 text-sm font-medium text-[#4B5266] transition-colors hover:bg-[#EEF2FF] disabled:opacity-50 sm:w-auto"
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#4F46E5]/30 bg-card px-5 py-3 text-sm font-medium text-[var(--ink-soft)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50 sm:w-auto"
                   >
                     Go directly to the bridges <ArrowRight className="h-4 w-4" />
                   </button>
@@ -341,7 +341,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
 
               {/* Right — Milo + illustration card */}
               <div
-                className="relative hidden md:flex flex-col items-center justify-center p-6 lg:p-10 border-t md:border-t-0 md:border-l border-[#1F243014]"
+                className="relative hidden md:flex flex-col items-center justify-center p-6 lg:p-10 border-t md:border-t-0 md:border-l border-[var(--hairline)]"
                 style={{ background: scene.tint }}
               >
                 <div className="absolute top-4 right-4 text-4xl sm:text-5xl opacity-60">
@@ -354,7 +354,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                 >
                   Your reading buddy
                 </p>
-                <p className="text-[#1F2430] text-base sm:text-lg font-medium">Milo</p>
+                <p className="text-[var(--ink)] text-base sm:text-lg font-medium">Milo</p>
               </div>
             </div>
           </motion.div>
@@ -364,7 +364,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="mt-4 sm:mt-6 text-center text-xs text-[#8A91A3]"
+            className="mt-4 sm:mt-6 text-center text-xs text-[var(--ink-muted)]"
           >
             Tip: a quiet room helps Milo hear every brave little word.
           </motion.p>

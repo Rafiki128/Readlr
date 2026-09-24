@@ -52,37 +52,37 @@ export function LearnerProfile({ onComplete }: LearnerProfileProps) {
   };
 
   return (
-    <div className="size-full bg-[#FAF7F2] flex items-center justify-center p-4 md:p-6 relative overflow-hidden">
-      <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#EEF2FF] opacity-70" />
-      <div className="absolute -bottom-28 -left-20 w-[28rem] h-[28rem] rounded-full bg-[#FEF3C7] opacity-60" />
+    <div className="size-full bg-[var(--paper)] flex items-center justify-center p-4 md:p-6 relative overflow-hidden">
+      <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[var(--accent-soft)] opacity-70" />
+      <div className="absolute -bottom-28 -left-20 w-[28rem] h-[28rem] rounded-full bg-[var(--tint-yellow)] opacity-60" />
 
       <motion.div
         initial={{ y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl p-6 md:p-8 border border-[#1F243014] shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)] flex flex-col overflow-y-auto"
+        className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-card rounded-3xl p-6 md:p-8 border border-[var(--hairline)] shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)] flex flex-col overflow-y-auto"
       >
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-            <span className="text-xs tracking-wide text-[#4B5266] uppercase">Step 1 of 1</span>
+            <span className="text-xs tracking-wide text-[var(--ink-soft)] uppercase">Step 1 of 1</span>
           </div>
-          <div className="w-12 h-12 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-[var(--accent-soft)] rounded-2xl flex items-center justify-center mb-4">
             <User className="w-6 h-6 text-[#4F46E5]" />
           </div>
-          <h1 className="text-2xl md:text-3xl text-[#1F2430] tracking-tight mb-1">
+          <h1 className="text-2xl md:text-3xl text-[var(--ink)] tracking-tight mb-1">
             Let's set up your profile
           </h1>
-          <p className="text-sm text-[#4B5266]">
+          <p className="text-sm text-[var(--ink-soft)]">
             Pick a name and a reading buddy. You can change these anytime.
           </p>
         </div>
 
         {/* Name Display */}
         <div className="mb-5">
-          <label className="block text-sm text-[#1F2430] mb-2">Your name</label>
-          <div className="w-full px-4 py-2.5 text-base bg-[#FAF7F2] border border-[#1F243014] rounded-xl text-[#1F2430] flex items-center">
+          <label className="block text-sm text-[var(--ink)] mb-2">Your name</label>
+          <div className="w-full px-4 py-2.5 text-base bg-[var(--paper)] border border-[var(--hairline)] rounded-xl text-[var(--ink)] flex items-center">
             {name}
           </div>
         </div>
@@ -90,8 +90,8 @@ export function LearnerProfile({ onComplete }: LearnerProfileProps) {
         {/* Avatars */}
         <div className="mb-5">
           <div className="flex items-baseline justify-between mb-2">
-            <label className="block text-sm text-[#1F2430]">Choose your learning buddy</label>
-            <span className="text-xs text-[#8A91A3]">{avatars.length} options</span>
+            <label className="block text-sm text-[var(--ink)]">Choose your learning buddy</label>
+            <span className="text-xs text-[var(--ink-muted)]">{avatars.length} options</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {avatars.map((avatar) => {
@@ -104,8 +104,8 @@ export function LearnerProfile({ onComplete }: LearnerProfileProps) {
                   onClick={() => setSelectedAvatar(avatar)}
                   className={`relative aspect-square rounded-xl flex items-center justify-center text-2xl sm:text-3xl md:text-4xl transition-all border ${
                     active
-                      ? "bg-[#EEF2FF] border-[#4F46E5] shadow-[0_8px_24px_-12px_rgba(79,70,229,0.4)]"
-                      : "bg-[#FAF7F2] border-[#1F243014] hover:border-[#1F243029]"
+                      ? "bg-[var(--accent-soft)] border-[#4F46E5] shadow-[0_8px_24px_-12px_rgba(79,70,229,0.4)]"
+                      : "bg-[var(--paper)] border-[var(--hairline)] hover:border-[var(--hairline-strong)]"
                   }`}
                 >
                   {avatar}
@@ -121,17 +121,17 @@ export function LearnerProfile({ onComplete }: LearnerProfileProps) {
         </div>
 
         {/* Preview */}
-        <div className="bg-[#FAF7F2] border border-[#1F243014] rounded-2xl p-4 mb-5">
-          <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">Preview</p>
+        <div className="bg-[var(--paper)] border border-[var(--hairline)] rounded-2xl p-4 mb-5">
+          <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Preview</p>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white border border-[#1F243014] rounded-xl flex items-center justify-center text-2xl">
+            <div className="w-12 h-12 bg-card border border-[var(--hairline)] rounded-xl flex items-center justify-center text-2xl">
               {selectedAvatar}
             </div>
             <div className="leading-tight">
-              <p className="text-base text-[#1F2430]">
-                {name || <span className="text-[#8A91A3]">Your name</span>}
+              <p className="text-base text-[var(--ink)]">
+                {name || <span className="text-[var(--ink-muted)]">Your name</span>}
               </p>
-              <p className="text-xs uppercase tracking-wider text-[#8A91A3] mt-0.5">
+              <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mt-0.5">
                 Grade 1 Learner
               </p>
             </div>
@@ -140,7 +140,7 @@ export function LearnerProfile({ onComplete }: LearnerProfileProps) {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-3 bg-[#FEE2E2] border border-[#FECACA] rounded-lg">
+          <div className="mb-4 p-3 bg-[var(--tint-red)] border border-[#FECACA] rounded-lg">
             <p className="text-sm text-[#DC2626]">{error}</p>
           </div>
         )}
@@ -154,7 +154,7 @@ export function LearnerProfile({ onComplete }: LearnerProfileProps) {
           className={`w-full px-8 py-3 rounded-2xl text-base inline-flex items-center justify-center gap-2 transition-colors ${
             !isLoading
               ? "bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-[0_8px_24px_-12px_rgba(79,70,229,0.6)]"
-              : "bg-[#F2EEE6] text-[#8A91A3] cursor-not-allowed"
+              : "bg-[var(--paper-deep)] text-[var(--ink-muted)] cursor-not-allowed"
           }`}
         >
           {isLoading ? (
@@ -170,7 +170,7 @@ export function LearnerProfile({ onComplete }: LearnerProfileProps) {
           )}
         </motion.button>
 
-        <p className="text-center text-xs text-[#8A91A3] mt-3">
+        <p className="text-center text-xs text-[var(--ink-muted)] mt-3">
           You can change this anytime in settings.
         </p>
       </motion.div>

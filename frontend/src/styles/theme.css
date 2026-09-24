@@ -15,6 +15,16 @@
   --coral: #FB7185;
   --sage: #10B981;
   --hairline: rgba(31, 36, 48, 0.08);
+  --hairline-strong: rgba(31, 36, 48, 0.16);
+  --paper-soft: #F6F3EE;
+  --tint-indigo: #E0E7FF;
+  --tint-amber: #FFF7ED;
+  --tint-yellow: #FEF3C7;
+  --tint-red: #FEE2E2;
+  --tint-green: #ECFDF5;
+  --tint-mint: #D1FAE5;
+  --gray-soft: #E5E7EB;
+  --track: #E5E1D8;
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -57,12 +67,31 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  /* Readlr palette, dark variants */
+  --paper: #14161C;
+  --paper-deep: #1C1F27;
+  --paper-soft: #191C23;
+  --ink: #ECEDF1;
+  --ink-soft: #B8BDCB;
+  --ink-muted: #8A91A3;
+  --accent-soft: rgba(79, 70, 229, 0.18);
+  --hairline: rgba(236, 237, 241, 0.08);
+  --hairline-strong: rgba(236, 237, 241, 0.16);
+  --tint-indigo: rgba(79, 70, 229, 0.24);
+  --tint-amber: rgba(245, 158, 11, 0.12);
+  --tint-yellow: rgba(245, 158, 11, 0.18);
+  --tint-red: rgba(220, 38, 38, 0.18);
+  --tint-green: rgba(16, 185, 129, 0.12);
+  --tint-mint: rgba(16, 185, 129, 0.2);
+  --gray-soft: #2A2E38;
+  --track: #3A3F4B;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: #1C1F27;
+  --card-foreground: var(--ink);
+  --popover: #1C1F27;
+  --popover-foreground: var(--ink);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);

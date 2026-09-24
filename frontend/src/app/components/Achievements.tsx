@@ -333,28 +333,28 @@ export function Achievements({ onBack, completedByStage = {} }: AchievementsProp
   const visible = filter === "all" ? withState : withState.filter((achievement) => achievement.category === filter);
 
   return (
-    <div className="size-full bg-[#FAF7F2] overflow-auto">
+    <div className="size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-6 md:px-10 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#1F243014] text-[#4B5266] hover:text-[#1F2430] hover:border-[#1F243029] transition-colors text-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] transition-colors text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </button>
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[#8A91A3]">
+            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
               <Award className="w-3.5 h-3.5 text-[#F59E0B]" />
               {unlockedCount} of {withState.length} unlocked
             </span>
           </div>
 
           <motion.div initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-8">
-            <p className="text-xs uppercase tracking-wider text-[#8A91A3] mb-2">Recognition</p>
+            <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Recognition</p>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-              <h1 className="text-4xl md:text-5xl text-[#1F2430] tracking-tight">Achievements</h1>
-              <p className="text-[#4B5266] max-w-md">
+              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">Achievements</h1>
+              <p className="text-[var(--ink-soft)] max-w-md">
                 Badges earned from levels, fluency practice, streaks, and saved voice recordings.
               </p>
             </div>
@@ -376,13 +376,13 @@ export function Achievements({ onBack, completedByStage = {} }: AchievementsProp
                   onClick={() => setFilter(category.id)}
                   className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm border transition-colors ${
                     active
-                      ? "bg-[#EEF2FF] border-[#4F46E5] text-[#4F46E5]"
-                      : "bg-white border-[#1F243014] text-[#4B5266] hover:border-[#1F243029]"
+                      ? "bg-[var(--accent-soft)] border-[#4F46E5] text-[#4F46E5]"
+                      : "bg-card border-[var(--hairline)] text-[var(--ink-soft)] hover:border-[var(--hairline-strong)]"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                   {category.name}
-                  <span className={`text-xs ${active ? "text-[#4F46E5]" : "text-[#8A91A3]"}`}>
+                  <span className={`text-xs ${active ? "text-[#4F46E5]" : "text-[var(--ink-muted)]"}`}>
                     {earned}/{categoryAchievements.length}
                   </span>
                 </button>
@@ -404,8 +404,8 @@ export function Achievements({ onBack, completedByStage = {} }: AchievementsProp
                   whileHover={achievement.unlocked ? { y: -3 } : {}}
                   className={`rounded-2xl p-5 border transition-colors ${
                     achievement.unlocked
-                      ? "bg-white border-[#1F243014] hover:border-[#1F243029]"
-                      : "bg-[#F6F3EE] border-[#D8D2C8] grayscale-[0.2]"
+                      ? "bg-card border-[var(--hairline)] hover:border-[var(--hairline-strong)]"
+                      : "bg-[var(--paper-soft)] border-[#D8D2C8] grayscale-[0.2]"
                   }`}
                 >
                   <div className="flex items-start gap-4 mb-4">
@@ -416,12 +416,12 @@ export function Achievements({ onBack, completedByStage = {} }: AchievementsProp
                       {achievement.unlocked ? (
                         <Icon className="w-6 h-6" style={{ color: achievement.accent }} />
                       ) : (
-                        <Lock className="w-5 h-5 text-[#8A91A3]" />
+                        <Lock className="w-5 h-5 text-[var(--ink-muted)]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={achievement.unlocked ? "text-[#1F2430]" : "text-[#6B7280]"}>
+                        <p className={achievement.unlocked ? "text-[var(--ink)]" : "text-[#6B7280]"}>
                           {achievement.title}
                         </p>
                         {achievement.unlocked && (
@@ -434,15 +434,15 @@ export function Achievements({ onBack, completedByStage = {} }: AchievementsProp
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[#8A91A3] mt-0.5">{achievement.description}</p>
+                      <p className="text-xs text-[var(--ink-muted)] mt-0.5">{achievement.description}</p>
                     </div>
                   </div>
 
                   <div>
                     <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-xs uppercase tracking-wider text-[#8A91A3]">Progress</span>
-                      <span className="text-xs text-[#1F2430]">
-                        {achievement.progress}<span className="text-[#8A91A3]"> / {achievement.total}</span>
+                      <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">Progress</span>
+                      <span className="text-xs text-[var(--ink)]">
+                        {achievement.progress}<span className="text-[var(--ink-muted)]"> / {achievement.total}</span>
                       </span>
                     </div>
                     <div className="w-full bg-[#ECE7DE] rounded-full h-1.5 overflow-hidden">
@@ -464,14 +464,14 @@ export function Achievements({ onBack, completedByStage = {} }: AchievementsProp
             initial={{ y: 8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mt-8 bg-white rounded-2xl p-6 border border-[#1F243014] flex items-center gap-4"
+            className="mt-8 bg-card rounded-2xl p-6 border border-[var(--hairline)] flex items-center gap-4"
           >
-            <div className="w-12 h-12 rounded-xl bg-[#EEF2FF] flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-[var(--accent-soft)] flex items-center justify-center flex-shrink-0">
               <Trophy className="w-6 h-6 text-[#4F46E5]" />
             </div>
             <div>
-              <p className="text-[#1F2430]">Keep going</p>
-              <p className="text-sm text-[#4B5266]">
+              <p className="text-[var(--ink)]">Keep going</p>
+              <p className="text-sm text-[var(--ink-soft)]">
                 {unlockedCount === 0
                   ? "Start your journey to unlock your first achievement."
                   : unlockedCount === withState.length

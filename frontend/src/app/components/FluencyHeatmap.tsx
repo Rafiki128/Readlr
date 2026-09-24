@@ -209,7 +209,7 @@ export function FluencyHeatmap({
 
   if (data.totalAttempts === 0) {
     return (
-      <div className="bg-white rounded-3xl p-10 shadow-xl flex flex-col items-center text-center gap-4">
+      <div className="bg-card rounded-3xl p-10 shadow-xl flex flex-col items-center text-center gap-4">
         <Sparkles className="w-12 h-12 text-indigo-300" />
         <h2 className="text-2xl font-bold text-gray-800">No data yet!</h2>
         <p className="text-gray-500 max-w-sm">
@@ -220,7 +220,7 @@ export function FluencyHeatmap({
   }
 
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-xl">
+    <div className="bg-card rounded-3xl p-6 shadow-xl">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
@@ -321,7 +321,7 @@ export function FluencyHeatmap({
                 className={`p-4 rounded-xl border-2 transition-all ${
                   isSelected
                     ? `border-indigo-500 bg-indigo-50`
-                    : `border-gray-200 bg-white hover:border-indigo-300`
+                    : `border-gray-200 bg-card hover:border-indigo-300`
                 }`}
               >
                 <p className="text-sm font-bold text-gray-800 mb-2">{stage.stageName}</p>
@@ -375,7 +375,7 @@ export function FluencyHeatmap({
                 <motion.div
                   key={word}
                   whileHover={{ scale: 1.05 }}
-                  className="px-3 py-1.5 bg-white/60 backdrop-blur border border-current/20 rounded-lg text-sm font-semibold text-gray-700 flex items-center gap-1.5 cursor-pointer hover:bg-white/80 transition-colors"
+                  className="px-3 py-1.5 bg-card/60 backdrop-blur border border-current/20 rounded-lg text-sm font-semibold text-gray-700 flex items-center gap-1.5 cursor-pointer hover:bg-card/80 transition-colors"
                 >
                   <Volume2 className="w-3.5 h-3.5" />
                   {word}
