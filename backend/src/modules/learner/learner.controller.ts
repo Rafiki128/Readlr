@@ -11,6 +11,13 @@ import {
   updateLearner,
 } from './learner.service.js';
 
+const MAX_NAME_LENGTH = 30;
+const AVATAR_OPTIONS = [
+  '🦊', '🐻', '🐼', '🐨', '🦁', '🐯',
+  '🐸', '🐧', '🦋', '🐝', '🦄', '🐙',
+  '🐳', '🦕', '🐢', '🐬',
+];
+
 /**
  * POST /api/learner/profile
  * Create or update learner profile for authenticated user
@@ -132,11 +139,28 @@ export async function handleUpdateMyProfile(req: Request, res: Response) {
     const userId = (req as any).userId;
     const { name, avatar } = req.body;
 
+    const updates: { name?: string; avatar?: string } = {};
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: 'name must be a non-empty string' });
+      }
+      const trimmed = name.trim();
+      if (trimmed.length > MAX_NAME_LENGTH) {
+        return res.status(400).json({ error: `name must be ${MAX_NAME_LENGTH} characters or fewer` });
+      }
+      updates.name = trimmed;
+    }
+
+    if (avatar !== undefined) {
+      if (typeof avatar !== 'string' || !AVATAR_OPTIONS.includes(avatar)) {
+        return res.status(400).json({ error: 'avatar must be one of the supported options' });
+      }
+      updates.avatar = avatar;
+    }
+
     const existing = await getLearnerByUserId(userId);
-    const updated = await updateLearner(existing.id, {
-      ...(name && { name }),
-      ...(avatar && { avatar }),
-    });
+    const updated = await updateLearner(existing.id, updates);
 
     return res.json({ success: true, learner: updated });
   } catch (error) {

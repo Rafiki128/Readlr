@@ -14,6 +14,7 @@ export interface LearnerResponse {
   name: string;
   avatar: string;
   grade: number;
+  equipped_frame_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,4 +23,5 @@ export interface UpdateLearnerRequest {
   name?: string;
   avatar?: string;
   grade?: number;
+  equipped_frame_id?: number;
 }

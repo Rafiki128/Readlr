@@ -124,4 +124,22 @@ export class AuthController {
       res.status(500).json({ success: false, message });
     }
   };
+
+  deleteAccount = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).userId;
+
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
+      await this.authService.deleteAccount(userId);
+
+      res.json({ success: true, message: 'Account deleted' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete account';
+      res.status(500).json({ success: false, message });
+    }
+  };
 }
