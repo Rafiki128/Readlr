@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { readBridgeJourney } from "./stageTwoContent";
+import { readCvcJourney } from "./cvcContent";
 import {
   Crown,
   Zap,
@@ -48,7 +49,7 @@ export function StageSelection({
   const stageDefs = [
     { id: 1, total: 20, title: "Valley of Vowels", subtitle: "Train vowel powers, hear your voice, then cross the valley road.", accent: "#F59E0B", accentSoft: "#FEF3C7", icon: <Star className="w-6 h-6" /> },
     { id: 2, total: 20, title: "Blending Bridges", subtitle: "Train sound teams, then rebuild fifteen bridges from brook to sky.", accent: "#4F46E5", accentSoft: "#EEF2FF", icon: <Zap className="w-6 h-6" /> },
-    { id: 3, total: 10, title: "CVC Kingdom", subtitle: "Read your first whole words.", accent: "#10B981", accentSoft: "#D1FAE5", icon: <Crown className="w-6 h-6" /> },
+    { id: 3, total: 20, title: "CVC Kingdom", subtitle: "Bring words to life and restore the Crown of Three Lights.", accent: "#10B981", accentSoft: "#D1FAE5", icon: <Crown className="w-6 h-6" /> },
   ];
 
   const stages: Stage[] = stageDefs.map((def, idx) => ({
@@ -58,7 +59,7 @@ export function StageSelection({
     icon: def.icon,
     accent: def.accent,
     accentSoft: def.accentSoft,
-    completed: def.id === 2 ? bridgeCompleted : completedByStage[def.id] ?? 0,
+    completed: def.id === 3 ? readCvcJourney(learnerId).completed : def.id === 2 ? bridgeCompleted : completedByStage[def.id] ?? 0,
     total: def.total,
     locked: def.id === 3
       ? bridgeCompleted < 20 && (completedByStage[2] ?? 0) < 8 && (completedByStage[3] ?? 0) === 0

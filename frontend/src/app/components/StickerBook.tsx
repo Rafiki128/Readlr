@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Star, Lock, Check, Sparkles } from "lucide-react";
 import { TRAIL_STICKERS, POINT_STICKERS, getTrailPoints } from "./trailRewards";
 import { readBridgeJourney } from "./stageTwoContent";
+import { readCvcJourney } from "./cvcContent";
 
 interface AttemptRecord {
   wordId: number;
@@ -63,6 +64,7 @@ const STICKER_DEFS: Sticker[] = [
 
 export function StickerBook({ onBack, completedByStage = {}, learnerId }: StickerBookProps) {
   const bridgeProgress = readBridgeJourney(learnerId);
+  const cvcProgress = readCvcJourney(learnerId);
   const trailPoints = getTrailPoints(completedByStage[1] ?? 0);
   const nextBonus = POINT_STICKERS.find((item) => item.points > trailPoints);
   const stickers = [...STICKER_DEFS, ...TRAIL_STICKERS].map((s) => ({
@@ -76,6 +78,9 @@ export function StickerBook({ onBack, completedByStage = {}, learnerId }: Sticke
 
   [{name:"Bridge Builder",points:100,emoji:"🌉"},{name:"Brook Keeper",points:500,emoji:"💧"},{name:"Waterfall Explorer",points:1000,emoji:"🌈"},{name:"Sky Connector",points:1500,emoji:"☁️"}].forEach((reward,index)=> {
     stickers.push({ id:2001+index, emoji:reward.emoji, name:reward.name, stage:`Blending Bridges - ${reward.points} bridge points`, stageId:2, levelId:0, earned:bridgeProgress.points>=reward.points });
+  });
+  [{name:"Word Alchemist",at:5,emoji:"✨"},{name:"Garden Magician",at:10,emoji:"🌷"},{name:"Castle Storyteller",at:15,emoji:"📖"},{name:"Crown of Three Lights",at:20,emoji:"👑"}].forEach((reward,index)=> {
+    stickers.push({id:3001+index,emoji:reward.emoji,name:reward.name,stage:"CVC Kingdom - word magic",stageId:3,levelId:reward.at,earned:cvcProgress.completed>=reward.at});
   });
   const earnedCount = stickers.filter((s) => s.earned).length;
   const pct = Math.round((earnedCount / stickers.length) * 100);

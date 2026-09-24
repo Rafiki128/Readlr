@@ -1,0 +1,10 @@
+.chapter-story { height:100%; min-height:0; min-width:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; }
+.chapter-story__content { width:100%; min-width:0; box-sizing:border-box; }
+.chapter-story__panel { width:100%; min-width:0; }
+.chapter-story__grid { display:grid; grid-template-columns:minmax(0,1fr); }
+.chapter-story__grid > * { min-width:0; }
+.chapter-story p, .chapter-story h1 { overflow-wrap:break-word; letter-spacing:0; }
+.chapter-story button { max-width:100%; white-space:normal; min-height:44px; }
+.chapter-story button > svg { flex-shrink:0; }
+@media (min-width:768px) { .chapter-story__grid { grid-template-columns:minmax(0,1fr) 240px; } }
+@media (min-width:1100px) { .chapter-story__grid { grid-template-columns:minmax(0,1fr) 300px; } }

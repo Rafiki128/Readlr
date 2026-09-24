@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { CvcKingdom } from "./CvcKingdom";
 import { ArrowLeft, Check, Lock, Map as MapIcon, Star } from "lucide-react";
 import { VowelAdventureMap } from "./VowelAdventureMap";
 import { BlendingWorkshop } from "./BlendingWorkshop";
@@ -200,6 +201,7 @@ export function LevelMap(props: LevelMapProps) {
   }
 
   if (props.stageId === 2) return <StageTwoMap key={props.learnerId} {...props} />;
+  if (props.stageId === 3) return <CvcKingdom key={props.learnerId} learnerId={props.learnerId} onBack={props.onBack} />;
 
   return <StandardLevelMap {...props} />;
 }
