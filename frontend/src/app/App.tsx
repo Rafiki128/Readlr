@@ -863,7 +863,7 @@ function AppContent() {
         )}
 
         {currentScreen === "sticker-book" && (
-          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} />
+          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} avatar={learnerAvatar} />
         )}
 
         {currentScreen === "dashboard" && (
