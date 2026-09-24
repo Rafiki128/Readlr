@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { TrailRewardDialog } from "./components/TrailRewardDialog";
+import { StageCompleteDialog, type UnlockedFrame } from "./components/StageCompleteDialog";
 import { getTrailReward, type TrailReward } from "./components/trailRewards";
 import { newStickerReward, type StickerReward } from "./components/stickers";
 import { motion } from "motion/react";
-import { toast } from "sonner";
 import { AuthProvider, useAuth, AuthScreen } from "../modules/auth/index";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { Landing } from "./components/Landing";
@@ -282,9 +282,10 @@ function AppContent() {
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [levelScore] = useState(300);
   const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
+  const [stageComplete, setStageComplete] = useState<{ stageId: number; frames: UnlockedFrame[] } | null>(null);
   const completionHandledRef = useRef(false);
 
-  useEffect(() => { setStickerReward(null); }, [user?.id]);
+  useEffect(() => { setStickerReward(null); setStageComplete(null); }, [user?.id]);
   useEffect(() => {
     if (currentScreen !== "level-map" && currentScreen !== "vowel-power-complete") setStickerReward(null);
     if (currentScreen === "game") completionHandledRef.current = false;
@@ -545,11 +546,7 @@ function AppContent() {
         });
         if (progressRes.ok) {
           const data = await progressRes.json();
-          if (data.unlocked_frames?.length) {
-            toast.success('New frames unlocked!', {
-              description: `Pick your favorite: ${data.unlocked_frames.map((f: { name: string }) => f.name).join(' or ')} ✨`,
-            });
-          }
+          if (data.unlocked_frames?.length) setStageComplete({ stageId, frames: data.unlocked_frames });
         }
       } catch (error) {
         console.error('Failed to save progress to backend:', error);
@@ -826,6 +823,15 @@ function AppContent() {
             setStickerReward(null);
             setCurrentScreen("sticker-book");
           }} />
+        )}
+
+        {stageComplete && !stickerReward && (
+          <StageCompleteDialog
+            stageTitle={STAGE_CONFIG[stageComplete.stageId]?.title ?? "this stage"}
+            frames={stageComplete.frames}
+            avatar={learnerAvatar}
+            onClose={() => setStageComplete(null)}
+          />
         )}
 
         {currentScreen === "vowel-power-complete" && (
