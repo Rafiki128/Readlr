@@ -11,8 +11,8 @@ import "./cvcKingdom.css";
 import "./cvcCastleMap.css";
 import "./cvcFinalRealm.css";
 
-interface Props { learnerId?:number|null; onBack:()=>void }
-export function CvcKingdom({learnerId,onBack}:Props) {
+interface Props { learnerId?:number|null; onBack:()=>void; onProgress?:(completed:number)=>void }
+export function CvcKingdom({learnerId,onBack,onProgress}:Props) {
   const [journey,setJourney]=useState(()=>readCvcJourney(learnerId));
   const current=useRef(journey);
   const [activity,setActivity]=useState<{id:number;jewel:number}|null>(null);
@@ -36,6 +36,7 @@ export function CvcKingdom({learnerId,onBack}:Props) {
     current.current=next; setJourney(next);
     const key=cvcStorageKey(learnerId);
     if(key) { try { localStorage.setItem(key,JSON.stringify(next)); setSaveError(false); } catch { setSaveError(true); } }
+    onProgress?.(next.completed);
   }
   function open(id:number) {
     if(id>current.current.completed+1) return;

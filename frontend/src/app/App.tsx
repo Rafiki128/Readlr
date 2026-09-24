@@ -12,6 +12,7 @@ import { StageSelection } from "./components/StageSelection";
 import { GameLevel } from "./components/GameLevel";
 import { StoryScene } from "./components/StoryScene";
 import { readBridgeJourney } from "./components/stageTwoContent";
+import { readCvcJourney } from "./components/cvcContent";
 import { ChapterBridge } from "./components/ChapterBridge";
 import { LevelMap } from "./components/LevelMap";
 import { StickerBook } from "./components/StickerBook";
@@ -31,8 +32,8 @@ import { AdminDashboard } from "./components/AdminDashboard";
 // Stage configuration for determining progress
 const STAGE_CONFIG: Record<number, { title: string; totalLevels: number; nextStageId?: number }> = {
   1: { title: "Valley of Vowels", totalLevels: 20, nextStageId: 2 },
-  2: { title: "Blending Bridges", totalLevels: 8, nextStageId: 3 },
-  3: { title: "CVC Kingdom", totalLevels: 10 },
+  2: { title: "Blending Bridges", totalLevels: 20, nextStageId: 3 },
+  3: { title: "CVC Kingdom", totalLevels: 20 },
 };
 
 const DEFAULT_PROGRESS: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
@@ -204,8 +205,8 @@ function parseAppPath(pathname: string): AppRouteState {
     const chapterSection = stageMatch[4];
 
     if (!stageSection) return { screen: "story-scene", stageId, levelId: 1 };
-    // The word-magic journey owns its activities; old ten-word links open its map.
-    if (stageId === 3) return { screen: "level-map", stageId, levelId: 1 };
+    // The bridge and word-magic journeys own their activities; old chapter links open their maps.
+    if (stageId !== 1) return { screen: "level-map", stageId, levelId: 1 };
     if (stageSection === "chapters") return { screen: "level-map", stageId, levelId: 1 };
     if (chapterSection === "intro") return { screen: "chapter-bridge", stageId, levelId };
     if (chapterSection === "complete") return { screen: "chapter-celebration", stageId, levelId };
@@ -287,6 +288,10 @@ function AppContent() {
     if (currentScreen !== "level-map") setTrailReward(null);
     if (currentScreen === "game") completionHandledRef.current = false;
   }, [currentScreen]);
+  // Links or history entries to a locked level go back to the map instead of skipping ahead.
+  useEffect(() => {
+    if (currentScreen === "game" && selectedLevel > (completedByStage[selectedStage] ?? 0) + 1) setCurrentScreen("level-map");
+  }, [currentScreen, selectedStage, selectedLevel, completedByStage]);
   const [learnerName, setLearnerName] = useState("");
   const [learnerAvatar, setLearnerAvatar] = useState("🦊");
   const [learnerId, setLearnerId] = useState<number | null>(null);
@@ -433,6 +438,16 @@ function AppContent() {
               });
               return mergedProgress;
             });
+
+            // Journeys saved only on this device before progress sync existed are pushed up once.
+            const bridge = readBridgeJourney(learnerId);
+            const localCounts: Record<number, number> = {
+              2: bridge.training.length + bridge.crossings.length,
+              3: readCvcJourney(learnerId).completed,
+            };
+            Object.entries(localCounts).forEach(([stageId, count]) => {
+              if (count > newCompletedByStage[Number(stageId)]) recordStageProgress(Number(stageId), count);
+            });
           }
         } catch (error) {
           console.error('Failed to fetch progress from backend:', error);
@@ -503,36 +518,27 @@ function AppContent() {
     setCurrentScreen("game");
   };
 
-  const handleLevelComplete = async () => {
-    if (selectedStage === 1 && completionHandledRef.current) return;
-    completionHandledRef.current = true;
-    const reward = selectedStage === 1 ? getTrailReward(selectedLevel, completedByStage[1] ?? 0) : null;
-    const newProgress = Math.max(completedByStage[selectedStage] ?? 0, selectedLevel);
-    
-    const nextProgress = {
-      ...completedByStage,
-      [selectedStage]: newProgress,
-    };
-    setCompletedByStage(nextProgress);
-    saveProgressToStorage(user?.id, nextProgress);
-
-    setIsLevelJustCompleted(selectedStage !== 1 || selectedLevel <= 5);
-    setCurrentScreen(selectedStage === 1 ? (selectedLevel <= 5 ? "vowel-power-complete" : "level-map") : "chapter-celebration");
-    if (reward) setTrailReward(reward);
+  // Saves a stage's completed-level count on this device and the server without ever lowering it.
+  const recordStageProgress = async (stageId: number, completed: number) => {
+    setCompletedByStage((prev) => {
+      const nextProgress = { ...prev, [stageId]: Math.max(prev[stageId] ?? 0, completed) };
+      saveProgressToStorage(user?.id, nextProgress);
+      return nextProgress;
+    });
 
     if (learnerId && token) {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-        const stageConfig = STAGE_CONFIG[selectedStage];
-        
-        const progressRes = await fetch(`${API_URL}/progress/learners/${learnerId}/stages/${selectedStage}`, {
+        const stageConfig = STAGE_CONFIG[stageId];
+
+        const progressRes = await fetch(`${API_URL}/progress/learners/${learnerId}/stages/${stageId}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            completed_levels: newProgress,
+            completed_levels: completed,
             total_levels: stageConfig.totalLevels,
           }),
         });
@@ -548,7 +554,18 @@ function AppContent() {
         console.error('Failed to save progress to backend:', error);
       }
     }
+  };
 
+  const handleLevelComplete = async () => {
+    if (selectedStage === 1 && completionHandledRef.current) return;
+    completionHandledRef.current = true;
+    const reward = selectedStage === 1 ? getTrailReward(selectedLevel, completedByStage[1] ?? 0) : null;
+
+    setIsLevelJustCompleted(selectedStage !== 1 || selectedLevel <= 5);
+    setCurrentScreen(selectedStage === 1 ? (selectedLevel <= 5 ? "vowel-power-complete" : "level-map") : "chapter-celebration");
+    if (reward) setTrailReward(reward);
+
+    await recordStageProgress(selectedStage, Math.max(completedByStage[selectedStage] ?? 0, selectedLevel));
   };
 
   const handleContinueDojoTraining = () => {
@@ -770,6 +787,7 @@ function AppContent() {
             completedCount={completedByStage[selectedStage] ?? 0}
             onBack={handleBackToStages}
             onSelectLevel={handleSelectLevel}
+            onProgress={(completed) => recordStageProgress(selectedStage, completed)}
           />
         )}
 

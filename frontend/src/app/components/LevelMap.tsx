@@ -25,6 +25,7 @@ interface LevelMapProps {
   initialView?: "dojo" | "valley" | "bridges";
   onBack: () => void;
   onSelectLevel: (levelId: number) => void;
+  onProgress?: (completed: number) => void;
 }
 
 type NodeStatus = "done" | "next" | "locked";
@@ -192,7 +193,7 @@ function StandardLevelMap({
 }
 
 function StageTwoMap(props: LevelMapProps) {
-  return <BlendingWorkshop learnerId={props.learnerId} initialView={props.initialView === "bridges" ? "bridges" : "workshop"} onBack={props.onBack} />;
+  return <BlendingWorkshop learnerId={props.learnerId} initialView={props.initialView === "bridges" ? "bridges" : "workshop"} onBack={props.onBack} onProgress={props.onProgress} />;
 }
 
 export function LevelMap(props: LevelMapProps) {
@@ -201,7 +202,7 @@ export function LevelMap(props: LevelMapProps) {
   }
 
   if (props.stageId === 2) return <StageTwoMap key={props.learnerId} {...props} />;
-  if (props.stageId === 3) return <CvcKingdom key={props.learnerId} learnerId={props.learnerId} onBack={props.onBack} />;
+  if (props.stageId === 3) return <CvcKingdom key={props.learnerId} learnerId={props.learnerId} onBack={props.onBack} onProgress={props.onProgress} />;
 
   return <StandardLevelMap {...props} />;
 }

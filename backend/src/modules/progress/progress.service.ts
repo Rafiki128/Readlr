@@ -54,8 +54,9 @@ export async function updateStageProgress(
     progress = await createProgressDB(learnerId, stageId, totalLevels);
   }
 
-  // Update progress
-  await updateProgressDB(learnerId, stageId, completedLevels, totalLevels);
+  // Progress never goes backwards and never exceeds the stage total.
+  const nextCompleted = Math.min(Math.max(completedLevels, progress.completed_levels), totalLevels);
+  await updateProgressDB(learnerId, stageId, nextCompleted, totalLevels);
 
   // Return updated progress
   return getStageProgress(learnerId, stageId);

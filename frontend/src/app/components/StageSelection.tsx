@@ -62,7 +62,7 @@ export function StageSelection({
     completed: def.id === 3 ? readCvcJourney(learnerId).completed : def.id === 2 ? bridgeCompleted : completedByStage[def.id] ?? 0,
     total: def.total,
     locked: def.id === 3
-      ? bridgeCompleted < 20 && (completedByStage[2] ?? 0) < 8 && (completedByStage[3] ?? 0) === 0
+      ? bridgeCompleted < 20 && (completedByStage[2] ?? 0) < 20 && (completedByStage[3] ?? 0) === 0
       : idx > 0 && (completedByStage[idx] ?? 0) < stageDefs[idx - 1].total,
   }));
 
