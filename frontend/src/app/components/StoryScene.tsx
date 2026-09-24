@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Volume2, Square } from "lucide-react";
 import { CharacterCompanion } from "./CharacterCompanion";
 import { useAudioManager } from "../../hooks/useAudioManager";
+import "./storyScene.css";
 
 interface StoryScene {
   chapter: string;
@@ -49,19 +50,14 @@ const SCENES: Record<number, StoryScene> = {
   3: {
     chapter: "Chapter 3",
     title: "CVC Kingdom",
-    scene: "A bright village where every door has a three-letter name. The townspeople love to read.",
-    narration: "These are your first whole words! Take your time and sound them out — I'll be right beside you.",
-    goal: "Read each three-letter word to greet a friend.",
+    scene: "Beyond the clouds, a quiet castle waits. Its crown has lost three shining jewels. Little words can bring its magic back.",
+    narration: "Your vowel powers and sound teams brought us here! Now place a vowel between two consonants. Join the sounds to make a whole word. I will help you make your first spell at the castle gate.",
+    goal: "Bring words to life, explore the castle, and restore the Crown of Three Lights.",
     accent: "#10B981",
     tint: "#D1FAE5",
     illustration: "🏰",
   },
 };
-
-function chapterIntroAudio(stageId: number) {
-  if (stageId === 1) return "/audio/stage1/Stage1MiloIntro.wav";
-  return `/audio/stage${stageId}/MiloSaysChapter${stageId}.wav`;
-}
 
 function chapterBeginAudio(stageId: number) {
   if (stageId === 1) return "/audio/stage1/Stage1BeginChapter.wav";
@@ -97,7 +93,11 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
       { file: "BridgeStoryScene.wav", text: scene.scene },
       { file: "BridgeStoryMilo.wav", text: scene.narration },
       { file: "BridgeStoryGoal.wav", text: scene.goal },
-    ] : [{ file: "", text: scene.narration }];
+    ] : [
+      { file: "CvcStoryScene.wav", text: scene.scene },
+      { file: "CvcStoryMilo.wav", text: scene.narration },
+      { file: "CvcStoryGoal.wav", text: scene.goal },
+    ];
     const playPart = (index: number) => {
       if (sequence !== sequenceRef.current) return;
       if (index >= parts.length) { setSpeaking(false); setBeat(-1); return; }
@@ -119,7 +119,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
           speech.addEventListener("error", advance, { once: true });
         } else advance();
       };
-      const audio = playAudio(stageId === 1 || stageId === 2 ? `/audio/stage${stageId}/${parts[index].file}` : chapterIntroAudio(stageId));
+      const audio = playAudio(`/audio/stage${stageId}/${parts[index].file}`);
       if (audio) {
         audio.onended = advance;
         audio.onerror = fallback;
@@ -188,16 +188,9 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
   };
 
   return (
-    <MotionConfig reducedMotion="user"><div className="size-full bg-[var(--paper)] overflow-auto relative flex flex-col">
-      {/* Soft scenery accents — single warm wash per stage */}
-      <div
-        className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-60 pointer-events-none"
-        style={{ background: scene.tint }}
-      />
-      <div className="absolute -bottom-28 -left-20 w-[28rem] h-[28rem] rounded-full bg-[var(--accent-soft)] opacity-50 pointer-events-none" />
-
-      <div className="relative z-10 flex-1 flex flex-col px-4 sm:px-6 md:px-10 py-6 sm:py-8 min-h-0">
-        <div className="max-w-5xl mx-auto w-full flex flex-col h-full">
+    <MotionConfig reducedMotion="user"><div className="chapter-story size-full bg-[var(--paper)] relative">
+      <div className="chapter-story__content px-4 sm:px-6 md:px-10 py-6 sm:py-8">
+        <div className="max-w-5xl mx-auto w-full">
           {/* Top bar */}
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <button
@@ -233,15 +226,15 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
 
           {/* Scene panel */}
           <motion.div
-            initial={{ y: 18, opacity: 0, scale: 0.985 }}
+            initial={{ y: 18, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.12, duration: 0.55, ease: "easeOut" }}
-            className="bg-card rounded-3xl border border-[var(--hairline)] overflow-hidden shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)] flex-1 flex flex-col"
+            className="chapter-story__panel bg-card rounded-3xl border border-[var(--hairline)] overflow-hidden shadow-[0_2px_4px_rgba(31,36,48,0.05),0_18px_40px_-18px_rgba(31,36,48,0.18)]"
           >
             {/* Top color band */}
             <div className="h-1" style={{ background: scene.accent }} />
 
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px] flex-1">
+            <div className="chapter-story__grid">
               {/* Left — narrative */}
               <div className="p-5 sm:p-8 md:p-10">
                 <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">
@@ -259,7 +252,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.28, duration: 0.45, ease: "easeOut" }}
                   className="bg-[var(--paper)] rounded-2xl p-4 sm:p-5 border border-[var(--hairline)] mb-6"
-                  style={{ borderColor: speaking && (beat === 1 || beat === 2) ? scene.accent : undefined }}
+                  style={{ borderColor: speaking && (beat === 1 || (stageId === 1 && beat === 2)) ? scene.accent : undefined }}
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <span
@@ -296,7 +289,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                     <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-0.5">
                       Your goal
                     </p>
-                    <p className="text-sm sm:text-base text-[var(--ink)]" style={{ background: speaking && beat === 3 ? "#FEF3C7" : "transparent", transition: "background 300ms" }}>{scene.goal}</p>
+                    <p className="text-sm sm:text-base text-[var(--ink)]" style={{ background: speaking && beat === (stageId === 1 ? 3 : 2) ? "#FEF3C7" : "transparent", transition: "background 300ms" }}>{scene.goal}</p>
                   </div>
                 </div>
 

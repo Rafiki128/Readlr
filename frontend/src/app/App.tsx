@@ -204,6 +204,8 @@ function parseAppPath(pathname: string): AppRouteState {
     const chapterSection = stageMatch[4];
 
     if (!stageSection) return { screen: "story-scene", stageId, levelId: 1 };
+    // The word-magic journey owns its activities; old ten-word links open its map.
+    if (stageId === 3) return { screen: "level-map", stageId, levelId: 1 };
     if (stageSection === "chapters") return { screen: "level-map", stageId, levelId: 1 };
     if (chapterSection === "intro") return { screen: "chapter-bridge", stageId, levelId };
     if (chapterSection === "complete") return { screen: "chapter-celebration", stageId, levelId };

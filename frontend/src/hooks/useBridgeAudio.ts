@@ -3,7 +3,7 @@ import { BRIDGE_LINES, type BridgeLine } from "../app/components/stageTwoContent
 import { stopAllGlobalAudio } from "./useAudioManager";
 import { narrationLines } from "./bridgeNarrationLines";
 
-export function useBridgeAudio() {
+export function useBridgeAudio(basePath = "/audio/stage2") {
   const audio = useRef<HTMLAudioElement | null>(null);
   const speech = useRef<SpeechSynthesisUtterance | null>(null);
   const cancelPending = useRef<(() => void) | null>(null);
@@ -43,13 +43,16 @@ export function useBridgeAudio() {
       const player = new Audio(path);
       audio.current = player;
       let settled = false;
+      let watchdog: ReturnType<typeof setTimeout>;
       const finish = (error?: unknown) => {
         if (settled) return;
         settled = true;
+        clearTimeout(watchdog);
         cancelPending.current = null;
         player.onended = null;
         player.onerror = null;
         player.ontimeupdate = null;
+        player.onloadedmetadata = null;
         player.pause();
         if (audio.current === player) audio.current = null;
         error ? reject(error) : resolve();
@@ -57,6 +60,11 @@ export function useBridgeAudio() {
       cancelPending.current = () => finish(new DOMException("Stopped", "AbortError"));
       player.onended = () => finish();
       player.onerror = () => finish(new Error("Audio unavailable"));
+      watchdog = setTimeout(() => finish(new Error("Audio took too long to start. Tap to try again.")), 15000);
+      player.onloadedmetadata = () => {
+        clearTimeout(watchdog);
+        watchdog = setTimeout(() => finish(new Error("Audio stopped. Tap to try again.")), Math.max(15000, (player.duration || 0) * 1000 + 10000));
+      };
       player.ontimeupdate = () => { if (Number.isFinite(player.duration) && player.duration > 0) onProgress?.(player.currentTime / player.duration); };
       player.play().catch(finish);
     });
@@ -72,7 +80,7 @@ export function useBridgeAudio() {
     };
     onLine?.(lines[0]);
     // Full recordings have no cue sheet yet; distribute captions by text length.
-    try { await play(`/audio/stage2/${entry.file}`, fraction=>showPosition(fraction*total)); return; }
+    try { if (!entry.file) throw new Error("Use speech"); await play(`${basePath}/${entry.file}`, fraction=>showPosition(fraction*total)); return; }
     catch (error) {
       if (generation.current !== current || (error as Error).name === "AbortError") throw error;
     }
@@ -85,12 +93,17 @@ export function useBridgeAudio() {
       utterance.rate = .84;
       speech.current = utterance;
       const finish = (error?: unknown) => {
+        clearTimeout(watchdog);
         cancelPending.current = null;
         utterance.onend = null;
         utterance.onerror = null;
         speech.current = null;
         error ? reject(error) : resolve();
       };
+      const watchdog = setTimeout(() => {
+        finish(new Error("Narration stopped. Tap to try again."));
+        window.speechSynthesis.cancel();
+      }, Math.max(15000, line.length * 150));
       cancelPending.current = () => {
         finish(new DOMException("Stopped", "AbortError"));
         window.speechSynthesis.cancel();
