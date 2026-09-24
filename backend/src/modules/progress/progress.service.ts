@@ -56,9 +56,10 @@ export async function updateStageProgress(
     progress = await createProgressDB(learnerId, stageId, totalLevels);
   }
 
-  // Progress never goes backwards and never exceeds the stage total.
-  const nextCompleted = Math.min(Math.max(completedLevels, progress.completed_levels), totalLevels);
-  await updateProgressDB(learnerId, stageId, nextCompleted, totalLevels);
+  // Neither the stage total nor the completed count ever goes backwards, and the count never exceeds the total.
+  const nextTotal = Math.max(totalLevels, progress.total_levels);
+  const nextCompleted = Math.max(progress.completed_levels, Math.min(completedLevels, nextTotal));
+  await updateProgressDB(learnerId, stageId, nextCompleted, nextTotal);
 
   // Only a journey at least as far along as the saved count replaces it; failures never block the count.
   const isJourney = typeof journey === 'object' && journey !== null && !Array.isArray(journey) && JSON.stringify(journey).length <= 2000;

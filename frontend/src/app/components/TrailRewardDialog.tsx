@@ -60,7 +60,7 @@ export function TrailRewardDialog({ reward, onClose, onBook }: {
           </div>}
           {reward.bonuses.map((bonus) => <p key={bonus.id} className="trail-reward__bonus"><span aria-hidden="true">{bonus.emoji}</span><span>Bonus sticker unlocked!<strong>{bonus.name}</strong></span><Sparkles size={20} /></p>)}
           {trail && <div className="trail-reward__milestone">
-            <p>{next ? <>Next friend: <strong>{next.name}</strong></> : <strong>Every bonus friend collected!</strong>}<span aria-hidden="true">{next?.emoji ?? "\u{1F451}"}</span></p>
+            <p>{next ? <>Next friend: <strong>{next.name}</strong></> : <strong>Every bonus friend collected!</strong>}<span aria-hidden="true">{next?.emoji ?? "\u{1F6E1}\u{FE0F}"}</span></p>
             <div className="trail-reward__meter" role="progressbar" aria-label="Next bonus sticker" aria-valuemin={0} aria-valuemax={500} aria-valuenow={Math.min(500, trail.totalPoints - previousMilestone)}><motion.div initial={false} animate={{ width: `${progress}%` }} transition={{ duration: reducedMotion ? 0 : 0.6 }} /></div>
             <p className="trail-reward__remaining">{next ? `${next.points - trail.totalPoints} more points to meet them` : "Milo's valley is full of friends."}</p>
           </div>}
