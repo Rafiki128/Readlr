@@ -11,6 +11,7 @@ import { useBridgeAudio } from "../../hooks/useBridgeAudio";
 import { narrationLines } from "../../hooks/bridgeNarrationLines";
 import { ChallengeRoomFrame } from "./ChallengeRoomFrame";
 import "./challengeRooms.css";
+import "./challengeControls.css";
 
 type Phase = "start" | "narrating" | "choice" | "join" | "ready" | "preparing" | "recording" | "playback" | "building" | "reward" | "error";
 
@@ -292,6 +293,7 @@ export function BridgePractice({ lesson, onBack, onComplete, onNext }: {
       </section>
       {phase === "choice" && <div className="bridge-choices">{choices.map(value => <button key={value} onClick={() => choose(value)} aria-label={`Choose ${value}`}>{value}</button>)}</div>}
       <div className="bridge-practice__actions">
+        {["narrating", "preparing", "recording", "playback", "building"].includes(phase) && <button className="bridge-practice__audio" disabled aria-label="Hear the blend again" title="Hear the blend again"><Volume2 size={22}/></button>}
         {phase === "start" && <button className="bridge-practice__audio" onClick={introduce} aria-label="Hear Milo" title="Hear Milo"><Volume2 size={22} /></button>}
         {phase === "join" && <button className="bridge-primary" onClick={joinPieces}><Link2 size={22}/>Join my sounds</button>}
         {ready && <button className="bridge-practice__audio" aria-label="Hear the blend again" title="Hear the blend again" onClick={() => { retryStep.current="record"; void run(async () => { setPhase("narrating"); await playBlend(); if (active.current) setPhase("ready"); }); }}><Volume2 size={22} /></button>}

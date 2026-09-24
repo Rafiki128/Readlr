@@ -1,0 +1,55 @@
+/* Shared voice controls across the three reading stages. */
+.vowel-play .vowel-play__action-row,
+.bridge-practice .bridge-practice__actions,
+.cvc-play .cvc-controls {
+  width:min(100%,540px); margin-inline:auto; display:flex; align-items:stretch;
+  justify-content:center; gap:10px; flex-wrap:nowrap;
+}
+.cvc-play .cvc-action-area { width:100%; }
+.vowel-play .vowel-play__record,
+.bridge-practice .bridge-practice__actions > .bridge-primary,
+.cvc-play .cvc-controls > .cvc-primary {
+  flex:1; min-width:0; max-width:none; min-height:64px; padding:12px 16px;
+  border:0; border-radius:8px; background:#F59E0B; color:#fff;
+  box-shadow:0 4px 0 #D97706; font-family:inherit; font-size:20px;
+  font-weight:var(--font-weight-medium,500); line-height:1.3; letter-spacing:0;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  white-space:normal; overflow-wrap:anywhere;
+}
+.vowel-play .vowel-play__record:disabled,
+.bridge-practice .bridge-practice__actions > .bridge-primary:disabled,
+.cvc-play .cvc-controls > .cvc-primary:disabled {
+  opacity:1; cursor:default; background:#e3eaf1; color:#52687c; box-shadow:0 4px 0 #cbd7e2;
+}
+.vowel-play .vowel-play__record[data-recording="true"],
+.bridge-practice[data-phase="recording"] .bridge-practice__actions > .bridge-primary,
+.cvc-play.cvc-phase-recording .cvc-controls > .cvc-primary {
+  background:#fce2e4; color:#9c3549; box-shadow:0 4px 0 #eabdc5;
+}
+.vowel-play .vowel-play__record[data-celebrating="true"],
+.bridge-practice[data-phase="building"] .bridge-practice__actions > .bridge-primary,
+.bridge-practice[data-phase="reward"] .bridge-practice__actions > .bridge-primary,
+.cvc-play.cvc-phase-magic .cvc-controls > .cvc-primary,
+.cvc-play.cvc-phase-reward .cvc-controls > .cvc-primary {
+  background:#d7efdf; color:#286345; box-shadow:0 4px 0 #A3E635;
+}
+.vowel-play .vowel-play__replay,
+.bridge-practice .bridge-practice__actions > .bridge-practice__audio,
+.cvc-play .cvc-controls > .cvc-replay {
+  width:58px; min-width:58px; min-height:64px; flex:none; padding:12px;
+  border:1px solid #ccdbe5; border-radius:8px; background:white; color:#8B5CF6;
+  display:grid; place-items:center;
+}
+.vowel-play__action-row svg,.bridge-practice__actions svg,.cvc-controls svg { flex-shrink:0; }
+.cvc-play .cvc-voice-steps { display:flex; justify-content:center; gap:20px; list-style:none; padding:0; margin:0; }
+.cvc-voice-steps li { display:flex; align-items:center; gap:6px; color:#758596; font-size:13px; padding-bottom:6px; border-bottom:3px solid transparent; }
+.cvc-voice-steps li[data-current="true"] { color:#8B5CF6; border-color:#8B5CF6; }
+.cvc-voice-steps li[data-done="true"] { color:#10B981; }
+@media(max-height:780px) and (min-width:601px) {
+  .cvc-play .cvc-play-main { gap:8px; padding:10px 0 16px; }
+  .cvc-play .cvc-theatre { height:240px; flex-shrink:0; }
+}
+@media(max-width:480px) {
+  .vowel-play .vowel-play__record,.bridge-practice .bridge-practice__actions > .bridge-primary,.cvc-play .cvc-controls > .cvc-primary { font-size:17px; padding:10px; gap:8px; }
+  .vowel-play .vowel-play__replay,.bridge-practice .bridge-practice__actions > .bridge-practice__audio,.cvc-play .cvc-controls > .cvc-replay { width:48px; min-width:48px; }
+}

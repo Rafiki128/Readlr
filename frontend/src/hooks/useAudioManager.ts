@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { resolveStageOneAudioPath } from '../app/components/stageOneAudio';
+import { resolveStageTwoAudioPath } from '../app/components/stageTwoAudio';
 
 // Global audio manager to prevent overlapping audio across the entire app
 let globalAudioRef: HTMLAudioElement | null = null;
@@ -57,7 +58,7 @@ export function useAudioManager() {
     isPlayingRef.current = false;
     
     try {
-      const audio = new Audio(resolveStageOneAudioPath(audioPath));
+      const audio = new Audio(resolveStageTwoAudioPath(resolveStageOneAudioPath(audioPath)));
       audio.volume = 1.0; // Ensure full volume
       
       globalAudioRef = audio;

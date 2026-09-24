@@ -10,6 +10,7 @@ import { cvcLetterTray, cvcWordChoices, placeCvcLetter, cvcPuzzleLine } from "./
 import { CvcSpellScene } from "./CvcSpellScene";
 import { ChallengeRoomFrame } from "./ChallengeRoomFrame";
 import "./challengeRooms.css";
+import "./challengeControls.css";
 
 type Phase = "intro"|"speaking"|"choice"|"ready"|"preparing"|"recording"|"playback"|"magic"|"reward";
 interface Props { lesson?:CvcLesson; jewel?:number; onBack:()=>void; onComplete:()=>void; onNext:()=>void }
@@ -154,10 +155,15 @@ export function CvcChallenge({lesson,jewel=0,onBack,onComplete,onNext}:Props) {
     return text.split(/(\b[a-z]{1,3}\b)/gi).map((part,index)=>part.toLowerCase()===word?<strong key={index}>{part}</strong>:part);
   }
   const enabled=["intro","ready","reward"].includes(phase);
+  const voiceStep = showingResult ? 3 : phase === "playback" ? 2 : ["ready", "preparing", "recording"].includes(phase) ? 1 : 0;
+  const ActionIcon = showingResult ? Check : phase === "playback" ? Headphones : ["intro", "speaking"].includes(phase) ? Volume2 : Mic;
   return <div className={`cvc-root cvc-play cvc-phase-${phase}`}>
     <nav className="cvc-nav"><button onClick={onBack}><ArrowLeft size={18}/> Castle map</button><span>{crown?"The Crown of Three Lights":`${lesson.id} / 20`}</span></nav>
     <main className="cvc-play-main">
       <header><p className="cvc-eyebrow">{crown?`Jewel ${jewel+1} of 3`:lesson.id<=5?"Your first word magic":"Word magic"}</p><h1>{lesson?.title || "Restore the crown"}</h1></header>
+      <ol className="cvc-voice-steps" aria-label="Challenge steps">
+        {[{name:"Listen",icon:Volume2},{name:"Say it",icon:Mic},{name:"Hear it",icon:Headphones}].map((step,index)=><li key={step.name} data-current={voiceStep===index} data-done={voiceStep>index} aria-current={voiceStep===index?"step":undefined}>{voiceStep>index?<Check size={17}/>:<step.icon size={17}/>}<span>{step.name}</span></li>)}
+      </ol>
       <div className="cvc-subtitle cvc-storybook-caption" aria-live="polite"><span><BookOpen size={15} aria-hidden="true"/> Milo says</span><p>{highlight(message)}</p><span className="cvc-caption-seal" aria-hidden="true"><Sparkles size={15}/></span></div>
       <div className={`cvc-theatre ${showingResult?"cvc-restored":""} ${lesson?"cvc-dynamic-scene":""} cvc-spell-${word}`}>
         <CastleBackdrop area={lesson?.area ?? 3}/>
@@ -177,7 +183,7 @@ export function CvcChallenge({lesson,jewel=0,onBack,onComplete,onNext}:Props) {
       {phase==="choice"&&lesson&&lesson.mode!=="conjure"&&<div className={`cvc-choices ${lesson.mode==="match"?"cvc-word-choices":""}`} aria-label={lesson.mode==="build"?"Build the word":lesson.mode==="match"?"Choose the word":"Choose the missing letter"}>{(lesson.mode==="build"?cvcLetterTray(lesson):lesson.mode==="match"?cvcWordChoices(lesson):cvcChoices(lesson)).map(letter=><button disabled={isBusy||(lesson.mode==="build"&&placed.includes(letter))} aria-label={`Choose ${letter}`} className={wrong===letter?"is-wrong":""} key={letter} onClick={()=>void run(()=>lesson.mode==="build"?place(letter):lesson.mode==="match"?match(letter):choose(letter))}>{letter}</button>)}</div>}
       <div className="cvc-controls">
         <button className="cvc-replay" title={phase==="reward"?"Hear your voice":"Hear Milo"} aria-label={phase==="reward"?"Hear your voice":"Hear Milo"} disabled={isBusy||(!enabled&&phase!=="choice")} onClick={()=>void run(async()=>{ if(phase==="reward"&&recording.current) await sound.play(recording.current); else if(phase==="intro") await introduce(); else { await model(); if(phase==="choice") setJoined(false); } })}>{phase==="reward"?<Headphones/>:<Volume2/>}</button>
-        {phase==="reward"?<button className="cvc-primary" onClick={onNext}>{crown&&jewel===2?"My crown":crown?"Next jewel":"Continue"}<ArrowRight size={20}/></button>:phase!=="choice"&&<button className="cvc-primary" disabled={!enabled||isBusy} onClick={()=>void run(phase==="intro"?introduce:record)}><Mic size={20}/>{phase==="intro"?"Listen to Milo":phase==="recording"?"I'm listening...":phase==="preparing"?"Get ready...":phase==="playback"?"Your voice...":phase==="magic"?"Making magic...":phase==="speaking"?"Listen...":`Say ${word}`}</button>}
+        {phase==="reward"?<button className="cvc-primary" disabled={isBusy} onClick={onNext}>{crown&&jewel===2?"My crown":crown?"Next jewel":"Back to castle map"}<ArrowRight size={20}/></button>:phase!=="choice"&&<button className="cvc-primary" disabled={!enabled||isBusy} onClick={()=>void run(phase==="intro"?introduce:record)}><ActionIcon size={25}/>{phase==="intro"?"Listen to Milo":phase==="recording"?`Say ${word}`:phase==="preparing"?"Get ready...":phase==="playback"?"Hear your voice":phase==="magic"?"You helped Milo!":phase==="speaking"?"Listen to Milo":`Practice my ${word} ${word.length===3?"word":"sound"}`}</button>}
       </div>
       </div>
       {error&&<p className="cvc-error" role="alert">{error}</p>}
