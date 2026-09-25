@@ -8,6 +8,7 @@ import {
   getProgressByLearnerAndStage as getProgressByLearnerAndStageDB,
   updateProgress as updateProgressDB,
   createProgress as createProgressDB,
+  updateProgressJourney as updateProgressJourneyDB,
 } from '../../database/models/progress.model.js';
 import { ProgressResponse, LearnerProgressSummary } from './progress.types.js';
 
@@ -46,7 +47,8 @@ export async function updateStageProgress(
   learnerId: number,
   stageId: number,
   completedLevels: number,
-  totalLevels: number
+  totalLevels: number,
+  journey?: unknown
 ): Promise<ProgressResponse> {
   // Check if progress exists, if not create it
   let progress = await getProgressByLearnerAndStageDB(learnerId, stageId);
@@ -54,8 +56,16 @@ export async function updateStageProgress(
     progress = await createProgressDB(learnerId, stageId, totalLevels);
   }
 
-  // Update progress
-  await updateProgressDB(learnerId, stageId, completedLevels, totalLevels);
+  // Neither the stage total nor the completed count ever goes backwards, and the count never exceeds the total.
+  const nextTotal = Math.max(totalLevels, progress.total_levels);
+  const nextCompleted = Math.max(progress.completed_levels, Math.min(completedLevels, nextTotal));
+  await updateProgressDB(learnerId, stageId, nextCompleted, nextTotal);
+
+  // Only a journey at least as far along as the saved count replaces it; failures never block the count.
+  const isJourney = typeof journey === 'object' && journey !== null && !Array.isArray(journey) && JSON.stringify(journey).length <= 2000;
+  if (isJourney && completedLevels >= nextCompleted) {
+    await updateProgressJourneyDB(learnerId, stageId, journey).catch((error) => console.error('Failed to save journey:', error));
+  }
 
   // Return updated progress
   return getStageProgress(learnerId, stageId);

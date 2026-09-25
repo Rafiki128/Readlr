@@ -16,7 +16,7 @@ export const TRAIL_STICKERS = TRAIL_FRIENDS.map(([emoji, name], index) => ({
 export const POINT_STICKERS = [
   { id: 200, emoji: "\u{1F331}", name: "Valley Sprout", points: 500 },
   { id: 201, emoji: "\u{1F308}", name: "Rainbow Keeper", points: 1000 },
-  { id: 202, emoji: "\u{1F451}", name: "Valley Guardian", points: 1500 },
+  { id: 202, emoji: "\u{1F6E1}\u{FE0F}", name: "Valley Guardian", points: 1500 },
 ];
 
 // Derive rewards from persisted progress so retries and reloads cannot duplicate them.

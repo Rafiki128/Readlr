@@ -57,6 +57,12 @@ export function readBridgeJourney(learnerId?: number | null): BridgeJourney {
   try { return normalizeBridgeJourney(key ? JSON.parse(localStorage.getItem(key) || "null") : null); }
   catch { return normalizeBridgeJourney(null); }
 }
+// Keeps the device journey unless the server copy has more finished steps.
+export function furtherBridgeJourney(local: BridgeJourney, remote: unknown): BridgeJourney {
+  const other = normalizeBridgeJourney(remote);
+  const count = (journey: BridgeJourney) => journey.training.length + journey.crossings.length;
+  return count(other) > count(local) ? other : local;
+}
 export function finishBridgeJourney(progress: BridgeJourney, training: boolean, index: number): BridgeJourney {
   const field = training ? "training" : "crossings";
   if (!Number.isInteger(index) || index < 1 || index > (training ? 5 : 15)) return progress;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, LogOut, RefreshCw, Search, Users } from 'lucide-react';
 import { useAuth } from '../../modules/auth/auth.context.js';
+import { stickerSummary } from './stickers';
 
 interface Learner {
   id: number;
@@ -130,12 +131,13 @@ export function AdminDashboard() {
           {!isLoading && !error && filteredLearners.length === 0 && <div className="p-8 text-center text-sm text-[#667085]">No learners found.</div>}
           {!isLoading && !error && filteredLearners.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="w-full min-w-[880px] text-left text-sm">
                 <thead className="bg-[#F8F9FC] text-xs uppercase tracking-wide text-[#667085]">
                   <tr>
                     <th className="px-5 py-3 font-medium">Learner</th>
                     <th className="px-5 py-3 font-medium">Grade</th>
                     <th className="px-5 py-3 font-medium">Completion</th>
+                    <th className="px-5 py-3 font-medium">Stickers</th>
                     <th className="px-5 py-3 font-medium">Last activity</th>
                     <th className="px-5 py-3 font-medium">Joined</th>
                   </tr>
@@ -143,11 +145,19 @@ export function AdminDashboard() {
                 <tbody className="divide-y divide-[#EEF0F4]">
                   {filteredLearners.map((learner) => {
                     const completion = getCompletion(learner);
+                    const stickers = stickerSummary(Object.fromEntries(learner.progress.map((stage) => [stage.stageId, stage.completedLevels])));
                     return (
                       <tr key={learner.id} className="hover:bg-[#FAFBFF]">
                         <td className="px-5 py-4"><p className="font-medium">{learner.avatar} {learner.name}</p><p className="mt-1 text-xs text-[#667085]">{learner.email}</p></td>
                         <td className="px-5 py-4 text-[var(--ink-soft)]">Grade {learner.grade}</td>
                         <td className="px-5 py-4"><div className="flex items-center gap-3"><div className="h-2 w-24 overflow-hidden rounded-full bg-[#E7E9F0]"><div className="h-full rounded-full bg-[#4F46E5]" style={{ width: `${completion}%` }} /></div><span className="text-[var(--ink-soft)]">{completion}%</span></div></td>
+                        <td className="px-5 py-4">
+                          <p className="flex items-center gap-2 text-[var(--ink-soft)]">
+                            <span>{stickers.earned} of {stickers.total}</span>
+                            {stickers.recent.map((item) => <span key={item.id} title={item.name} aria-label={item.name} className="text-lg">{item.emoji}</span>)}
+                          </p>
+                          <p className="mt-1 text-xs text-[#667085]">{stickers.next ? `Next: ${stickers.next.name}` : 'Every sticker collected'}</p>
+                        </td>
                         <td className="px-5 py-4 text-[var(--ink-soft)]">{formatDate(learner.lastActivity)}</td>
                         <td className="px-5 py-4 text-[var(--ink-soft)]">{formatDate(learner.createdAt)}</td>
                       </tr>

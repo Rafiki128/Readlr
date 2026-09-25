@@ -209,7 +209,7 @@ function unlockedLimit(stageId: number, completedByStage: Record<number, number>
   const completed = completedByStage[stageId] ?? 0;
   if (stageId === 1) return Math.min(completed + 1, 20);
   if (stageId === 2 && (completedByStage[1] ?? 0) >= 20) return Math.min(completed + 1, 8);
-  if (stageId === 3 && (completedByStage[2] ?? 0) >= 8) return Math.min(completed + 1, 10);
+  if (stageId === 3 && (completedByStage[2] ?? 0) >= 20) return Math.min(completed + 1, 10);
   return 0;
 }
 

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { TrailRewardDialog } from "./components/TrailRewardDialog";
+import { StageCompleteDialog, type UnlockedFrame } from "./components/StageCompleteDialog";
 import { getTrailReward, type TrailReward } from "./components/trailRewards";
+import { newStickerReward, type StickerReward } from "./components/stickers";
 import { motion } from "motion/react";
-import { toast } from "sonner";
 import { AuthProvider, useAuth, AuthScreen } from "../modules/auth/index";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { Landing } from "./components/Landing";
@@ -11,15 +12,13 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StageSelection } from "./components/StageSelection";
 import { GameLevel } from "./components/GameLevel";
 import { StoryScene } from "./components/StoryScene";
-import { readBridgeJourney } from "./components/stageTwoContent";
+import { bridgeStorageKey, furtherBridgeJourney, readBridgeJourney } from "./components/stageTwoContent";
+import { cvcStorageKey, furtherCvcJourney, readCvcJourney } from "./components/cvcContent";
 import { ChapterBridge } from "./components/ChapterBridge";
 import { LevelMap } from "./components/LevelMap";
 import { StickerBook } from "./components/StickerBook";
 import { UnifiedDashboard } from "./components/UnifiedDashboard";
-import { LevelComplete } from "./components/LevelComplete";
-import { ChapterCelebration } from "./components/ChapterCelebration";
 import { VowelPowerComplete } from "./components/VowelPowerComplete";
-import { SessionSummary } from "./components/SessionSummary";
 import { PhonemeBank } from "./components/PhonemeBank";
 import { Settings } from "./components/Settings";
 import { Achievements } from "./components/Achievements";
@@ -31,8 +30,8 @@ import { AdminDashboard } from "./components/AdminDashboard";
 // Stage configuration for determining progress
 const STAGE_CONFIG: Record<number, { title: string; totalLevels: number; nextStageId?: number }> = {
   1: { title: "Valley of Vowels", totalLevels: 20, nextStageId: 2 },
-  2: { title: "Blending Bridges", totalLevels: 8, nextStageId: 3 },
-  3: { title: "CVC Kingdom", totalLevels: 10 },
+  2: { title: "Blending Bridges", totalLevels: 20, nextStageId: 3 },
+  3: { title: "CVC Kingdom", totalLevels: 20 },
 };
 
 const DEFAULT_PROGRESS: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
@@ -156,10 +155,7 @@ type Screen =
   | "chapter-bridge"
   | "level-map"
   | "game"
-  | "chapter-celebration"
   | "vowel-power-complete"
-  | "level-complete"
-  | "session-summary"
   | "sticker-book"
   | "dashboard"
   | "phoneme-bank"
@@ -204,14 +200,13 @@ function parseAppPath(pathname: string): AppRouteState {
     const chapterSection = stageMatch[4];
 
     if (!stageSection) return { screen: "story-scene", stageId, levelId: 1 };
-    // The word-magic journey owns its activities; old ten-word links open its map.
-    if (stageId === 3) return { screen: "level-map", stageId, levelId: 1 };
+    // The bridge and word-magic journeys own their activities; old chapter links open their maps.
+    if (stageId !== 1) return { screen: "level-map", stageId, levelId: 1 };
     if (stageSection === "chapters") return { screen: "level-map", stageId, levelId: 1 };
     if (chapterSection === "intro") return { screen: "chapter-bridge", stageId, levelId };
-    if (chapterSection === "complete") return { screen: "chapter-celebration", stageId, levelId };
     if (chapterSection === "power-complete") return { screen: "vowel-power-complete", stageId, levelId };
-    if (chapterSection === "summary") return { screen: "session-summary", stageId, levelId };
-    if (chapterSection === "level-complete") return { screen: "level-complete", stageId, levelId };
+    // The old celebration and summary screens were removed; their links open the map.
+    if (chapterSection) return { screen: "level-map", stageId, levelId: 1 };
 
     return { screen: "game", stageId, levelId };
   }
@@ -239,14 +234,8 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
       return `/stage-${stageId}/chapters`;
     case "game":
       return `/stage-${stageId}/chapter-${levelId}`;
-    case "chapter-celebration":
-      return `/stage-${stageId}/chapter-${levelId}/complete`;
     case "vowel-power-complete":
       return `/stage-${stageId}/chapter-${levelId}/power-complete`;
-    case "level-complete":
-      return `/stage-${stageId}/chapter-${levelId}/level-complete`;
-    case "session-summary":
-      return `/stage-${stageId}/chapter-${levelId}/summary`;
     case "sticker-book":
       return "/stickers";
     case "dashboard":
@@ -278,15 +267,20 @@ function AppContent() {
   const [selectedLevel, setSelectedLevel] = useState<number>(initialRoute.levelId ?? 1);
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
-  const [levelScore] = useState(300);
-  const [trailReward, setTrailReward] = useState<TrailReward | null>(null);
+  const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
+  const [stageComplete, setStageComplete] = useState<{ stageId: number; frames: UnlockedFrame[] } | null>(null);
+  const [journeyActivityOpen, setJourneyActivityOpen] = useState(false);
   const completionHandledRef = useRef(false);
 
-  useEffect(() => { setTrailReward(null); }, [user?.id]);
+  useEffect(() => { setStickerReward(null); setStageComplete(null); }, [user?.id]);
   useEffect(() => {
-    if (currentScreen !== "level-map") setTrailReward(null);
+    if (currentScreen !== "level-map" && currentScreen !== "vowel-power-complete") setStickerReward(null);
     if (currentScreen === "game") completionHandledRef.current = false;
   }, [currentScreen]);
+  // Links or history entries to a locked level go back to the map instead of skipping ahead.
+  useEffect(() => {
+    if (currentScreen === "game" && selectedLevel > (completedByStage[selectedStage] ?? 0) + 1) setCurrentScreen("level-map");
+  }, [currentScreen, selectedStage, selectedLevel, completedByStage]);
   const [learnerName, setLearnerName] = useState("");
   const [learnerAvatar, setLearnerAvatar] = useState("🦊");
   const [learnerId, setLearnerId] = useState<number | null>(null);
@@ -311,7 +305,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const route = parseAppPath(window.location.pathname);
-      if ((route.screen === "chapter-celebration" || route.screen === "vowel-power-complete") && !isLevelJustCompleted) {
+      if (route.screen === "vowel-power-complete" && !isLevelJustCompleted) {
         setCurrentScreen("level-map");
         setIsLevelJustCompleted(false);
         return;
@@ -341,7 +335,7 @@ function AppContent() {
 
   useEffect(() => {
     const route = parseAppPath(window.location.pathname);
-    if ((route.screen === "chapter-celebration" || route.screen === "vowel-power-complete") && !isLevelJustCompleted) {
+    if (route.screen === "vowel-power-complete" && !isLevelJustCompleted) {
       setCurrentScreen("level-map");
     }
   }, []);
@@ -433,6 +427,24 @@ function AppContent() {
               });
               return mergedProgress;
             });
+
+            // Keep whichever journey is further along on both the device and the server.
+            const serverJourney = (stageId: number) => stages.find((progress: any) => progress.stage_id === stageId)?.journey;
+            const bridge = furtherBridgeJourney(readBridgeJourney(learnerId), serverJourney(2));
+            const cvc = furtherCvcJourney(readCvcJourney(learnerId), serverJourney(3));
+            try {
+              localStorage.setItem(bridgeStorageKey(learnerId)!, JSON.stringify(bridge));
+              localStorage.setItem(cvcStorageKey(learnerId)!, JSON.stringify(cvc));
+            } catch (error) {
+              console.error('Failed to restore journeys on this device:', error);
+            }
+            const journeys: Array<[number, number, object]> = [
+              [2, bridge.training.length + bridge.crossings.length, bridge],
+              [3, cvc.completed, cvc],
+            ];
+            journeys.forEach(([stageId, count, journey]) => {
+              if (count > newCompletedByStage[stageId] || (count > 0 && !serverJourney(stageId))) recordStageProgress(stageId, count, journey);
+            });
           }
         } catch (error) {
           console.error('Failed to fetch progress from backend:', error);
@@ -498,57 +510,66 @@ function AppContent() {
   const handleSelectLevel = (levelId: number) => {
     setMapEntry(undefined);
     completionHandledRef.current = false;
-    setTrailReward(null);
+    setStickerReward(null);
     setSelectedLevel(levelId);
     setCurrentScreen("game");
   };
 
-  const handleLevelComplete = async () => {
-    if (selectedStage === 1 && completionHandledRef.current) return;
-    completionHandledRef.current = true;
-    const reward = selectedStage === 1 ? getTrailReward(selectedLevel, completedByStage[1] ?? 0) : null;
-    const newProgress = Math.max(completedByStage[selectedStage] ?? 0, selectedLevel);
-    
-    const nextProgress = {
-      ...completedByStage,
-      [selectedStage]: newProgress,
-    };
-    setCompletedByStage(nextProgress);
-    saveProgressToStorage(user?.id, nextProgress);
-
-    setIsLevelJustCompleted(selectedStage !== 1 || selectedLevel <= 5);
-    setCurrentScreen(selectedStage === 1 ? (selectedLevel <= 5 ? "vowel-power-complete" : "level-map") : "chapter-celebration");
-    if (reward) setTrailReward(reward);
+  // Saves a stage's completed-level count on this device and the server without ever lowering it.
+  const recordStageProgress = async (stageId: number, completed: number, journey?: object) => {
+    setCompletedByStage((prev) => {
+      const nextProgress = { ...prev, [stageId]: Math.max(prev[stageId] ?? 0, completed) };
+      saveProgressToStorage(user?.id, nextProgress);
+      return nextProgress;
+    });
 
     if (learnerId && token) {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-        const stageConfig = STAGE_CONFIG[selectedStage];
-        
-        const progressRes = await fetch(`${API_URL}/progress/learners/${learnerId}/stages/${selectedStage}`, {
+        const stageConfig = STAGE_CONFIG[stageId];
+
+        const progressRes = await fetch(`${API_URL}/progress/learners/${learnerId}/stages/${stageId}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            completed_levels: newProgress,
+            completed_levels: completed,
             total_levels: stageConfig.totalLevels,
+            journey,
           }),
         });
         if (progressRes.ok) {
           const data = await progressRes.json();
-          if (data.unlocked_frames?.length) {
-            toast.success('New frames unlocked!', {
-              description: `Pick your favorite: ${data.unlocked_frames.map((f: { name: string }) => f.name).join(' or ')} ✨`,
-            });
-          }
+          if (data.unlocked_frames?.length) setStageComplete({ stageId, frames: data.unlocked_frames });
         }
       } catch (error) {
         console.error('Failed to save progress to backend:', error);
       }
     }
+  };
 
+  const handleLevelComplete = async () => {
+    if (selectedStage === 1 && completionHandledRef.current) return;
+    completionHandledRef.current = true;
+    const previous = completedByStage[selectedStage] ?? 0;
+    const completed = Math.max(previous, selectedLevel);
+    const reward = selectedStage === 1
+      ? getTrailReward(selectedLevel, previous) ?? newStickerReward(1, previous, completed)
+      : null;
+
+    setIsLevelJustCompleted(selectedStage === 1 && selectedLevel <= 5);
+    setCurrentScreen(selectedStage === 1 && selectedLevel <= 5 ? "vowel-power-complete" : "level-map");
+    if (reward) setStickerReward(reward);
+
+    await recordStageProgress(selectedStage, completed);
+  };
+
+  const handleJourneyProgress = (completed: number, journey: object) => {
+    const reward = newStickerReward(selectedStage, completedByStage[selectedStage] ?? 0, completed);
+    if (reward) setStickerReward(reward);
+    recordStageProgress(selectedStage, completed, journey);
   };
 
   const handleContinueDojoTraining = () => {
@@ -605,14 +626,6 @@ function AppContent() {
     setCurrentScreen("level-map");
   };
 
-  const handleContinueAfterLevel = () => {
-    setCurrentScreen("session-summary");
-  };
-
-  const handleSessionSummaryComplete = () => {
-    setCurrentScreen("stage-selection");
-  };
-
   const handleViewProgress = () => {
     setCurrentScreen("dashboard");
   };
@@ -653,9 +666,7 @@ function AppContent() {
     setCompletedByStage({ ...DEFAULT_PROGRESS });
   };
 
-  const stickers = ["🦋", "🐝", "🐞", "🦉", "🦄"];
-
-  const noHeaderScreens = ["landing", "auth", "learner-profile", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "level-complete", "vowel-power-complete"];
+  const noHeaderScreens = ["landing", "auth", "learner-profile", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "vowel-power-complete"];
   const showLearnerHeader = user?.role === "learner" && !noHeaderScreens.includes(currentScreen);
 
   if (currentScreen === "landing") {
@@ -770,6 +781,8 @@ function AppContent() {
             completedCount={completedByStage[selectedStage] ?? 0}
             onBack={handleBackToStages}
             onSelectLevel={handleSelectLevel}
+            onProgress={handleJourneyProgress}
+            onActivityChange={setJourneyActivityOpen}
           />
         )}
 
@@ -783,23 +796,20 @@ function AppContent() {
           />
         )}
 
-        {currentScreen === "chapter-celebration" && (
-          <ChapterCelebration
-            sticker={stickers[Math.floor(Math.random() * stickers.length)]}
-            score={levelScore}
-            currentLevel={selectedLevel}
-            totalLevels={STAGE_CONFIG[selectedStage]?.totalLevels ?? 5}
-            stageName={STAGE_CONFIG[selectedStage]?.title ?? "Chapter"}
-            onContinueStory={handleContinueToNextStory}
-            onBackToMap={handleBackFromCelebration}
-          />
-        )}
-
-        {currentScreen === "level-map" && trailReward && (
-          <TrailRewardDialog reward={trailReward} onClose={() => setTrailReward(null)} onBook={() => {
-            setTrailReward(null);
+        {(currentScreen === "level-map" || currentScreen === "vowel-power-complete") && stickerReward && !journeyActivityOpen && (
+          <TrailRewardDialog reward={stickerReward} onClose={() => setStickerReward(null)} onBook={() => {
+            setStickerReward(null);
             setCurrentScreen("sticker-book");
           }} />
+        )}
+
+        {stageComplete && !stickerReward && !journeyActivityOpen && (
+          <StageCompleteDialog
+            stageTitle={STAGE_CONFIG[stageComplete.stageId]?.title ?? "this stage"}
+            frames={stageComplete.frames}
+            avatar={learnerAvatar}
+            onClose={() => setStageComplete(null)}
+          />
         )}
 
         {currentScreen === "vowel-power-complete" && (
@@ -811,28 +821,8 @@ function AppContent() {
           />
         )}
 
-        {currentScreen === "level-complete" && (
-          <LevelComplete
-            score={levelScore}
-            sticker={stickers[Math.floor(Math.random() * stickers.length)]}
-            onContinue={handleContinueAfterLevel}
-          />
-        )}
-
-        {currentScreen === "session-summary" && (
-          <SessionSummary
-            levelsCompleted={3}
-            totalScore={300}
-            accuracy={85}
-            stickersEarned={3}
-            timeSpent={15}
-            nextLevel="Valley of Vowels - Level 4: The Sound of O"
-            onContinue={handleSessionSummaryComplete}
-          />
-        )}
-
         {currentScreen === "sticker-book" && (
-          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} learnerId={learnerId} />
+          <StickerBook onBack={handleBackToStages} completedByStage={completedByStage} avatar={learnerAvatar} />
         )}
 
         {currentScreen === "dashboard" && (
