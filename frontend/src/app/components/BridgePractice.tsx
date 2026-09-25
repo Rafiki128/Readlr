@@ -12,6 +12,7 @@ import { narrationLines } from "../../hooks/bridgeNarrationLines";
 import { ChallengeRoomFrame } from "./ChallengeRoomFrame";
 import "./challengeRooms.css";
 import "./challengeControls.css";
+import { getLearningSettings } from "../../hooks/learningSettings";
 
 type Phase = "start" | "narrating" | "choice" | "join" | "ready" | "preparing" | "recording" | "playback" | "building" | "reward" | "error";
 
@@ -261,8 +262,10 @@ export function BridgePractice({ lesson, onBack, onComplete, onNext }: {
       if (!active.current) return;
       setPhase("reward");
       if (!saved.current) { saved.current = true; onComplete(); }
-      if (lesson.training) await explain("WorkshopLinkPraise.wav", "Thank you for practising with me! Our sound team made a bridge piece. You helped Milo cross!");
-      else await sayLesson("Success");
+      if (getLearningSettings().voice_feedback) {
+        if (lesson.training) await explain("WorkshopLinkPraise.wav", "Thank you for practising with me! Our sound team made a bridge piece. You helped Milo cross!");
+        else await sayLesson("Success");
+      } else setMessage(lesson.success);
     });
   }
 

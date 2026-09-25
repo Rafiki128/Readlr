@@ -12,6 +12,7 @@ import { BridgeSoundShelf } from "./BridgeSoundShelf";
 import "./blendingWorkshop.css";
 import "./bridgeJourney.css";
 import "./continuousLandscape.css";
+import { notifyJourneyChanged, JOURNEY_RESTORED } from "./journeySync";
 
 export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack }: {
   learnerId?: number | null; initialView?: "workshop" | "bridges"; onBack: () => void;
@@ -21,6 +22,11 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack }
   const [room, setRoom] = useState(initialView !== "bridges");
   const [shelfOpen, setShelfOpen] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  useEffect(()=> {
+    const restore=(event:Event)=> { if((event as CustomEvent).detail===learnerId) setProgress(readBridgeJourney(learnerId)); };
+    window.addEventListener(JOURNEY_RESTORED,restore);
+    return()=>window.removeEventListener(JOURNEY_RESTORED,restore);
+  },[learnerId]);
   const scroll = useRef<HTMLDivElement>(null);
   const current = useRef<HTMLButtonElement>(null);
   const reducedMotion = useReducedMotion();
@@ -38,6 +44,7 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack }
     if (key) {
       try { localStorage.setItem(key, JSON.stringify(updated)); setSaveError(false); }
       catch { setSaveError(true); }
+      notifyJourneyChanged(learnerId);
     }
   }
   useEffect(() => {

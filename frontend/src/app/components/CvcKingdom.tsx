@@ -10,11 +10,17 @@ import { CVC_AREAS, CVC_LESSONS, cvcStorageKey, finishCvcLesson, readCvcJourney,
 import "./cvcKingdom.css";
 import "./cvcCastleMap.css";
 import "./cvcFinalRealm.css";
+import { notifyJourneyChanged, JOURNEY_RESTORED } from "./journeySync";
 
 interface Props { learnerId?:number|null; onBack:()=>void }
 export function CvcKingdom({learnerId,onBack}:Props) {
   const [journey,setJourney]=useState(()=>readCvcJourney(learnerId));
   const current=useRef(journey);
+  useEffect(()=> {
+    const restore=(event:Event)=> { if((event as CustomEvent).detail===learnerId) {const saved=readCvcJourney(learnerId);current.current=saved;setJourney(saved);} };
+    window.addEventListener(JOURNEY_RESTORED,restore);
+    return()=>window.removeEventListener(JOURNEY_RESTORED,restore);
+  },[learnerId]);
   const [activity,setActivity]=useState<{id:number;jewel:number}|null>(null);
   const [view,setView]=useState<"map"|"book"|"crown">("map");
   const [saveError,setSaveError]=useState(false);
@@ -36,6 +42,7 @@ export function CvcKingdom({learnerId,onBack}:Props) {
     current.current=next; setJourney(next);
     const key=cvcStorageKey(learnerId);
     if(key) { try { localStorage.setItem(key,JSON.stringify(next)); setSaveError(false); } catch { setSaveError(true); } }
+    notifyJourneyChanged(learnerId);
   }
   function open(id:number) {
     if(id>current.current.completed+1) return;

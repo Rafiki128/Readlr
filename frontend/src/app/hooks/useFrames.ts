@@ -42,6 +42,8 @@ export function useFrames() {
 
   useEffect(() => {
     fetchFrames();
+    window.addEventListener("readlr:frames-changed", fetchFrames);
+    return () => window.removeEventListener("readlr:frames-changed", fetchFrames);
   }, [fetchFrames]);
 
   const equipFrame = useCallback(
@@ -59,6 +61,7 @@ export function useFrames() {
         if (res.ok) {
           const data = await res.json();
           setFrames(data.frames);
+          window.dispatchEvent(new Event("readlr:frames-changed"));
           return true;
         }
         return false;

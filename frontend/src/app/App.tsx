@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useJourneySync } from "./hooks/useJourneySync";
+import { useLearningSettings, markPracticeToday } from "./hooks/useLearningSettings";
+import { getLearningSettings } from "../hooks/learningSettings";
 import { TrailRewardDialog } from "./components/TrailRewardDialog";
 import { getTrailReward, type TrailReward } from "./components/trailRewards";
 import { motion } from "motion/react";
@@ -31,8 +34,8 @@ import { AdminDashboard } from "./components/AdminDashboard";
 // Stage configuration for determining progress
 const STAGE_CONFIG: Record<number, { title: string; totalLevels: number; nextStageId?: number }> = {
   1: { title: "Valley of Vowels", totalLevels: 20, nextStageId: 2 },
-  2: { title: "Blending Bridges", totalLevels: 8, nextStageId: 3 },
-  3: { title: "CVC Kingdom", totalLevels: 10 },
+  2: { title: "Blending Bridges", totalLevels: 20, nextStageId: 3 },
+  3: { title: "CVC Kingdom", totalLevels: 20 },
 };
 
 const DEFAULT_PROGRESS: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
@@ -271,6 +274,7 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
 function AppContent() {
   const { isAuthenticated, user, token, isLoading: isAuthLoading, logout } = useAuth();
   useDarkMode();
+  useLearningSettings(token, user?.id);
   const initialRoute = parseAppPath(window.location.pathname);
   const [currentScreen, setCurrentScreen] = useState<Screen>(initialRoute.screen);
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialRoute.authMode ?? 'register');
@@ -290,6 +294,14 @@ function AppContent() {
   const [learnerName, setLearnerName] = useState("");
   const [learnerAvatar, setLearnerAvatar] = useState("🦊");
   const [learnerId, setLearnerId] = useState<number | null>(null);
+  const updateJourneyProgress = useCallback((stage:number,count:number) => {
+    setCompletedByStage(previous => {
+      const next = {...previous, [stage]:count};
+      try { saveProgressToStorage(user?.id,next); } catch { /* Local journey data remains the backup. */ }
+      return next;
+    });
+  },[user?.id]);
+  useJourneySync(user?.role === "learner" ? learnerId : null, token, updateJourneyProgress, user?.id);
   const [isCheckingProfile, setIsCheckingProfile] = useState(false);
   const [hasCheckedLearnerProfile, setHasCheckedLearnerProfile] = useState(false);
   const [isSyncingProgress, setIsSyncingProgress] = useState(false);
@@ -420,6 +432,7 @@ function AppContent() {
 
             const stages = Array.isArray(progressData) ? progressData : (progressData.stages ?? []);
             stages.forEach((progress: any) => {
+              if ([2,3].includes(progress.stage_id) && progress.total_levels !== 20) return;
               newCompletedByStage[progress.stage_id] = progress.completed_levels;
             });
             
@@ -496,6 +509,7 @@ function AppContent() {
   };
 
   const handleSelectLevel = (levelId: number) => {
+    markPracticeToday(user?.id);
     setMapEntry(undefined);
     completionHandledRef.current = false;
     setTrailReward(null);
@@ -518,7 +532,7 @@ function AppContent() {
 
     setIsLevelJustCompleted(selectedStage !== 1 || selectedLevel <= 5);
     setCurrentScreen(selectedStage === 1 ? (selectedLevel <= 5 ? "vowel-power-complete" : "level-map") : "chapter-celebration");
-    if (reward) setTrailReward(reward);
+    if (reward && getLearningSettings().achievement_alerts) setTrailReward(reward);
 
     if (learnerId && token) {
       try {
@@ -538,7 +552,8 @@ function AppContent() {
         });
         if (progressRes.ok) {
           const data = await progressRes.json();
-          if (data.unlocked_frames?.length) {
+          window.dispatchEvent(new Event("readlr:frames-changed"));
+          if (data.unlocked_frames?.length && getLearningSettings().achievement_alerts) {
             toast.success('New frames unlocked!', {
               description: `Pick your favorite: ${data.unlocked_frames.map((f: { name: string }) => f.name).join(' or ')} ✨`,
             });
