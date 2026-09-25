@@ -12,8 +12,8 @@ import "./cvcCastleMap.css";
 import "./cvcFinalRealm.css";
 import { notifyJourneyChanged, JOURNEY_RESTORED } from "./journeySync";
 
-interface Props { learnerId?:number|null; onBack:()=>void }
-export function CvcKingdom({learnerId,onBack}:Props) {
+interface Props { learnerId?:number|null; onBack:()=>void; onProgress?:(completed:number,journey:object)=>void; onActivityChange?:(open:boolean)=>void }
+export function CvcKingdom({learnerId,onBack,onProgress,onActivityChange}:Props) {
   const [journey,setJourney]=useState(()=>readCvcJourney(learnerId));
   const current=useRef(journey);
   useEffect(()=> {
@@ -27,6 +27,8 @@ export function CvcKingdom({learnerId,onBack}:Props) {
   const [name,setName]=useState("");
   const [entering,setEntering]=useState(true);
   useEffect(()=>{const timer=setTimeout(()=>setEntering(false),2400);return()=>clearTimeout(timer);},[]);
+  // Lets the app hold reward popups until Milo's practice screen is closed.
+  useEffect(()=>{onActivityChange?.(activity!==null);return()=>onActivityChange?.(false);},[activity!==null]);
   const viewport=useRef<HTMLDivElement>(null);
   const target=useRef<HTMLButtonElement>(null);
   const last=useRef(journey.completed+1);
@@ -43,6 +45,7 @@ export function CvcKingdom({learnerId,onBack}:Props) {
     const key=cvcStorageKey(learnerId);
     if(key) { try { localStorage.setItem(key,JSON.stringify(next)); setSaveError(false); } catch { setSaveError(true); } }
     notifyJourneyChanged(learnerId);
+    onProgress?.(next.completed,next);
   }
   function open(id:number) {
     if(id>current.current.completed+1) return;

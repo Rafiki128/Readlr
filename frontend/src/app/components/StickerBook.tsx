@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, Star, Lock, Check, Sparkles } from "lucide-react";
-import { TRAIL_STICKERS, POINT_STICKERS, getTrailPoints } from "./trailRewards";
-import { readBridgeJourney } from "./stageTwoContent";
-import { readCvcJourney } from "./cvcContent";
+import { POINT_STICKERS, getTrailPoints } from "./trailRewards";
+import { STICKERS, isStickerEarned } from "./stickers";
+import { AvatarFrame } from "./AvatarFrame";
+import { useFrames } from "../hooks/useFrames";
 
 interface AttemptRecord {
   wordId: number;
@@ -33,55 +34,22 @@ function loadSelfCorrections(): AttemptRecord[] {
 }
 
 interface StickerBookProps {
-  learnerId?: number | null;
   onBack: () => void;
   completedByStage?: Record<number, number>;
+  avatar?: string;
 }
 
-interface Sticker {
-  id: number;
-  emoji: string;
-  name: string;
-  stage: string;
-  stageId: number;
-  levelId: number;
-}
-
-const STICKER_DEFS: Sticker[] = [
-  { id: 1,  emoji: "🦋", name: "Butterfly", stage: "Valley of Vowels — A",  stageId: 1, levelId: 1 },
-  { id: 2,  emoji: "🐝", name: "Bee",       stage: "Valley of Vowels — E",  stageId: 1, levelId: 2 },
-  { id: 3,  emoji: "🐞", name: "Ladybug",   stage: "Valley of Vowels — I",  stageId: 1, levelId: 3 },
-  { id: 4,  emoji: "🦉", name: "Owl",       stage: "Valley of Vowels — O",  stageId: 1, levelId: 4 },
-  { id: 5,  emoji: "🦄", name: "Unicorn",   stage: "Valley of Vowels — U",  stageId: 1, levelId: 5 },
-  { id: 6,  emoji: "🐸", name: "Frog",      stage: "Blending Bridges 1",    stageId: 2, levelId: 1 },
-  { id: 7,  emoji: "🐢", name: "Turtle",    stage: "Blending Bridges 2",    stageId: 2, levelId: 2 },
-  { id: 8,  emoji: "🦎", name: "Lizard",    stage: "Blending Bridges 3",    stageId: 2, levelId: 3 },
-  { id: 9,  emoji: "🦜", name: "Parrot",    stage: "CVC Kingdom 1",         stageId: 3, levelId: 1 },
-  { id: 10, emoji: "🦚", name: "Peacock",   stage: "CVC Kingdom 2",         stageId: 3, levelId: 2 },
-  { id: 11, emoji: "🦁", name: "Lion",      stage: "CVC Kingdom 3",         stageId: 3, levelId: 3 },
-  { id: 12, emoji: "🐯", name: "Tiger",     stage: "CVC Kingdom Final",     stageId: 3, levelId: 4 },
+const STAGE_PAGES = [
+  { id: 1, title: "Valley of Vowels" },
+  { id: 2, title: "Blending Bridges" },
+  { id: 3, title: "CVC Kingdom" },
 ];
 
-export function StickerBook({ onBack, completedByStage = {}, learnerId }: StickerBookProps) {
-  const bridgeProgress = readBridgeJourney(learnerId);
-  const cvcProgress = readCvcJourney(learnerId);
+export function StickerBook({ onBack, completedByStage = {}, avatar = "" }: StickerBookProps) {
+  const { frames } = useFrames();
   const trailPoints = getTrailPoints(completedByStage[1] ?? 0);
   const nextBonus = POINT_STICKERS.find((item) => item.points > trailPoints);
-  const stickers = [...STICKER_DEFS, ...TRAIL_STICKERS].map((s) => ({
-    ...s,
-    earned: (completedByStage[s.stageId] ?? 0) >= s.levelId,
-  })).concat(POINT_STICKERS.map((item) => ({
-    id: item.id, emoji: item.emoji, name: item.name,
-    stage: `${item.points} trail points`, stageId: 1, levelId: 0,
-    earned: trailPoints >= item.points,
-  })));
-
-  [{name:"Bridge Builder",points:100,emoji:"🌉"},{name:"Brook Keeper",points:500,emoji:"💧"},{name:"Waterfall Explorer",points:1000,emoji:"🌈"},{name:"Sky Connector",points:1500,emoji:"☁️"}].forEach((reward,index)=> {
-    stickers.push({ id:2001+index, emoji:reward.emoji, name:reward.name, stage:`Blending Bridges - ${reward.points} bridge points`, stageId:2, levelId:0, earned:bridgeProgress.points>=reward.points });
-  });
-  [{name:"Word Alchemist",at:5,emoji:"✨"},{name:"Garden Magician",at:10,emoji:"🌷"},{name:"Castle Storyteller",at:15,emoji:"📖"},{name:"Crown of Three Lights",at:20,emoji:"👑"}].forEach((reward,index)=> {
-    stickers.push({id:3001+index,emoji:reward.emoji,name:reward.name,stage:"CVC Kingdom - word magic",stageId:3,levelId:reward.at,earned:cvcProgress.completed>=reward.at});
-  });
+  const stickers = STICKERS.map((s) => ({ ...s, earned: isStickerEarned(s, completedByStage) }));
   const earnedCount = stickers.filter((s) => s.earned).length;
   const pct = Math.round((earnedCount / stickers.length) * 100);
   const selfCorrections = useMemo(() => loadSelfCorrections(), []);
@@ -114,7 +82,7 @@ export function StickerBook({ onBack, completedByStage = {}, learnerId }: Sticke
             <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Collection</p>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
               <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">My Sticker Book</h1>
-              <p className="text-[var(--ink-soft)]">Finish a level to earn an animal friend.</p>
+              <p className="text-[var(--ink-soft)]">Finish levels to collect friends. Finish a stage to unlock its frames.</p>
             </div>
           </motion.div>
 
@@ -137,60 +105,85 @@ export function StickerBook({ onBack, completedByStage = {}, learnerId }: Sticke
             </div>
           </div>
 
-          {/* Sticker grid */}
-          <section className="mb-8 border-y border-amber-200 py-5" aria-label="Trail points">
-            <h2 className="flex items-center gap-2 text-xl font-bold"><Star className="h-5 w-5 text-amber-500" />{trailPoints} trail points</h2>
-            <p className="mt-2 text-sm text-[var(--ink-soft)]">{nextBonus ? `${nextBonus.points - trailPoints} more points to unlock ${nextBonus.name}.` : "You earned every valley bonus sticker!"}</p>
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {POINT_STICKERS.map((bonus) => (
-                <div key={bonus.id} className="flex min-w-0 flex-col items-center gap-1 text-center">
-                  <span className={`flex h-14 w-14 items-center justify-center rounded-full text-3xl ${trailPoints >= bonus.points ? "bg-[#FFF0C2]" : "bg-[#ECEEF2] grayscale"}`} aria-hidden="true">{bonus.emoji}</span>
-                  <span className="text-sm font-bold text-[var(--ink-soft)]">{bonus.name}</span>
-                  <span className="inline-flex items-center gap-1 text-xs text-[#707789]">{trailPoints >= bonus.points ? <><Check className="h-3 w-3" />Collected</> : `${bonus.points.toLocaleString()} points`}</span>
+          {/* One page per stage, ending with that stage's frames */}
+          {STAGE_PAGES.map((page) => {
+            const pageStickers = stickers.filter((s) => s.stageId === page.id);
+            const pageFrames = frames.filter((f) => f.unlock_stage_number === page.id);
+            const framesUnlocked = pageFrames.length > 0 && pageFrames.every((f) => f.unlocked);
+            return (
+              <section key={page.id} className="mb-10" aria-label={page.title}>
+                <div className="flex items-baseline justify-between gap-3 mb-4">
+                  <h2 className="text-2xl text-[var(--ink)] tracking-tight">{page.title}</h2>
+                  <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
+                    {pageStickers.filter((s) => s.earned).length} of {pageStickers.length}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </section>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {stickers.map((sticker, index) => (
-              <motion.div
-                key={sticker.id}
-                initial={{ y: 10, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: index * 0.03, ease: "easeOut" }}
-                whileHover={sticker.earned ? { y: -3 } : {}}
-                className={`bg-card rounded-2xl p-5 border transition-all ${
-                  sticker.earned
-                    ? "border-[var(--hairline)] hover:border-[var(--hairline-strong)] cursor-pointer"
-                    : "border-[var(--hairline)] opacity-70"
-                }`}
-              >
-                <div
-                  className={`aspect-square rounded-xl flex items-center justify-center mb-4 relative ${
-                    sticker.earned ? "bg-[var(--paper)]" : "bg-[var(--paper-deep)]"
-                  }`}
-                >
-                  {sticker.earned ? (
-                    <span className="text-6xl">{sticker.emoji}</span>
-                  ) : (
-                    <Lock className="w-7 h-7 text-[var(--ink-muted)]" />
-                  )}
-                  {sticker.earned && (
-                    <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#10B981] flex items-center justify-center">
-                      <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <p className="text-[var(--ink)]">
-                    {sticker.earned ? sticker.name : "Locked"}
+                {page.id === 1 && (
+                  <p className="mb-4 flex items-center gap-2 text-sm text-[var(--ink-soft)]">
+                    <Star className="h-4 w-4 text-amber-500" />
+                    {trailPoints} trail points · {nextBonus ? `${nextBonus.points - trailPoints} more to unlock ${nextBonus.name}` : "every valley bonus sticker earned!"}
                   </p>
-                  <p className="text-xs text-[var(--ink-muted)] mt-0.5">{sticker.stage}</p>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {pageStickers.map((sticker, index) => (
+                    <motion.div
+                      key={sticker.id}
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: index * 0.03, ease: "easeOut" }}
+                      whileHover={sticker.earned ? { y: -3 } : {}}
+                      className={`bg-card rounded-2xl p-5 border transition-all ${
+                        sticker.earned
+                          ? "border-[var(--hairline)] hover:border-[var(--hairline-strong)] cursor-pointer"
+                          : "border-[var(--hairline)] opacity-70"
+                      }`}
+                    >
+                      <div
+                        className={`aspect-square rounded-xl flex items-center justify-center mb-4 relative ${
+                          sticker.earned ? "bg-[var(--paper)]" : "bg-[var(--paper-deep)]"
+                        }`}
+                      >
+                        {sticker.earned ? (
+                          <span className="text-6xl">{sticker.emoji}</span>
+                        ) : (
+                          <Lock className="w-7 h-7 text-[var(--ink-muted)]" />
+                        )}
+                        {sticker.earned && (
+                          <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#10B981] flex items-center justify-center">
+                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                          </span>
+                        )}
+                      </div>
+      
+                      <div>
+                        <p className="text-[var(--ink)]">
+                          {sticker.earned ? sticker.name : "Locked"}
+                        </p>
+                        <p className="text-xs text-[var(--ink-muted)] mt-0.5">{sticker.stage}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {pageFrames.length > 0 && (
+                    <div className={`rounded-2xl p-5 border-2 border-dashed ${framesUnlocked ? "border-[#F59E0B] bg-[var(--tint-amber)]" : "border-[var(--hairline-strong)] bg-card"}`}>
+                      <div className="aspect-square rounded-xl flex items-center justify-center gap-1 mb-4">
+                        {pageFrames.map((frame) => (
+                          <div key={frame.id} className={framesUnlocked ? "" : "opacity-40 grayscale"}>
+                            <AvatarFrame assetKey={frame.asset_key} size={56}>
+                              {framesUnlocked ? <span className="text-2xl">{avatar}</span> : <Lock className="w-4 h-4 text-[var(--ink-muted)]" />}
+                            </AvatarFrame>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[var(--ink)]">{framesUnlocked ? "Stage frames unlocked!" : "Stage frames"}</p>
+                      <p className="text-xs text-[var(--ink-muted)] mt-0.5">
+                        {framesUnlocked ? "Wear them from your profile" : `Finish ${page.title} to unlock`}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </motion.div>
-            ))}
-          </div>
+              </section>
+            );
+          })}
 
           {/* Footer message */}
           <motion.div
