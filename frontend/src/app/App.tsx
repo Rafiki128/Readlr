@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useJourneySync } from "./hooks/useJourneySync";
+import { JOURNEY_RESTORED, notifyJourneyChanged } from "./components/journeySync";
 import { useLearningSettings, markPracticeToday } from "./hooks/useLearningSettings";
 import { getLearningSettings } from "../hooks/learningSettings";
 import { TrailRewardDialog } from "./components/TrailRewardDialog";
@@ -295,7 +296,8 @@ function AppContent() {
       return next;
     });
   },[user?.id]);
-  useJourneySync(user?.role === "learner" ? learnerId : null, token, updateJourneyProgress, user?.id);
+  const showJourneyFrames = useCallback((stageId:number, frames:UnlockedFrame[]) => setStageComplete({stageId,frames}), []);
+  useJourneySync(user?.role === "learner" ? learnerId : null, token, updateJourneyProgress, user?.id, showJourneyFrames);
   const [isCheckingProfile, setIsCheckingProfile] = useState(false);
   const [hasCheckedLearnerProfile, setHasCheckedLearnerProfile] = useState(false);
   const [isSyncingProgress, setIsSyncingProgress] = useState(false);
@@ -455,8 +457,10 @@ function AppContent() {
               [2, bridge.training.length + bridge.crossings.length, bridge],
               [3, cvc.completed, cvc],
             ];
-            journeys.forEach(([stageId, count, journey]) => {
-              if (count > newCompletedByStage[stageId] || (count > 0 && !serverJourney(stageId))) recordStageProgress(stageId, count, journey);
+            window.dispatchEvent(new CustomEvent(JOURNEY_RESTORED, { detail: learnerId }));
+            notifyJourneyChanged(learnerId);
+            journeys.forEach(([stageId, count]) => {
+              if (count > newCompletedByStage[stageId]) recordStageProgress(stageId, count);
             });
           }
         } catch (error) {
@@ -537,6 +541,8 @@ function AppContent() {
       return nextProgress;
     });
 
+    // Stages 2 and 3 are persisted by useJourneySync, including offline retries.
+    if (stageId !== 1) return;
     if (learnerId && token) {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -556,7 +562,8 @@ function AppContent() {
         });
         if (progressRes.ok) {
           const data = await progressRes.json();
-          if (data.unlocked_frames?.length) setStageComplete({ stageId, frames: data.unlocked_frames });
+          window.dispatchEvent(new Event("readlr:frames-changed"));
+          if (data.unlocked_frames?.length && getLearningSettings().achievement_alerts) setStageComplete({ stageId, frames: data.unlocked_frames });
         }
       } catch (error) {
         console.error('Failed to save progress to backend:', error);
@@ -575,14 +582,14 @@ function AppContent() {
 
     setIsLevelJustCompleted(selectedStage === 1 && selectedLevel <= 5);
     setCurrentScreen(selectedStage === 1 && selectedLevel <= 5 ? "vowel-power-complete" : "level-map");
-    if (reward) setStickerReward(reward);
+    if (reward && getLearningSettings().achievement_alerts) setStickerReward(reward);
 
     await recordStageProgress(selectedStage, completed);
   };
 
   const handleJourneyProgress = (completed: number, journey: object) => {
     const reward = newStickerReward(selectedStage, completedByStage[selectedStage] ?? 0, completed);
-    if (reward) setStickerReward(reward);
+    if (reward && getLearningSettings().achievement_alerts) setStickerReward(reward);
     recordStageProgress(selectedStage, completed, journey);
   };
 
@@ -848,11 +855,11 @@ function AppContent() {
         )}
 
         {currentScreen === "phoneme-bank" && (
-          <PhonemeBank onBack={handleBackToStages} completedByStage={completedByStage} />
+          <PhonemeBank key={learnerId ?? "guest"} learnerId={learnerId} onBack={handleBackToStages} completedByStage={completedByStage} />
         )}
 
         {currentScreen === "achievements" && (
-          <Achievements onBack={handleBackToStages} completedByStage={completedByStage} />
+          <Achievements learnerId={learnerId} onBack={handleBackToStages} completedByStage={completedByStage} />
         )}
 
         {currentScreen === "settings" && (

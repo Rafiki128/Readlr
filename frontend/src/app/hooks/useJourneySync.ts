@@ -5,7 +5,7 @@ import { getLearningSettings } from "../../hooks/learningSettings";
 import { markPracticeToday } from "./useLearningSettings";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-export function useJourneySync(learnerId: number | null, token: string | null, onProgress: (stage:number,count:number)=>void, userId?:number) {
+export function useJourneySync(learnerId: number | null, token: string | null, onProgress: (stage:number,count:number)=>void, userId?:number, onFrames?: (stage:number, frames:Array<{id:number;name:string;asset_key:string}>)=>void) {
   const [syncError,setSyncError] = useState(false);
   useEffect(()=> {
     setSyncError(false);
@@ -40,7 +40,10 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
           restoreJourney(learnerId!,saved.journey);
           onProgress(local.stage_number,saved.journey.completed);
           window.dispatchEvent(new Event("readlr:frames-changed"));
-          if (saved.unlocked_frames?.length && getLearningSettings().achievement_alerts) toast.success("New frames unlocked!",{description:saved.unlocked_frames.map((f:{name:string})=>f.name).join(" or ")});
+          if (saved.unlocked_frames?.length && getLearningSettings().achievement_alerts) {
+            if (onFrames) onFrames(local.stage_number, saved.unlocked_frames);
+            else toast.success("New frames unlocked!",{description:saved.unlocked_frames.map((f:{name:string})=>f.name).join(" or ")});
+          }
         }
         setSyncError(false);
       } catch { if (!controller.signal.aborted) setSyncError(true); }
@@ -53,6 +56,6 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
     const timer=setInterval(retry,60000);
     void sync();
     return()=> {controller.abort();clearInterval(timer);window.removeEventListener(JOURNEY_CHANGED,changed);window.removeEventListener("online",retry);};
-  },[learnerId,token,onProgress,userId]);
+  },[learnerId,token,onProgress,userId,onFrames]);
   return syncError;
 }

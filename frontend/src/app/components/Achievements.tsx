@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
+import type { CSSProperties } from "react";
+import "./rewardsCollection.css";
 import {
   ArrowLeft,
   Award,
@@ -19,6 +21,7 @@ import {
 interface AchievementsProps {
   onBack: () => void;
   completedByStage?: Record<number, number>;
+  learnerId?: number | null;
 }
 
 type Category = "all" | "milestone" | "mastery" | "streak" | "special";
@@ -94,7 +97,8 @@ function longestConsecutiveDayStreak(days: string[]) {
   return best;
 }
 
-function getSoundLibraryRecordingCount(): Promise<number> {
+function getSoundLibraryRecordingCount(learnerId?: number | null): Promise<number> {
+  if (!learnerId) return Promise.resolve(0);
   return new Promise((resolve) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -109,7 +113,8 @@ function getSoundLibraryRecordingCount(): Promise<number> {
     request.onsuccess = () => {
       const db = request.result;
       const tx = db.transaction(STORE_NAME, "readonly");
-      const countRequest = tx.objectStore(STORE_NAME).count();
+      const prefix = `learner:${learnerId}:`;
+      const countRequest = tx.objectStore(STORE_NAME).count(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
       countRequest.onsuccess = () => resolve(countRequest.result);
       countRequest.onerror = () => resolve(0);
       tx.oncomplete = () => db.close();
@@ -121,15 +126,18 @@ function getSoundLibraryRecordingCount(): Promise<number> {
   });
 }
 
-export function Achievements({ onBack, completedByStage = {} }: AchievementsProps) {
+export function Achievements({ onBack, completedByStage = {}, learnerId }: AchievementsProps) {
   const [filter, setFilter] = useState<Category>("all");
   const [attempts, setAttempts] = useState<AttemptRecord[]>([]);
   const [soundRecordingCount, setSoundRecordingCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
     setAttempts(readAttemptRecords());
-    getSoundLibraryRecordingCount().then(setSoundRecordingCount);
-  }, []);
+    setSoundRecordingCount(0);
+    getSoundLibraryRecordingCount(learnerId).then(count => { if (active) setSoundRecordingCount(count); }).catch(() => { if (active) setSoundRecordingCount(0); });
+    return () => { active = false; };
+  }, [learnerId]);
 
   const achievements = useMemo<Achievement[]>(() => {
     const completedStage1 = clampProgress(completedByStage[1] ?? 0, STAGE_TOTALS[1]);
@@ -332,156 +340,32 @@ export function Achievements({ onBack, completedByStage = {} }: AchievementsProp
   const unlockedCount = withState.filter((achievement) => achievement.unlocked).length;
   const visible = filter === "all" ? withState : withState.filter((achievement) => achievement.category === filter);
 
-  return (
-    <div className="size-full bg-[var(--paper)] overflow-auto">
-      <div className="min-h-full px-6 md:px-10 py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <button
-              onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] transition-colors text-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
-              <Award className="w-3.5 h-3.5 text-[#F59E0B]" />
-              {unlockedCount} of {withState.length} unlocked
-            </span>
-          </div>
-
-          <motion.div initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mb-8">
-            <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Recognition</p>
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">Achievements</h1>
-              <p className="text-[var(--ink-soft)] max-w-md">
-                Badges earned from levels, fluency practice, streaks, and saved voice recordings.
-              </p>
-            </div>
-          </motion.div>
-
-          <div className="flex flex-wrap gap-2 mb-8">
-            {categories.map((category) => {
-              const Icon = category.icon;
-              const active = filter === category.id;
-              const categoryAchievements =
-                category.id === "all"
-                  ? withState
-                  : withState.filter((achievement) => achievement.category === category.id);
-              const earned = categoryAchievements.filter((achievement) => achievement.unlocked).length;
-
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setFilter(category.id)}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm border transition-colors ${
-                    active
-                      ? "bg-[var(--accent-soft)] border-[#4F46E5] text-[#4F46E5]"
-                      : "bg-card border-[var(--hairline)] text-[var(--ink-soft)] hover:border-[var(--hairline-strong)]"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {category.name}
-                  <span className={`text-xs ${active ? "text-[#4F46E5]" : "text-[var(--ink-muted)]"}`}>
-                    {earned}/{categoryAchievements.length}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visible.map((achievement, index) => {
-              const Icon = achievement.icon;
-              const pct = Math.round((achievement.progress / achievement.total) * 100);
-
-              return (
-                <motion.div
-                  key={achievement.id}
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.035 }}
-                  whileHover={achievement.unlocked ? { y: -3 } : {}}
-                  className={`rounded-2xl p-5 border transition-colors ${
-                    achievement.unlocked
-                      ? "bg-card border-[var(--hairline)] hover:border-[var(--hairline-strong)]"
-                      : "bg-[var(--paper-soft)] border-[#D8D2C8] grayscale-[0.2]"
-                  }`}
-                >
-                  <div className="flex items-start gap-4 mb-4">
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: achievement.unlocked ? achievement.tint : "#E7E2DA" }}
-                    >
-                      {achievement.unlocked ? (
-                        <Icon className="w-6 h-6" style={{ color: achievement.accent }} />
-                      ) : (
-                        <Lock className="w-5 h-5 text-[var(--ink-muted)]" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={achievement.unlocked ? "text-[var(--ink)]" : "text-[#6B7280]"}>
-                          {achievement.title}
-                        </p>
-                        {achievement.unlocked && (
-                          <span
-                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                            style={{ background: achievement.tint, color: achievement.accent }}
-                          >
-                            <Check className="w-3 h-3" strokeWidth={3} />
-                            Earned
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[var(--ink-muted)] mt-0.5">{achievement.description}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">Progress</span>
-                      <span className="text-xs text-[var(--ink)]">
-                        {achievement.progress}<span className="text-[var(--ink-muted)]"> / {achievement.total}</span>
-                      </span>
-                    </div>
-                    <div className="w-full bg-[#ECE7DE] rounded-full h-1.5 overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="h-1.5 rounded-full"
-                        style={{ background: achievement.unlocked ? achievement.accent : "#A8A29E" }}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mt-8 bg-card rounded-2xl p-6 border border-[var(--hairline)] flex items-center gap-4"
-          >
-            <div className="w-12 h-12 rounded-xl bg-[var(--accent-soft)] flex items-center justify-center flex-shrink-0">
-              <Trophy className="w-6 h-6 text-[#4F46E5]" />
-            </div>
-            <div>
-              <p className="text-[var(--ink)]">Keep going</p>
-              <p className="text-sm text-[var(--ink-soft)]">
-                {unlockedCount === 0
-                  ? "Start your journey to unlock your first achievement."
-                  : unlockedCount === withState.length
-                    ? "Every achievement is unlocked. Excellent work."
-                    : `${withState.length - unlockedCount} more achievements to unlock.`}
-              </p>
-            </div>
-          </motion.div>
-        </div>
+  const [view, setView] = useState<"all" | "earned" | "next">("all");
+  const shown = visible.filter(item => view === "all" || (view === "earned" ? item.unlocked : !item.unlocked));
+  const next = withState.filter(item => !item.unlocked).sort((a,b) => b.progress/b.total - a.progress/a.total)[0];
+  const reducedMotion = useReducedMotion();
+  return <main className="rewards-page">
+    <div className="rewards-inner">
+      <div className="rewards-topline"><button className="rewards-back" onClick={onBack}><ArrowLeft size={17}/>Stages</button><span><Award size={17}/>My milestones</span></div>
+      <header className="rewards-heading"><div><p className="rewards-eyebrow">A little braver, every day</p><h1>Achievements</h1></div><p>Every sound is a step forward.</p></header>
+      <section className="rewards-overview" aria-label="Achievement summary">
+        <div className="reward-medallion overview-medal"><Trophy size={40}/></div>
+        <div className="rewards-count"><strong>{unlockedCount}<span> / {withState.length}</span></strong><p>badges earned</p></div>
+        <div className="rewards-summary-track"><div><span>Your growing collection</span><b>{Math.round(unlockedCount / withState.length * 100)}%</b></div><progress value={unlockedCount} max={withState.length} aria-label="Badges earned"/></div>
+        <div className="rewards-next"><Sparkles size={20}/><div><small>{next ? "Next within reach" : "What a journey!"}</small><b>{next?.title ?? "Every badge is yours"}</b><span>{next ? `${next.total - next.progress} more to go` : "Look how far you have come."}</span></div></div>
+      </section>
+      <div className="rewards-toolbar"><nav className="rewards-tabs" aria-label="Achievement status">
+        {([{id:"all",label:"All badges"},{id:"earned",label:"Earned"},{id:"next",label:"Still to discover"}] as const).map(tab=><button key={tab.id} aria-pressed={view===tab.id} onClick={()=>setView(tab.id)}>{tab.label}<span>{tab.id==="all"?withState.length:tab.id==="earned"?unlockedCount:withState.length-unlockedCount}</span></button>)}
+      </nav><label className="rewards-filter">Category<select value={filter} onChange={event=>setFilter(event.target.value as Category)}>{categories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label></div>
+      <div className="achievement-grid">
+        {shown.map((achievement,index)=>{const Icon=achievement.icon;return <motion.article key={achievement.id} initial={reducedMotion?false:{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:Math.min(index*.025,.15)}} className={`achievement-card ${achievement.unlocked?"is-earned":"is-growing"}`} style={{"--reward-color":achievement.accent,"--reward-tint":achievement.tint} as CSSProperties}>
+          <div className="achievement-card-top"><div className="reward-medallion"><Icon size={30}/></div><span className="reward-state">{achievement.unlocked?<><Check size={14}/>Earned</>:<><Lock size={13}/>Not yet</>}</span></div>
+          <h2>{achievement.title}</h2><p>{achievement.description}</p>
+          <div className="achievement-progress"><span>{achievement.progress} / {achievement.total}</span><span>{achievement.unlocked?"Complete":`${achievement.total-achievement.progress} to go`}</span></div>
+          <progress value={achievement.progress} max={achievement.total} aria-label={`${achievement.title} progress`}/>
+        </motion.article>})}
       </div>
+      {shown.length===0&&<div className="rewards-empty"><Award size={38}/><h2>{view==="earned"&&unlockedCount===0?"Your first badge is waiting":"No badges in this view yet"}</h2><p>{view==="earned"&&unlockedCount===0?"Finish a lesson to begin your collection.":"Try another category to see your badges."}</p><button className="rewards-back" onClick={()=>{setFilter("all");setView("all");}}>All badges</button></div>}
     </div>
-  );
+  </main>;
 }
