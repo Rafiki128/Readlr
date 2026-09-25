@@ -11,6 +11,7 @@ import { CvcSpellScene } from "./CvcSpellScene";
 import { ChallengeRoomFrame } from "./ChallengeRoomFrame";
 import "./challengeRooms.css";
 import "./challengeControls.css";
+import { getLearningSettings } from "../../hooks/learningSettings";
 
 type Phase = "intro"|"speaking"|"choice"|"ready"|"preparing"|"recording"|"playback"|"magic"|"reward";
 interface Props { lesson?:CvcLesson; jewel?:number; onBack:()=>void; onComplete:()=>void; onNext:()=>void }
@@ -149,7 +150,8 @@ export function CvcChallenge({lesson,jewel=0,onBack,onComplete,onNext}:Props) {
     if(!alive.current) return;
     if(!saved.current) { saved.current=true; onComplete(); }
     resume.current="reward"; setPhase("reward");
-    await say(lesson?.result || CROWN_RESULTS[jewel],lesson?`Cvc${lesson.id}Success.wav`:`Crown${jewel+1}Success.wav`);
+    if (getLearningSettings().voice_feedback) await say(lesson?.result || CROWN_RESULTS[jewel],lesson?`Cvc${lesson.id}Success.wav`:`Crown${jewel+1}Success.wav`);
+    else setMessage(lesson?.result || CROWN_RESULTS[jewel]);
   }
   function highlight(text:string) {
     return text.split(/(\b[a-z]{1,3}\b)/gi).map((part,index)=>part.toLowerCase()===word?<strong key={index}>{part}</strong>:part);

@@ -3,6 +3,7 @@ import { BRIDGE_LINES, type BridgeLine } from "../app/components/stageTwoContent
 import { stopAllGlobalAudio } from "./useAudioManager";
 import { narrationLines } from "./bridgeNarrationLines";
 import { resolveStageTwoAudioPath } from "../app/components/stageTwoAudio";
+import { learningVolume } from "./learningSettings";
 
 export function useBridgeAudio(basePath = "/audio/stage2") {
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -42,6 +43,7 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
   function play(path: string, onProgress?: (fraction: number) => void) {
     return new Promise<void>((resolve, reject) => {
       const player = new Audio(resolveStageTwoAudioPath(path));
+      player.volume = learningVolume();
       audio.current = player;
       let settled = false;
       let watchdog: ReturnType<typeof setTimeout>;
@@ -92,6 +94,7 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
       if (!window.speechSynthesis) { reject(new Error("Narration unavailable")); return; }
       const utterance = new SpeechSynthesisUtterance(line);
       utterance.rate = .84;
+      utterance.volume = learningVolume();
       speech.current = utterance;
       const finish = (error?: unknown) => {
         clearTimeout(watchdog);

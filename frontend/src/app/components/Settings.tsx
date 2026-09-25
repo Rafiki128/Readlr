@@ -3,6 +3,7 @@ import { Volume2, Bell, Moon, Globe, User, Shield, ChevronRight, X, Lock, Check 
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../modules/auth/auth.context";
 import { useFrames } from "../hooks/useFrames";
+import { updateLearningSettings } from "../../hooks/learningSettings";
 import { applyDarkMode } from "../hooks/useDarkMode";
 import { AvatarFrame } from "./AvatarFrame";
 import { toast } from "sonner";
@@ -91,6 +92,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
         ]);
         if (settingsRes.ok) {
           const data = await settingsRes.json();
+          updateLearningSettings(data.settings);
           setVolume(data.settings.sound_volume);
           setVoiceFeedback(data.settings.voice_feedback);
           setNotifications(data.settings.daily_reminders);
@@ -121,6 +123,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
         },
         body: JSON.stringify(updates),
       });
+      if (response.ok) updateLearningSettings(updates);
       return response.ok;
     } catch {
       return false;
@@ -369,7 +372,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
             >
               <SectionHeader id="notif" />
               <div className="divide-y divide-[var(--hairline)]">
-                <Row title="Daily reminders" description="Get reminded to practice">
+                <Row title="Daily reminders" description="A reminder when you open Readlr, once a day">
                   <Toggle
                     checked={notifications}
                     onChange={(v) => handleToggleSetting("daily_reminders", v, setNotifications, "Daily reminders")}
@@ -413,15 +416,14 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
             >
               <SectionHeader id="language" />
               <select
-                value={language}
+                value="English"
+                disabled
                 onChange={(e) => handleLanguageChange(e.target.value)}
                 className="w-full px-4 py-3 bg-[var(--paper)] border border-[var(--hairline)] rounded-xl text-[var(--ink)] focus:border-[#4F46E5] focus:outline-none focus:ring-4 focus:ring-[var(--accent-soft)] transition-all"
               >
-                <option value="Filipino">Filipino</option>
                 <option value="English">English</option>
-                <option value="Cebuano">Cebuano</option>
-                <option value="Ilocano">Ilocano</option>
               </select>
+              <p className="text-sm text-[var(--ink-muted)] mt-2">Lessons and recordings are currently available in English.</p>
             </motion.section>
 
             {/* Account */}

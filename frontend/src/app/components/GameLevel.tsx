@@ -5,6 +5,7 @@ import confetti from "canvas-confetti";
 import { CharacterCompanion, CharacterState } from "./CharacterCompanion";
 import { useAudioManager } from "../../hooks/useAudioManager";
 import { VowelChallengeView } from "./VowelChallengeView";
+import { getLearningSettings, learningVolume } from "../../hooks/learningSettings";
 
 type FluencyTier = "fluent" | "halting" | "syllabic";
 type StageOneLevelType =
@@ -1231,7 +1232,6 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     setBubbleMessage(stageOneDoor ? `${stageOneDoor.abilityName} is ready. Milo can use it in the valley.` : activePowerChallenge.success);
     confetti({ particleCount: 90, spread: 70, origin: { y: 0.62 } });
 
-    const rewardAudio = playAudio(stageOneDoor ? stageOneDoor.gainedAudioPath : activePowerChallenge.successAudioPath);
     const completeAfterReward = () => {
       if (!stageOneActiveRef.current || stageOneCompletedRef.current) return;
       stageOneCompletedRef.current = true;
@@ -1241,6 +1241,11 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
       stageOneCompleteTimerRef.current = null;
       onComplete();
     };
+    if (!getLearningSettings().voice_feedback) {
+      stageOneCompleteTimerRef.current = setTimeout(completeAfterReward,650);
+      return;
+    }
+    const rewardAudio = playAudio(stageOneDoor ? stageOneDoor.gainedAudioPath : activePowerChallenge.successAudioPath);
     const speakMatchingSuccessFallback = () => {
       if (!stageOneActiveRef.current || stageOneCompletedRef.current) return;
       const fallbackText = stageOneDoor
@@ -1283,6 +1288,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
     stopAudio();
     learnerAudioRef.current?.pause();
     const audio = new Audio(url);
+    audio.volume = learningVolume();
     learnerAudioRef.current = audio;
     setCharacterState("listening");
     setBubbleMessage(autoReplay ? "Listen. This is your vowel sound coming back to you." : "Listen closely. That is your explorer voice on the trail.");

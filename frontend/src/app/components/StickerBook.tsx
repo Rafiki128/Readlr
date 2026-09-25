@@ -1,265 +1,92 @@
-import { useMemo } from "react";
-import { motion } from "motion/react";
-import { ArrowLeft, Star, Lock, Check, Sparkles } from "lucide-react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, Crown, Lock, Sparkles, Star, Zap } from "lucide-react";
 import { POINT_STICKERS, getTrailPoints } from "./trailRewards";
-import { STICKERS, isStickerEarned } from "./stickers";
+import { STICKERS, isStickerEarned, type Sticker } from "./stickers";
 import { AvatarFrame } from "./AvatarFrame";
-import { useFrames } from "../hooks/useFrames";
+import { useFrames, type FrameOption } from "../hooks/useFrames";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
+import "./rewardsCollection.css";
 
-interface AttemptRecord {
-  wordId: number;
-  sessionId: string;
-  stageId: number;
-  levelId: number;
-  word: string;
-  attemptNumber: number;
-  confidence: number;
-  durationMs: number;
-  tier: string;
-  selfCorrected: boolean;
-  timestamp: string;
-}
-
-function loadSelfCorrections(): AttemptRecord[] {
+interface Correction { word: string; stageId: number; attemptNumber: number; timestamp: string; selfCorrected: boolean }
+function loadSelfCorrections(): Correction[] {
   try {
-    const records: AttemptRecord[] = JSON.parse(
-      localStorage.getItem("readlr_attempt_records") || "[]"
-    );
-    // SDD UC-06: self-corrected flag is set explicitly when attempt N failed
-    // and attempt N+1 succeeded without the learner pressing Listen between them
-    return records.filter((r) => r.selfCorrected === true);
-  } catch {
-    return [];
-  }
+    const records = JSON.parse(localStorage.getItem("readlr_attempt_records") || "[]");
+    return Array.isArray(records) ? records.filter(record => record?.selfCorrected === true && typeof record.word === "string") : [];
+  } catch { return []; }
 }
-
-interface StickerBookProps {
-  onBack: () => void;
-  completedByStage?: Record<number, number>;
-  avatar?: string;
-}
-
-const STAGE_PAGES = [
-  { id: 1, title: "Valley of Vowels" },
-  { id: 2, title: "Blending Bridges" },
-  { id: 3, title: "CVC Kingdom" },
+interface StickerBookProps { onBack: () => void; completedByStage?: Record<number, number>; avatar?: string }
+const PAGES = [
+  { id: 1, title: "Valley of Vowels", color: "#b45309", tint: "#fff4d6", icon: Star },
+  { id: 2, title: "Blending Bridges", color: "#6550c5", tint: "#eeebff", icon: Zap },
+  { id: 3, title: "CVC Kingdom", color: "#087f68", tint: "#ddf7eb", icon: Crown },
 ];
 
-export function StickerBook({ onBack, completedByStage = {}, avatar = "" }: StickerBookProps) {
-  const { frames } = useFrames();
+export function StickerBook(props: StickerBookProps) {
+  const { frames, equipFrame, isLoadingFrames } = useFrames();
+  return <StickerBookView {...props} frames={frames} equipFrame={equipFrame} loadingFrames={isLoadingFrames}/>;
+}
+
+export function StickerBookView({ onBack, completedByStage = {}, avatar = "", frames = [], equipFrame, loadingFrames = false }: StickerBookProps & {
+  frames?: FrameOption[]; equipFrame?: (id:number)=>Promise<boolean>; loadingFrames?:boolean;
+}) {
+  const [chapter, setChapter] = useState(1);
+  const [selected, setSelected] = useState<Sticker | null>(null);
+  const [wearing, setWearing] = useState<number | null>(null);
+  const [frameMessage, setFrameMessage] = useState("");
+  const reducedMotion = useReducedMotion();
+  const corrections = useMemo(loadSelfCorrections, []);
+  const page = PAGES[chapter-1];
+  const Icon = page.icon;
+  const collected = STICKERS.filter(sticker=>isStickerEarned(sticker,completedByStage));
+  const pageStickers = STICKERS.filter(sticker=>sticker.stageId===chapter);
+  const pageEarned = pageStickers.filter(sticker=>isStickerEarned(sticker,completedByStage)).length;
+  const next = pageStickers.find(sticker=>!isStickerEarned(sticker,completedByStage));
+  const pageFrames = frames.filter(frame=>frame.unlock_stage_number===chapter);
   const trailPoints = getTrailPoints(completedByStage[1] ?? 0);
-  const nextBonus = POINT_STICKERS.find((item) => item.points > trailPoints);
-  const stickers = STICKERS.map((s) => ({ ...s, earned: isStickerEarned(s, completedByStage) }));
-  const earnedCount = stickers.filter((s) => s.earned).length;
-  const pct = Math.round((earnedCount / stickers.length) * 100);
-  const selfCorrections = useMemo(() => loadSelfCorrections(), []);
-
-  return (
-    <div className="size-full bg-[var(--paper)] overflow-auto">
-      <div className="min-h-full px-6 md:px-10 py-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Top bar */}
-          <div className="flex items-center justify-between mb-8">
-            <button
-              onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-[var(--hairline)] text-[var(--ink-soft)] hover:text-[var(--ink)] hover:border-[var(--hairline-strong)] transition-colors text-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
-              <Star className="w-3.5 h-3.5 text-[#F59E0B]" />
-              {earnedCount} of {stickers.length} collected
-            </span>
-          </div>
-
-          {/* Title */}
-          <motion.div
-            initial={{ y: -8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="mb-6"
-          >
-            <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Collection</p>
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-              <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">My Sticker Book</h1>
-              <p className="text-[var(--ink-soft)]">Finish levels to collect friends. Finish a stage to unlock its frames.</p>
-            </div>
+  const nextBonus = POINT_STICKERS.find(sticker=>sticker.points>trailPoints);
+  const style = {"--reward-color":page.color,"--reward-tint":page.tint} as CSSProperties;
+  async function wear(id:number) {
+    if (!equipFrame || wearing!==null) return;
+    setWearing(id); setFrameMessage("");
+    try { setFrameMessage(await equipFrame(id) ? "Your new frame is on!" : "Your frame could not be changed. Please try again."); }
+    catch { setFrameMessage("Your frame could not be changed. Please try again."); }
+    finally { setWearing(null); }
+  }
+  return <main className="rewards-page sticker-collection" style={style}>
+    <div className="rewards-inner">
+      <div className="rewards-topline"><button className="rewards-back" onClick={onBack}><ArrowLeft size={17}/>Stages</button><span><BookOpen size={17}/>My collection</span></div>
+      <header className="rewards-heading"><div><p className="rewards-eyebrow">Little treasures, big adventures</p><h1>My Sticker Book</h1></div><p>Look at everything you have brought to life.</p></header>
+      <section className="rewards-overview" aria-label="Sticker collection progress">
+        <div className="album-stack" aria-hidden="true"><Star size={34}/></div>
+        <div className="rewards-count"><strong>{collected.length}<span> / {STICKERS.length}</span></strong><p>stickers collected</p></div>
+        <div className="rewards-summary-track"><div><span>Your adventure album</span><b>{Math.round(collected.length/STICKERS.length*100)}%</b></div><progress value={collected.length} max={STICKERS.length} aria-label="Album completion"/></div>
+        <div className="rewards-next"><Sparkles size={20}/><div><small>{collected.length===STICKERS.length?"A complete collection":"More magic ahead"}</small><b>{STICKERS.length-collected.length===0?"Every treasure is yours!":`${STICKERS.length-collected.length} treasures to discover`}</b></div></div>
+      </section>
+      <nav className="rewards-tabs album-tabs" aria-label="Sticker chapters">{PAGES.map(item=>{const PageIcon=item.icon;return <button key={item.id} aria-pressed={chapter===item.id} onClick={()=>{setChapter(item.id);setFrameMessage("");}}><PageIcon size={18}/><span className="album-tab-title">{item.title}</span><span>{STICKERS.filter(sticker=>sticker.stageId===item.id&&isStickerEarned(sticker,completedByStage)).length}/{STICKERS.filter(sticker=>sticker.stageId===item.id).length}</span></button>;})}</nav>
+      <section className="album-chapter" aria-label={page.title}>
+        <header className="album-chapter-heading"><div><span className="album-chapter-icon"><Icon size={23}/></span><div><p>Chapter {chapter}</p><h2>{page.title}</h2></div></div><span>{pageEarned} of {pageStickers.length} collected</span></header>
+        <div className="album-layout">
+          <motion.div key={chapter} initial={reducedMotion?false:{opacity:0,y:8}} animate={{opacity:1,y:0}} className="sticker-grid">
+            {pageStickers.map(sticker=>{const earned=isStickerEarned(sticker,completedByStage);return <button key={sticker.id} className={`sticker-stamp ${earned?"is-collected":"is-uncollected"}`} onClick={()=>setSelected(sticker)} aria-label={`${sticker.name}, ${earned?"collected":"locked"}`}>
+              <div className="sticker-stamp-art"><span aria-hidden="true">{sticker.emoji}</span>{earned?<Check className="sticker-check" size={17}/>:<Lock className="sticker-lock" size={16}/>}</div>
+              <strong>{sticker.name}</strong><small>{earned?"Collected":`Level ${sticker.at}`}</small>
+            </button>;})}
           </motion.div>
-
-          {/* Progress bar */}
-          <div className="bg-card rounded-2xl p-5 border border-[var(--hairline)] mb-8">
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">Album completion</span>
-              <span className="text-sm text-[var(--ink)]">
-                <span className="text-[#4F46E5]">{pct}%</span>
-                <span className="text-[var(--ink-muted)]"> · {stickers.length - earnedCount} to go</span>
-              </span>
-            </div>
-            <div className="w-full h-1.5 bg-[var(--paper-deep)] rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 0.7, ease: "easeOut" }}
-                className="h-1.5 rounded-full bg-[#4F46E5]"
-              />
-            </div>
-          </div>
-
-          {/* One page per stage, ending with that stage's frames */}
-          {STAGE_PAGES.map((page) => {
-            const pageStickers = stickers.filter((s) => s.stageId === page.id);
-            const pageFrames = frames.filter((f) => f.unlock_stage_number === page.id);
-            const framesUnlocked = pageFrames.length > 0 && pageFrames.every((f) => f.unlocked);
-            return (
-              <section key={page.id} className="mb-10" aria-label={page.title}>
-                <div className="flex items-baseline justify-between gap-3 mb-4">
-                  <h2 className="text-2xl text-[var(--ink)] tracking-tight">{page.title}</h2>
-                  <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">
-                    {pageStickers.filter((s) => s.earned).length} of {pageStickers.length}
-                  </span>
-                </div>
-                {page.id === 1 && (
-                  <p className="mb-4 flex items-center gap-2 text-sm text-[var(--ink-soft)]">
-                    <Star className="h-4 w-4 text-amber-500" />
-                    {trailPoints} trail points · {nextBonus ? `${nextBonus.points - trailPoints} more to unlock ${nextBonus.name}` : "every valley bonus sticker earned!"}
-                  </p>
-                )}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {pageStickers.map((sticker, index) => (
-                    <motion.div
-                      key={sticker.id}
-                      initial={{ y: 10, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: index * 0.03, ease: "easeOut" }}
-                      whileHover={sticker.earned ? { y: -3 } : {}}
-                      className={`bg-card rounded-2xl p-5 border transition-all ${
-                        sticker.earned
-                          ? "border-[var(--hairline)] hover:border-[var(--hairline-strong)] cursor-pointer"
-                          : "border-[var(--hairline)] opacity-70"
-                      }`}
-                    >
-                      <div
-                        className={`aspect-square rounded-xl flex items-center justify-center mb-4 relative ${
-                          sticker.earned ? "bg-[var(--paper)]" : "bg-[var(--paper-deep)]"
-                        }`}
-                      >
-                        {sticker.earned ? (
-                          <span className="text-6xl">{sticker.emoji}</span>
-                        ) : (
-                          <Lock className="w-7 h-7 text-[var(--ink-muted)]" />
-                        )}
-                        {sticker.earned && (
-                          <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#10B981] flex items-center justify-center">
-                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                          </span>
-                        )}
-                      </div>
-      
-                      <div>
-                        <p className="text-[var(--ink)]">
-                          {sticker.earned ? sticker.name : "Locked"}
-                        </p>
-                        <p className="text-xs text-[var(--ink-muted)] mt-0.5">{sticker.stage}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                  {pageFrames.length > 0 && (
-                    <div className={`rounded-2xl p-5 border-2 border-dashed ${framesUnlocked ? "border-[#F59E0B] bg-[var(--tint-amber)]" : "border-[var(--hairline-strong)] bg-card"}`}>
-                      <div className="aspect-square rounded-xl flex items-center justify-center gap-1 mb-4">
-                        {pageFrames.map((frame) => (
-                          <div key={frame.id} className={framesUnlocked ? "" : "opacity-40 grayscale"}>
-                            <AvatarFrame assetKey={frame.asset_key} size={56}>
-                              {framesUnlocked ? <span className="text-2xl">{avatar}</span> : <Lock className="w-4 h-4 text-[var(--ink-muted)]" />}
-                            </AvatarFrame>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-[var(--ink)]">{framesUnlocked ? "Stage frames unlocked!" : "Stage frames"}</p>
-                      <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-                        {framesUnlocked ? "Wear them from your profile" : `Finish ${page.title} to unlock`}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            );
-          })}
-
-          {/* Footer message */}
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mt-8 bg-card rounded-2xl p-5 border border-[var(--hairline)] flex items-center gap-3"
-          >
-            <div className="w-8 h-8 rounded-lg bg-[var(--tint-amber)] flex items-center justify-center flex-shrink-0">
-              <Star className="w-4 h-4 text-[#F59E0B]" />
-            </div>
-            <p className="text-[var(--ink-soft)] text-sm">
-              {earnedCount === stickers.length
-                ? "Amazing — you've collected every sticker in the album!"
-                : `Keep learning to unlock ${stickers.length - earnedCount} more stickers.`}
-            </p>
-          </motion.div>
-
-          {/* Self-Correction Stars */}
-          <motion.div
-            initial={{ y: 8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mt-8"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-[#F59E0B]" />
-              <h2 className="text-xl text-[var(--ink)] tracking-tight">Self-Correction Stars</h2>
-              <span className="ml-auto text-xs uppercase tracking-wider text-[var(--ink-muted)]">
-                {selfCorrections.length} earned
-              </span>
-            </div>
-
-            <p className="text-xs text-[var(--ink-muted)] mb-4">
-              Earned when you fix a mistake on your own — without Milo's help!
-            </p>
-
-            {selfCorrections.length === 0 ? (
-              <div className="bg-card rounded-2xl p-8 border border-[var(--hairline)] flex flex-col items-center gap-3 text-center">
-                <div className="w-14 h-14 rounded-full bg-[var(--tint-amber)] flex items-center justify-center">
-                  <Star className="w-7 h-7 text-[#F59E0B]" />
-                </div>
-                <p className="text-[var(--ink)]">No stars yet</p>
-                <p className="text-xs text-[var(--ink-muted)] max-w-xs">
-                  When you get a word wrong and then fix it yourself on the next try, you'll earn a Self-Correction Star!
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {selfCorrections.map((record, index) => (
-                  <motion.div
-                    key={`${record.stageId}-${record.levelId}-${record.timestamp}`}
-                    initial={{ y: 10, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    whileHover={{ y: -3 }}
-                    className="bg-gradient-to-br from-[var(--tint-amber)] to-[var(--tint-yellow)] rounded-2xl p-5 border border-[#F59E0B33] cursor-pointer"
-                  >
-                    <div className="aspect-square rounded-xl bg-card/60 flex items-center justify-center mb-4 relative">
-                      <span className="text-5xl">⭐</span>
-                      <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#F59E0B] flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                      </span>
-                    </div>
-                    <p className="text-[var(--ink)] font-medium">{record.word}</p>
-                    <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-                      Stage {record.stageId} · Try {record.attemptNumber}
-                    </p>
-                    <p className="text-xs text-[#F59E0B] mt-1 font-medium">Self-Correction!</p>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </motion.div>
+          <aside className="album-sidebar" aria-label="Chapter rewards">
+            <div className="album-next-reward"><p className="rewards-eyebrow">{next?"Your next treasure":"Chapter complete"}</p><span className="album-next-art" aria-hidden="true">{next?.emoji ?? pageStickers[pageStickers.length-1].emoji}</span><h3>{next?.name ?? "All stickers collected!"}</h3><p>{next?`Complete level ${next.at} in ${page.title}.`:"Every memory has a place in your book."}</p></div>
+            {chapter===1&&<div className="album-points"><Star size={21}/><div><b>{trailPoints} trail points</b><p>{nextBonus?`${nextBonus.points-trailPoints} to ${nextBonus.name}`:"Every valley bonus collected"}</p></div></div>}
+            <div className="album-frames"><h3><Crown size={18}/>Stage frames</h3>{loadingFrames?<p>Loading your frames...</p>:pageFrames.length===0?<p>Frame details are unavailable right now.</p>:pageFrames.map(frame=><div className="album-frame" key={frame.id}>
+              <AvatarFrame assetKey={frame.asset_key} size={56}><span className="frame-avatar">{avatar || <Icon size={23}/>}</span></AvatarFrame><div><b>{frame.name}</b><button disabled={!frame.unlocked || frame.equipped || wearing!==null || !equipFrame} onClick={()=>void wear(frame.id)}>{frame.equipped?<><Check size={13}/>Wearing</>:!frame.unlocked?<><Lock size={13}/>Finish Stage {chapter}</>:wearing===frame.id?"Saving...":"Wear frame"}</button></div>
+            </div>)}<p role="status">{frameMessage}</p></div>
+          </aside>
         </div>
-      </div>
+        <footer className="album-pagination"><button className="rewards-back" aria-label="Previous chapter" disabled={chapter===1} onClick={()=>setChapter(chapter-1)}><ArrowLeft size={18}/></button><span>Chapter {chapter} of 3</span><button className="rewards-back" aria-label="Next chapter" disabled={chapter===3} onClick={()=>setChapter(chapter+1)}><ArrowRight size={18}/></button></footer>
+      </section>
+      <details className="correction-collection"><summary><Sparkles size={20}/><span>Self-Correction Stars</span><b>{corrections.length}</b></summary>{corrections.length===0?<p>No stars yet. Each brave new try is a step forward.</p>:<div className="correction-grid">{corrections.map((record,index)=><article key={`${record.timestamp}-${index}`}><Star size={24}/><h3>{record.word}</h3><p>Stage {record.stageId} / Try {record.attemptNumber}</p></article>)}</div>}</details>
     </div>
-  );
+    <Dialog open={selected!==null} onOpenChange={open=>{if(!open)setSelected(null);}}><DialogContent className="sticker-detail" style={style}>{selected&&<>
+      <span className="sticker-detail-art" aria-hidden="true">{selected.emoji}</span><DialogTitle>{selected.name}</DialogTitle><DialogDescription>{isStickerEarned(selected,completedByStage)?`Collected in ${page.title}. This treasure is yours!`:`Complete level ${selected.at} in ${page.title} to collect this sticker.`}</DialogDescription><span className="sticker-detail-state">{isStickerEarned(selected,completedByStage)?<><Check size={17}/>Collected</>:<><Lock size={17}/>Still to discover</>}</span>
+    </>}</DialogContent></Dialog>
+  </main>;
 }

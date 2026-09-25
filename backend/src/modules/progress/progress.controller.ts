@@ -74,8 +74,6 @@ export async function handleUpdateProgress(req: Request, res: Response) {
     }
 
     const parsedStageId = parseInt(stageId);
-    const previous = await getStageProgress(parsedLearnerId, parsedStageId).catch(() => null);
-    const wasStageComplete = !!previous && previous.completed_levels >= previous.total_levels;
 
     const progress = await updateStageProgress(
       parsedLearnerId,
@@ -87,7 +85,7 @@ export async function handleUpdateProgress(req: Request, res: Response) {
 
     const isStageComplete = progress.completed_levels >= progress.total_levels;
     const unlockedFrames =
-      !wasStageComplete && isStageComplete
+      isStageComplete
         ? await unlockFramesForStage((req as any).userId, parsedStageId)
         : [];
 

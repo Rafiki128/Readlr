@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { resolveStageOneAudioPath } from '../app/components/stageOneAudio';
 import { resolveStageTwoAudioPath } from '../app/components/stageTwoAudio';
+import { learningVolume } from './learningSettings';
 
 // Global audio manager to prevent overlapping audio across the entire app
 let globalAudioRef: HTMLAudioElement | null = null;
@@ -59,7 +60,7 @@ export function useAudioManager() {
     
     try {
       const audio = new Audio(resolveStageTwoAudioPath(resolveStageOneAudioPath(audioPath)));
-      audio.volume = 1.0; // Ensure full volume
+      audio.volume = learningVolume();
       
       globalAudioRef = audio;
       currentAudioRef.current = audio;
@@ -104,6 +105,7 @@ export function useAudioManager() {
     try {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = rate;
+      utterance.volume = learningVolume();
       globalSynthesis = utterance;
       
       utterance.onstart = () => {
