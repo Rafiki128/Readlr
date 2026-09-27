@@ -4,6 +4,7 @@ import { Volume2, Mic, ArrowLeft } from "lucide-react";
 import confetti from "canvas-confetti";
 import { CharacterCompanion, CharacterState } from "./CharacterCompanion";
 import { useAudioManager } from "../../hooks/useAudioManager";
+import { usePracticeSession } from "../../hooks/usePracticeSession";
 import { VowelChallengeView } from "./VowelChallengeView";
 import { getLearningSettings, learningVolume } from "../../hooks/learningSettings";
 
@@ -72,6 +73,7 @@ function shuffleItems<T>(items: T[], seed: number): T[] {
 }
 
 interface GameLevelProps {
+  learnerId?: number | null;
   stageId: number;
   levelId: number;
   onBack: () => void;
@@ -796,7 +798,7 @@ function getChallenge(stageId: number, levelId: number): Challenge {
   return ALL_CHALLENGES[stageId]?.[levelId] ?? ALL_CHALLENGES[2][1];
 }
 
-export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelProps) {
+export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: GameLevelProps) {
   const { accent, tint } = STAGE_ACCENTS[stageId] ?? STAGE_ACCENTS[1];
   const { playAudio, stopAudio, stopAllAudio, speakText } = useAudioManager();
 
@@ -852,6 +854,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
   const stageOneDoor = stageOneDoorVowel ? VOWEL_POWER_KIT[stageOneDoorVowel] : null;
   const stageOneEncounter = isStageOneQuest && !stageOneDoor ? makeStageOneEncounter(levelId) : null;
   const activeVowel = stageOneDoor?.vowel ?? stageOneEncounter?.vowel ?? "A";
+  const practice = usePracticeSession(learnerId, stageId, `level-${levelId}`, activeVowel);
   const activePower = stageOneDoor ?? stageOneEncounter?.power ?? VOWEL_POWER_KIT.A;
   const activePowerChallenge = stageOneEncounter?.challenge ?? DEFAULT_POWER_CHALLENGE;
   const stageOneNarrationSteps = useMemo<StageOneNarrationStep[]>(() => {
@@ -1363,7 +1366,18 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
         }
       };
 
+      recorder.onerror = () => {
+        practice.finish("error");
+        recorder.onstop = null;
+        stream.getTracks().forEach((track) => track.stop());
+        if (!stageOneActiveRef.current) return;
+        setIsRecording(false);
+        setPreparingRecording(false);
+        setBubbleMessage("The microphone stopped. Tap to try again.");
+      };
+
       recorder.onstop = () => {
+        practice.finish(stageOneActiveRef.current ? "recorded" : "interrupted");
         stream.getTracks().forEach((track) => track.stop());
         if (!stageOneActiveRef.current) return;
         mediaStreamRef.current = null;
@@ -1408,6 +1422,7 @@ export function GameLevel({ stageId, levelId, onBack, onComplete }: GameLevelPro
           if (!stageOneActiveRef.current) return;
           try {
             recorder.start();
+            practice.begin();
             setPreparingRecording(false);
             setIsRecording(true);
             setHasRecording(false);

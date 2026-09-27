@@ -68,7 +68,7 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, 
     return ()=>window.clearTimeout(timer);
   },[room,activity,shelfOpen,progress.crossings.length,reducedMotion]);
 
-  if (activity) return <BridgePractice key={activity.id} lesson={activity}
+  if (activity) return <BridgePractice key={activity.id} learnerId={learnerId} lesson={activity}
     onBack={() => { setRoom(activity.training); setActivity(null); }} onComplete={complete}
     onNext={activity.training && nextTraining >= 0 && nextTraining !== Number(activity.id.split("-")[1])-1
       ? ()=>openLesson(WORKSHOP_LESSONS[nextTraining]) : undefined} />;

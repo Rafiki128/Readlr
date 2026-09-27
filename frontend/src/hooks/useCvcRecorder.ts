@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { cvcHasVoice } from "../app/components/cvcContent";
 
-export function useCvcRecorder() {
+export function useCvcRecorder(telemetry?: { begin: () => void; finish: (outcome: "voice_detected" | "silence" | "error" | "interrupted") => void }) {
   const cancel = useRef<(() => void) | null>(null);
   const generation = useRef(0);
   function stop() { generation.current++; cancel.current?.(); cancel.current = null; }
@@ -19,9 +19,10 @@ export function useCvcRecorder() {
       let ending:ReturnType<typeof setTimeout> | undefined;
       let settled = false;
       const chunks:BlobPart[] = [];
-      const finish = (error?:Error, blob?:Blob) => {
+      const finish = (error?:Error, blob?:Blob, quiet = false) => {
         if (settled) return;
         settled = true;
+        telemetry?.finish(quiet ? "silence" : error ? error.name === "AbortError" ? "interrupted" : "error" : "voice_detected");
         clearInterval(sampling); clearTimeout(ending);
         if (recorder) { recorder.onstop=null; recorder.ondataavailable=null; recorder.onerror=null; if(recorder.state!=="inactive") recorder.stop(); }
         stream.getTracks().forEach(track=>track.stop());
@@ -41,7 +42,8 @@ export function useCvcRecorder() {
         recorder.onerror=()=>finish(new Error("The microphone stopped. Let's try again."));
         recorder.onstop=()=> {
           const blob = new Blob(chunks,{type:recorder!.mimeType});
-          cvcHasVoice(peak,frames,blob.size) ? finish(undefined,blob) : finish(new Error("I could not hear your voice. Let's try again!"));
+          if (!cvcHasVoice(peak,frames,blob.size)) { finish(new Error("I could not hear your voice. Let's try again!"), undefined, true); }
+          else finish(undefined,blob);
         };
         void context.resume().then(async()=> {
           if(settled) return;
@@ -49,6 +51,7 @@ export function useCvcRecorder() {
           await beforeStart();
           if(settled) return;
           recorder!.start();
+          telemetry?.begin();
           const start = Date.now(); onTick(4);
           sampling=setInterval(()=> {
             analyser.getFloatTimeDomainData(data);

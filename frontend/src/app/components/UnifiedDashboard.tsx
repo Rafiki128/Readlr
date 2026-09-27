@@ -4,6 +4,7 @@ import { VowelPowerSymbol } from "./VowelPowerSymbol";
 import { CvcCrown } from "./CvcArt";
 import { STICKERS, isStickerEarned } from "./stickers";
 import { progressSummary } from "./progressSummary";
+import { MyPractice } from "./MyPractice";
 import "./rewardsCollection.css";
 import "./readingProgress.css";
 
@@ -12,10 +13,10 @@ const STAGES=[
   {title:"Blending Bridges",color:"#6550c5",tint:"#eeeaff",icon:Zap,skill:"Two sounds become a team.",finish:"Every bridge is restored!"},
   {title:"CVC Kingdom",color:"#087f68",tint:"#ddf7eb",icon:Crown,skill:"Three sounds become a word.",finish:"The crown shines again!"},
 ];
-export function UnifiedDashboard({userName="Student",completedByStage={},onBack,onContinue}: {
-  userName?:string;completedByStage?:Record<number,number>;onBack?:()=>void;onContinue?:(stage:number)=>void;
+export function UnifiedDashboard({learnerId,userName="Student",completedByStage={},onBack,onContinue}: {
+  learnerId?:number|null;userName?:string;completedByStage?:Record<number,number>;onBack?:()=>void;onContinue?:(stage:number)=>void;
 }) {
-  const [tab,setTab]=useState<"journey"|"milestones">("journey");
+  const [tab,setTab]=useState<"journey"|"milestones"|"practice">("journey");
   const summary=progressSummary(completedByStage);
   const earned=STICKERS.filter(sticker=>isStickerEarned(sticker,completedByStage));
   const next=STAGES[(summary.next||3)-1];
@@ -29,8 +30,8 @@ export function UnifiedDashboard({userName="Student",completedByStage={},onBack,
       <div className="reading-stat"><Zap size={22}/><strong>{summary.bridges}<small>/ 15</small></strong><span>Bridges restored</span></div>
       <div className="reading-stat"><BookOpen size={22}/><strong>{summary.words}<small>/ 19</small></strong><span>Word challenges</span></div>
     </section>
-    <nav className="rewards-tabs reading-tabs" aria-label="Progress views"><button aria-pressed={tab==="journey"} onClick={()=>setTab("journey")}>My journey</button><button aria-pressed={tab==="milestones"} onClick={()=>setTab("milestones")}>My milestones<span>{earned.length}</span></button></nav>
-    {tab==="journey"?<>
+    <nav className="rewards-tabs reading-tabs" aria-label="Progress views"><button aria-pressed={tab==="journey"} onClick={()=>setTab("journey")}>My journey</button><button aria-pressed={tab==="practice"} onClick={()=>setTab("practice")}>My Practice</button><button aria-pressed={tab==="milestones"} onClick={()=>setTab("milestones")}>My milestones<span>{earned.length}</span></button></nav>
+    {tab==="practice"?<MyPractice learnerId={learnerId}/>:tab==="journey"?<>
       <div className="reading-stage-list">{STAGES.map((stage,index)=>{const count=summary.stages[index];const locked=index>0&&summary.stages[index-1]<20&&count===0;const Icon=stage.icon;return <section key={stage.title} className={`reading-stage ${locked?"is-locked":""}`} style={{"--reward-color":stage.color,"--reward-tint":stage.tint} as CSSProperties}>
         <div className="reading-stage-art" aria-hidden="true">{index===0?<div className="reading-vowel-art"><VowelPowerSymbol vowel="A"/><VowelPowerSymbol vowel="E"/></div>:index===1?<div className="reading-blend-art"><b>m</b><b>a</b><span/></div>:<CvcCrown jewels={count===20?3:0}/>}</div>
         <div className="reading-stage-info"><p className="reading-stage-kicker"><Icon size={15}/>Stage {index+1}<span>{count===20?<><Check size={14}/>Complete</>:locked?<><Lock size={14}/>Coming next</>:count===0?"Ready to begin":"In progress"}</span></p><h2>{stage.title}</h2><p>{count===20?stage.finish:stage.skill}</p><div className="reading-stage-count"><span>{count} / 20 lessons</span><span>{count===20?"All done":`${20-count} to go`}</span></div><progress value={count} max={20} aria-label={`${stage.title} completion`}/></div>
