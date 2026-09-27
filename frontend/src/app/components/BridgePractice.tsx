@@ -13,12 +13,14 @@ import { ChallengeRoomFrame } from "./ChallengeRoomFrame";
 import "./challengeRooms.css";
 import "./challengeControls.css";
 import { getLearningSettings } from "../../hooks/learningSettings";
+import { usePracticeSession } from "../../hooks/usePracticeSession";
 
 type Phase = "start" | "narrating" | "choice" | "join" | "ready" | "preparing" | "recording" | "playback" | "building" | "reward" | "error";
 
-export function BridgePractice({ lesson, onBack, onComplete, onNext }: {
-  lesson: BridgeLesson; onBack: () => void; onComplete: () => void; onNext?: () => void;
+export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }: {
+  learnerId?: number | null; lesson: BridgeLesson; onBack: () => void; onComplete: () => void; onNext?: () => void;
 }) {
+  const practice = usePracticeSession(learnerId, 2, lesson.id, lesson.blend);
   const crossing = !lesson.training;
   const reducedMotion = useReducedMotion();
   const choice = lessonChoices(lesson);
@@ -219,18 +221,20 @@ export function BridgePractice({ lesson, onBack, onComplete, onNext }: {
       const chunks: Blob[] = [];
       const recording = new MediaRecorder(media);
       recorder.current = recording;
-      cancelCapture.current = () => reject(new DOMException("Stopped", "AbortError"));
+      cancelCapture.current = () => { practice.finish("interrupted"); reject(new DOMException("Stopped", "AbortError")); };
       recording.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
-      recording.onerror = () => { cancelCapture.current = null; reject(new Error("The microphone stopped. Please try again.")); };
+      recording.onerror = () => { practice.finish("error"); cancelCapture.current = null; reject(new Error("The microphone stopped. Please try again.")); };
       recording.onstop = () => {
         cancelCapture.current = null;
         const blob = new Blob(chunks, { type: recording.mimeType });
         releaseMicrophone();
         if (!active.current) { reject(new DOMException("Stopped", "AbortError")); return; }
-        if (!hasVoiceSignal(peak, voicedFrames, blob.size)) { reject(new Error("A little louder! Let's record again.")); return; }
+        if (!hasVoiceSignal(peak, voicedFrames, blob.size)) { practice.finish("silence"); reject(new Error("A little louder! Let's record again.")); return; }
+        practice.finish("voice_detected");
         resolve(blob);
       };
       recording.start();
+      practice.begin();
       interval.current = setInterval(() => {
         analyser.getFloatTimeDomainData(samples);
         const rms = Math.sqrt(samples.reduce((sum, sample) => sum + sample * sample, 0) / samples.length);

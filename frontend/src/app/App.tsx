@@ -809,6 +809,7 @@ function AppContent() {
 
         {currentScreen === "game" && (
           <GameLevel
+            learnerId={learnerId}
             key={`${selectedStage}-${selectedLevel}`}
             stageId={selectedStage}
             levelId={selectedLevel}
@@ -848,6 +849,7 @@ function AppContent() {
 
         {currentScreen === "dashboard" && (
           <UnifiedDashboard
+            learnerId={learnerId}
             userName={learnerName || user?.name}
             completedByStage={completedByStage}
             onBack={handleBackToStages}

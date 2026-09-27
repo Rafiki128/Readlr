@@ -12,13 +12,16 @@ import { ChallengeRoomFrame } from "./ChallengeRoomFrame";
 import "./challengeRooms.css";
 import "./challengeControls.css";
 import { getLearningSettings } from "../../hooks/learningSettings";
+import { usePracticeSession } from "../../hooks/usePracticeSession";
+import { CVC_AUDIO, cvcLessonAudio, cvcCrownAudio, cvcReadyAudio, cvcModelAudio } from "./stageThreeAudio";
 
 type Phase = "intro"|"speaking"|"choice"|"ready"|"preparing"|"recording"|"playback"|"magic"|"reward";
-interface Props { lesson?:CvcLesson; jewel?:number; onBack:()=>void; onComplete:()=>void; onNext:()=>void }
-export function CvcChallenge({lesson,jewel=0,onBack,onComplete,onNext}:Props) {
+interface Props { learnerId?:number|null; lesson?:CvcLesson; jewel?:number; onBack:()=>void; onComplete:()=>void; onNext:()=>void }
+export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}:Props) {
   const crown=!lesson, word=lesson?.word || CROWN_WORDS[jewel];
   const sound=useBridgeAudio("/audio/stage3");
-  const recorder=useCvcRecorder();
+  const practice=usePracticeSession(learnerId,3,lesson?`lesson-${lesson.id}`:`crown-${jewel}`,word);
+  const recorder=useCvcRecorder(practice);
   const [phase,setPhase]=useState<Phase>("intro");
   const [message,setMessage]=useState(lesson?.story || CROWN_PROMPTS[jewel]);
   const [error,setError]=useState("");
@@ -80,31 +83,30 @@ export function CvcChallenge({lesson,jewel=0,onBack,onComplete,onNext}:Props) {
       await sound.wait(650);
     }
     setJoined(true);setBlending(false);
-    if(crown && jewel===0) await sound.play("/audio/stage1/A.wav");
-    else if(crown && jewel===1) await sound.narrateText({file:"../stage2/PronounceMA.wav",text:"ma"});
-    else await sound.narrateText({file:`Pronounce${word.toUpperCase()}.wav`,text:word});
+    if(crown && jewel===0) await sound.play(`/audio/stage3/${cvcModelAudio(word)}`);
+    else await sound.narrateText({file:cvcModelAudio(word),text:word});
   }
   async function teach() {
     setPhase("speaking"); setJoined(false);
-    await say("A beginning sound. A middle vowel. An ending sound.","CvcThreeSounds.wav");
+    await say("A beginning sound. A middle vowel. An ending sound.",CVC_AUDIO.threeSounds);
     for(let i=0;i<3;i++) {
       setActiveLetter(i); setMessage(word);
       await letterSound(i);
       await sound.wait(160);
     }
     setActiveLetter(-1);
-    await say("Now slide the sounds together.","CvcSlideSounds.wav");
+    await say("Now slide the sounds together.",CVC_AUDIO.slide);
     await model();
     setPhase("ready"); resume.current="ready";
     setMessage(`Your turn! Say ${word}.`);
   }
   async function introduce() {
     resume.current="intro"; setPhase("speaking");
-    await say(lesson?.story || CROWN_PROMPTS[jewel],lesson?`Cvc${lesson.id}Intro.wav`:`Crown${jewel+1}Intro.wav`);
+    await say(lesson?.story || CROWN_PROMPTS[jewel],lesson?cvcLessonAudio(lesson.id,"Intro"):cvcCrownAudio(jewel,"Intro"));
     if(hasChoice && !chosen) {
       if(lesson!.mode!=="conjure") await model();
       setJoined(false); resume.current="choice";
-      await say(cvcPuzzleLine(lesson!),`Cvc${lesson!.id}Puzzle.wav`);
+      await say(cvcPuzzleLine(lesson!),cvcLessonAudio(lesson!.id,"Puzzle"));
       setPhase("choice");
     }
     else if(lesson && lesson.id<=5) await teach();
@@ -118,25 +120,25 @@ export function CvcChallenge({lesson,jewel=0,onBack,onComplete,onNext}:Props) {
   async function place(letter:string) {
     const before=placedRef.current;
     const after=placeCvcLetter(word,before,letter);
-    if(after===before) { setWrong(letter); await say("Try the next sound. You can do it!","CvcTryNextSound.wav"); return; }
+    if(after===before) { setWrong(letter); await say("Try the next sound. You can do it!",CVC_AUDIO.nextSound); return; }
     await letterSound(before.length);
     placedRef.current=after; setPlaced(after); setWrong("");
     setMessage(after.length<3?`Now find the ${after.length===1?"middle":"last"} sound.`:`Your word is ${word}!`);
     if(after.length===3) await finishPuzzle();
   }
   async function match(candidate:string) {
-    if(candidate!==word) { setWrong(candidate); await say("Listen to the middle sound.","CvcListenMiddle.wav"); await model(); setJoined(false); return; }
+    if(candidate!==word) { setWrong(candidate); await say("Listen to the middle sound.",CVC_AUDIO.middle); await model(); setJoined(false); return; }
     await finishPuzzle();
   }
   async function choose(letter:string) {
-    if(letter!==word[missing]) { setWrong(letter); await say(`Listen again. ${word}.`); await model(); setJoined(false); return; }
+    if(letter!==word[missing]) { setWrong(letter); await say("Try the next sound. You can do it!",CVC_AUDIO.nextSound); await model(); setJoined(false); return; }
     await finishPuzzle();
   }
   async function record() {
     resume.current="ready"; setPhase("preparing");
     setMessage("Let's get your microphone ready.");
     const blob=await recorder.capture(left=>{setPhase("recording");setSeconds(left);}, async()=> {
-      await say(lesson?.mode==="read"?"Read your word. Ready? Go!":crown&&jewel===0?"Say the vowel sound. Ready? Go!":cvcReadyLine(word),lesson?.mode==="read"?"CvcReadReady.wav":`CvcReady-${word.toUpperCase()}.wav`);
+      await say(lesson?.mode==="read"?"Read your word. Ready? Go!":crown&&jewel===0?"Say the vowel sound. Ready? Go!":cvcReadyLine(word),lesson?.mode==="read"?CVC_AUDIO.readReady:cvcReadyAudio(word));
       await sound.wait(300);
       setMessage("I'm listening...");
     });
@@ -150,7 +152,7 @@ export function CvcChallenge({lesson,jewel=0,onBack,onComplete,onNext}:Props) {
     if(!alive.current) return;
     if(!saved.current) { saved.current=true; onComplete(); }
     resume.current="reward"; setPhase("reward");
-    if (getLearningSettings().voice_feedback) await say(lesson?.result || CROWN_RESULTS[jewel],lesson?`Cvc${lesson.id}Success.wav`:`Crown${jewel+1}Success.wav`);
+    if (getLearningSettings().voice_feedback) await say(lesson?.result || CROWN_RESULTS[jewel],lesson?cvcLessonAudio(lesson.id,"Success"):cvcCrownAudio(jewel,"Success"));
     else setMessage(lesson?.result || CROWN_RESULTS[jewel]);
   }
   function highlight(text:string) {

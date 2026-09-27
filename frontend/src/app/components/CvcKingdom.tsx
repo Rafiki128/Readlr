@@ -58,7 +58,7 @@ export function CvcKingdom({learnerId,onBack,onProgress,onActivityChange}:Props)
       else { setActivity(null); setView("crown"); }
     } else { setActivity(null); }
   }
-  if(activity) return <CvcChallenge key={`${activity.id}-${activity.jewel}`} lesson={CVC_LESSONS.find(item=>item.id===activity.id)} jewel={activity.jewel}
+  if(activity) return <CvcChallenge key={`${activity.id}-${activity.jewel}`} learnerId={learnerId} lesson={CVC_LESSONS.find(item=>item.id===activity.id)} jewel={activity.jewel}
     onBack={()=>setActivity(null)} onNext={next} onComplete={()=>save(activity.id===20?restoreCrownJewel(current.current,activity.jewel):finishCvcLesson(current.current,activity.id))}/>;
   const points=journey.completed*100;
   const positions=CASTLE_STOPS;

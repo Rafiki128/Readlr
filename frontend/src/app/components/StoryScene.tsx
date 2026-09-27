@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Volume2, Square } from "lucide-react";
 import { CharacterCompanion } from "./CharacterCompanion";
 import { useAudioManager } from "../../hooks/useAudioManager";
 import "./storyScene.css";
+import { CVC_AUDIO } from "./stageThreeAudio";
 
 interface StoryScene {
   chapter: string;
@@ -94,9 +95,9 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
       { file: "BridgeStoryMilo.wav", text: scene.narration },
       { file: "BridgeStoryGoal.wav", text: scene.goal },
     ] : [
-      { file: "CvcStoryScene.wav", text: scene.scene },
-      { file: "CvcStoryMilo.wav", text: scene.narration },
-      { file: "CvcStoryGoal.wav", text: scene.goal },
+      { file: CVC_AUDIO.story[0], text: scene.scene },
+      { file: CVC_AUDIO.story[1], text: scene.narration },
+      { file: CVC_AUDIO.story[2], text: scene.goal },
     ];
     const playPart = (index: number) => {
       if (sequence !== sequenceRef.current) return;

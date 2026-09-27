@@ -1,229 +1,50 @@
-import { motion, AnimatePresence } from "motion/react";
-import { BookOpen, Mic, Star, Trophy, HelpCircle, PlayCircle, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { BookOpen, Mic, Trophy, Map, Search, ChevronDown, Volume2, Headphones, Heart, X } from "lucide-react";
+import "./help.css";
 
-interface HelpProps {}
+const topics = [
+  { id:"journey", title:"Your adventure", icon:Map, answers:[
+    ["Where do I begin?", "Open Stages and choose Valley of Vowels. Begin chapter takes you to the Vowel Dojo. Train the five vowels, then use the Valley button to explore the trail. Return to the Dojo to practise again."],
+    ["What happens in Blending Bridges?", "Train five sound teams in the Bridge Workshop. Join a consonant and a vowel, then restore fifteen bridges. After training, the Sound Shelf lets you choose a consonant and vowel, hear each sound, and blend them together. No recording is needed on the shelf."],
+    ["What happens in CVC Kingdom?", "Place a vowel between two consonants, like m-a-p. Follow nineteen word challenges through the town and castle: build words, find missing letters, change sounds, and read. At the throne, use a vowel, a blend, and a whole word to restore the three crown jewels."],
+    ["Why is a challenge locked?", "Complete the available training or challenge first. The next step opens as you progress. Finish the previous stage before moving to the next one."],
+  ]},
+  { id:"voice", title:"Sound & microphone", icon:Mic, answers:[
+    ["When should I speak?", "Tap the large practice button. Listen to Milo's prompt, then wait for the listening colour and microphone cue before speaking. Your voice plays back after recording. The small speaker button replays Milo's model when it is available."],
+    ["Why can't Milo hear me?", "Ask a grown-up to check microphone permission for Readlr in the browser and select the correct microphone. Find a quiet spot and record again. A quiet recording is not a wrong answer."],
+    ["Why can't I hear the narration?", "Check your device volume and Readlr's volume in Settings. Tap a speaker or Listen to Milo if your browser blocked automatic sound. Check your headphones. Success narration also follows the voice-feedback setting."],
+    ["Does hearing my voice mean I said it correctly?", "Not necessarily. Guided practice records your voice so you can listen back. Detecting sound does not prove correct pronunciation. Compare your voice with Milo's model and ask a teacher or grown-up if you are unsure."],
+    ["Can I listen without a challenge?", "Open Sound Library from Stages for available vowel, blend, and word recordings. Collections unlock as you progress. After Workshop training, the Stage 2 Sound Shelf also lets you explore sound pairs."],
+  ]},
+  { id:"progress", title:"Practice & rewards", icon:Trophy, answers:[
+    ["What can I see in Progress?", "My journey shows completed lessons. My Practice shows weekly recording attempts, recorded time, session history, and stage filters. My milestones shows earned rewards. Completing a lesson and having pronunciation assessed are different things."],
+    ["Why does My Practice say Not assessed?", "Accuracy, fluency, and Self-Correction Stars need valid assessment evidence. A completed lesson or a detected voice is not a score. Until those measurements exist, Readlr shows Not assessed instead of inventing a percentage."],
+    ["What are Self-Correction Stars?", "A star needs two assessed attempts at the same target: the first below the accuracy threshold, then the next above it, without corrective feedback between them. Simply trying again or speaking after a quiet recording does not earn an assessed star."],
+    ["Where is practice history saved?", "New challenge recording attempts are saved for the signed-in learner on this browser and device. This history does not currently follow you to another device. Clearing browser data can remove it. Older completed lessons are not converted into attempts. My Practice does not store audio."],
+    ["How do I collect stickers?", "Complete valley trails and stage milestones. Open Sticker Book from Stages to turn the pages and see your collection. Achievements shows reward milestones; account frames become available when their requirements are met."],
+  ]},
+  { id:"grownups", title:"For grown-ups", icon:Heart, answers:[
+    ["How can I support a learner?", "Listen to the model together and let the child try before giving the answer. Replay their voice and celebrate their effort. Keep practice comfortable and take a break when they are tired."],
+    ["How can I tell what they have learned?", "Use Progress to see what they practised, then listen as they try a sound or word without a model. Ask a teacher to help interpret their reading. Lesson completion, voice detection, and time spent are not proof of reading mastery."],
+    ["What if a recording is interrupted?", "Return to the challenge and try again when ready. In Blending Bridges and CVC Kingdom, leaving the tab can pause a turn. A microphone or playback problem should not be treated as a reading mistake."],
+  ]},
+] as const;
 
-export function Help({}: HelpProps) {
-  const [openTopic, setOpenTopic] = useState<number | null>(1);
-  const [openQ, setOpenQ] = useState<string | null>(null);
-
-  const helpTopics = [
-    {
-      id: 1,
-      title: "Getting Started",
-      icon: PlayCircle,
-      tint: "#EEF2FF",
-      color: "#4F46E5",
-      sections: [
-        { question: "How do I start playing?", answer: "Choose a stage from the main screen, then select a level to begin. Each level focuses on a specific sound or word." },
-        { question: "What do I need to play?", answer: "A device with a microphone and speakers. Allow microphone access when prompted." },
-        { question: "How do I navigate?", answer: "Use the menu at the top to access Progress, Sticker Book, and Settings." },
-      ],
-    },
-    {
-      id: 2,
-      title: "Using Your Voice",
-      icon: Mic,
-      tint: "#FCE7F3",
-      color: "#DB2777",
-      sections: [
-        { question: "How do I speak into the app?", answer: 'Tap the microphone button and say the sound or word clearly. Wait for the app to listen — you\'ll see "Listening…".' },
-        { question: "What if it doesn't hear me?", answer: "Find a quiet place, speak clearly and not too fast. You can try as many times as you need." },
-        { question: "Can I practice without playing?", answer: 'Yes — visit the Sound Library to practice any sound any time, no level required.' },
-      ],
-    },
-    {
-      id: 3,
-      title: "Rewards & Progress",
-      icon: Trophy,
-      tint: "#FFF7ED",
-      color: "#F59E0B",
-      sections: [
-        { question: "How do I earn stickers?", answer: "In the Valley of Vowels, every level gives you a new sticker friend. In Blending Bridges and CVC Kingdom, you earn a sticker every few steps. Finish a whole stage to unlock new frames for your picture!" },
-        { question: "Where can I see my progress?", answer: "Open My Progress to see scores, accuracy, completed levels, and your learning streak." },
-        { question: "What are achievements?", answer: "Special badges you earn for milestones — completing levels, learning streaks, and perfect scores." },
-      ],
-    },
-    {
-      id: 4,
-      title: "Learning Tips",
-      icon: Star,
-      tint: "#D1FAE5",
-      color: "#10B981",
-      sections: [
-        { question: "What if I make a mistake?", answer: "That's okay. The app shows you the correct way to say it and lets you try again." },
-        { question: "Should I practice every day?", answer: "Yes — a little every day helps you learn faster. Aim for 10–15 minutes daily." },
-        { question: "What order should I learn?", answer: "Start with Stage 1 (Vowels), then Stage 2 (Blends), then Stage 3 (Words). Each stage builds on the last." },
-      ],
-    },
-  ];
-
-  const tips = [
-    { emoji: "🎯", title: "Speak clearly", body: "Say each sound slowly and clearly." },
-    { emoji: "🔊", title: "Find a quiet spot", body: "Background noise can affect recognition." },
-    { emoji: "⏰", title: "Practice daily", body: "Even 10 minutes a day makes a real difference." },
-    { emoji: "💪", title: "Don't give up", body: "It's okay to try multiple times — that's how we learn." },
-  ];
-
-  return (
-    <div className="size-full bg-[var(--paper)] overflow-auto">
-      <div className="min-h-full px-6 md:px-10 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Top bar */}
-          <div className="flex items-center justify-center mb-8">
-            <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--ink-muted)]">
-              <HelpCircle className="w-3.5 h-3.5" />
-              Help Center
-            </span>
-          </div>
-
-          {/* Title */}
-          <motion.div
-            initial={{ y: -8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="mb-8"
-          >
-            <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Support</p>
-            <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">How can we help?</h1>
-            <p className="text-[var(--ink-soft)] mt-2">
-              Browse a topic to find quick answers, or check the daily tips below.
-            </p>
-          </motion.div>
-
-          {/* Topic accordions */}
-          <div className="space-y-3 mb-10">
-            {helpTopics.map((topic, i) => {
-              const Icon = topic.icon;
-              const isOpen = openTopic === topic.id;
-              return (
-                <motion.div
-                  key={topic.id}
-                  initial={{ y: 8, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-card rounded-2xl border border-[var(--hairline)] overflow-hidden"
-                >
-                  <button
-                    onClick={() => {
-                      setOpenTopic(isOpen ? null : topic.id);
-                      setOpenQ(null);
-                    }}
-                    className="w-full flex items-center gap-4 p-5 text-left"
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: topic.tint }}
-                    >
-                      <Icon className="w-5 h-5" style={{ color: topic.color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[var(--ink)]">{topic.title}</p>
-                      <p className="text-xs text-[var(--ink-muted)]">
-                        {topic.sections.length} answers
-                      </p>
-                    </div>
-                    <ChevronDown
-                      className={`w-4 h-4 text-[var(--ink-muted)] transition-transform ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  <AnimatePresence>
-                    {isOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="px-5 pb-2 border-t border-[var(--hairline)]">
-                          {topic.sections.map((s, idx) => {
-                            const key = `${topic.id}-${idx}`;
-                            const qOpen = openQ === key;
-                            return (
-                              <div key={key} className="border-b border-[var(--hairline)] last:border-b-0">
-                                <button
-                                  onClick={() => setOpenQ(qOpen ? null : key)}
-                                  className="w-full flex items-center justify-between gap-3 py-3.5 text-left"
-                                >
-                                  <span className="text-[var(--ink)] text-sm">{s.question}</span>
-                                  <ChevronDown
-                                    className={`w-4 h-4 text-[var(--ink-muted)] flex-shrink-0 transition-transform ${
-                                      qOpen ? "rotate-180" : ""
-                                    }`}
-                                  />
-                                </button>
-                                {qOpen && (
-                                  <motion.p
-                                    initial={{ opacity: 0, y: -4 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="pb-4 text-sm text-[var(--ink-soft)]"
-                                  >
-                                    {s.answer}
-                                  </motion.p>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Quick tips */}
-          <motion.section
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="bg-card rounded-2xl p-6 border border-[var(--hairline)] mb-6"
-          >
-            <div className="flex items-center gap-2.5 mb-5">
-              <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-[#4F46E5]" />
-              </div>
-              <div>
-                <h2 className="text-lg text-[var(--ink)] leading-tight">Quick tips</h2>
-                <p className="text-xs text-[var(--ink-muted)]">Small habits that make a big difference</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {tips.map((t) => (
-                <div key={t.title} className="flex gap-3 p-4 rounded-xl bg-[var(--paper)] border border-[var(--hairline)]">
-                  <span className="text-2xl flex-shrink-0">{t.emoji}</span>
-                  <div>
-                    <p className="text-[var(--ink)]">{t.title}</p>
-                    <p className="text-xs text-[var(--ink-soft)] mt-0.5">{t.body}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
-
-          {/* Contact */}
-          <motion.div
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="bg-card rounded-2xl p-6 border border-[var(--hairline)] text-center"
-          >
-            <p className="text-[var(--ink)] mb-1">Still need help?</p>
-            <p className="text-sm text-[var(--ink-soft)]">
-              Ask your teacher or a parent if you'd like more guidance.
-            </p>
-            <p className="text-xs text-[var(--ink-muted)] mt-3">
-              Team 2526-sem2-it332-27 · Readlr Support
-            </p>
-          </motion.div>
-        </div>
-      </div>
-    </div>
-  );
+export function Help() {
+  const [topic,setTopic]=useState<string>("journey");
+  const [query,setQuery]=useState("");
+  const search=query.trim().toLowerCase();
+  const selected=topics.find(item=>item.id===topic)!;
+  const results=topics.flatMap(item=>item.answers.map(([question,answer])=>({question,answer,topic:item.title,id:item.id})))
+    .filter(item=>search?`${item.question} ${item.answer} ${item.topic}`.toLowerCase().includes(search):item.id===topic);
+  return <div className="readlr-help"><main className="help-inner">
+    <header className="help-heading"><div><p className="help-eyebrow">A little help along the way</p><h1>Help & guidance</h1><p>For young readers and the grown-ups beside them.</p></div><BookOpen size={48} aria-hidden="true"/></header>
+    <ol className="help-voice-flow" aria-label="Voice practice sequence">{[{icon:Volume2,title:"Listen to Milo",text:"Hear the sound first."},{icon:Mic,title:"Your turn",text:"Wait for the listening cue."},{icon:Headphones,title:"Hear your voice",text:"Listen back together."}].map(({icon:Icon,title,text},i)=><li key={title}><span className={`help-step step-${i}`}><Icon size={23}/></span><div><h2>{title}</h2><p>{text}</p></div></li>)}</ol>
+    <div className="help-search"><Search size={20} aria-hidden="true"/><input aria-label="Search help" placeholder="Search sounds, stages, progress..." value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label="Clear search" title="Clear search" onClick={()=>setQuery("")}><X size={18}/></button>}</div>
+    <div className="help-layout"><nav aria-label="Help topics">{topics.map(({id,title,icon:Icon})=><button key={id} aria-current={!search&&topic===id?"page":undefined} onClick={()=>{setTopic(id);setQuery("");}}><Icon size={19}/>{title}</button>)}</nav>
+      <section className="help-answers" aria-label="Help answers"><header><h2>{search?"Search results":selected.title}</h2><span role="status">{results.length} answers</span></header>
+        {results.length===0?<div className="help-empty"><Search size={28}/><h3>No matching answers</h3><p>Try a shorter phrase, such as microphone or progress.</p></div>:results.map(item=><details key={`${search}-${item.question}`}><summary>{item.question}<ChevronDown size={18} aria-hidden="true"/></summary><p>{item.answer}</p></details>)}
+      </section></div>
+    <footer><Heart size={23}/><div><h2>Still feeling stuck?</h2><p>Ask your teacher or a grown-up to help. You can take a break and come back together.</p></div></footer>
+  </main></div>;
 }

@@ -3,10 +3,11 @@ import { Volume2, Bell, Moon, Globe, User, Shield, ChevronRight, X, Lock, Check 
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../modules/auth/auth.context";
 import { useFrames } from "../hooks/useFrames";
-import { updateLearningSettings } from "../../hooks/learningSettings";
+import { getLearningSettings, updateLearningSettings } from "../../hooks/learningSettings";
+import "./settings.css";
 import { applyDarkMode } from "../hooks/useDarkMode";
 import { AvatarFrame } from "./AvatarFrame";
-import { toast } from "sonner";
+import { toast as notify } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,14 @@ const AVATAR_OPTIONS = [
   "🐳", "🦕", "🐢", "🐬",
 ];
 
+// Settings messages replace one another and always offer an explicit close button.
+const toast = {
+  success: (message: string, options?: Parameters<typeof notify.success>[1]) =>
+    notify.success(message, { id: "settings-feedback", closeButton: true, duration: 3500, ...options }),
+  error: (message: string, options?: Parameters<typeof notify.error>[1]) =>
+    notify.error(message, { id: "settings-feedback", closeButton: true, duration: 7000, ...options }),
+};
+
 interface SettingsProps {
   onNavigate?: (screen: string) => void;
   onAvatarUpdate?: (avatar: string) => void;
@@ -38,10 +47,12 @@ interface SettingsPayload {
   language: string;
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
   return (
     <button
       role="switch"
+      aria-label={label}
+      disabled={disabled}
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative w-11 h-6 rounded-full transition-colors ${
@@ -57,15 +68,26 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
+function Row({title, description, children}: {title:string; description?:string; children:React.ReactNode}) {
+  return <div className="flex items-center justify-between gap-4 py-3.5">
+    <div className="min-w-0"><p className="text-[var(--ink)]">{title}</p>{description&&<p className="text-xs text-[var(--ink-muted)] mt-0.5">{description}</p>}</div>
+    <div className="flex-shrink-0">{children}</div>
+  </div>;
+}
+
 export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
   const { token, logout } = useAuth();
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
   const { frames, equipFrame, equippedAssetKey } = useFrames();
 
-  const [volume, setVolume] = useState(80);
-  const [voiceFeedback, setVoiceFeedback] = useState(true);
-  const [notifications, setNotifications] = useState(true);
-  const [achievementAlerts, setAchievementAlerts] = useState(true);
+  const [volume, setVolume] = useState(()=>getLearningSettings().sound_volume);
+  const [voiceFeedback, setVoiceFeedback] = useState(()=>getLearningSettings().voice_feedback);
+  const [notifications, setNotifications] = useState(()=>getLearningSettings().daily_reminders);
+  const [achievementAlerts, setAchievementAlerts] = useState(()=>getLearningSettings().achievement_alerts);
+  const [savingPreference, setSavingPreference] = useState(false);
+  const [volumePending, setVolumePending] = useState(false);
+  const savingPreferenceRef = useRef(false);
+  const savedVolume = useRef(getLearningSettings().sound_volume);
   const [darkMode, setDarkMode] = useState(false);
   const [language, setLanguage] = useState("Filipino");
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
@@ -94,18 +116,20 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
           const data = await settingsRes.json();
           updateLearningSettings(data.settings);
           setVolume(data.settings.sound_volume);
+          savedVolume.current = data.settings.sound_volume;
           setVoiceFeedback(data.settings.voice_feedback);
           setNotifications(data.settings.daily_reminders);
           setAchievementAlerts(data.settings.achievement_alerts);
           setDarkMode(data.settings.dark_mode);
           setLanguage(data.settings.language);
-        }
+        } else toast.error("Settings could not load", { description: "Your saved preferences are unavailable. Please try again later." });
         if (learnerRes.ok) {
           const data = await learnerRes.json();
           setCurrentAvatar(data.learner.avatar);
         }
       } catch (err) {
         console.error("Failed to fetch settings:", err);
+        toast.error("Settings could not load", { description: "Check your connection and try again." });
       } finally {
         setIsLoadingSettings(false);
       }
@@ -114,6 +138,9 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
   }, [token]);
 
   const saveSettings = async (updates: Partial<SettingsPayload>): Promise<boolean> => {
+    if (!token) return false;
+    savingPreferenceRef.current = true;
+    setSavingPreference(true);
     try {
       const response = await fetch(`${API_URL}/settings/me`, {
         method: "PUT",
@@ -127,17 +154,26 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
       return response.ok;
     } catch {
       return false;
+    } finally {
+      savingPreferenceRef.current = false;
+      setSavingPreference(false);
     }
   };
 
   const handleVolumeChange = (value: number) => {
+    if (savingPreferenceRef.current) return;
     setVolume(value);
+    setVolumePending(true);
     if (volumeSaveTimeout.current) clearTimeout(volumeSaveTimeout.current);
     volumeSaveTimeout.current = setTimeout(async () => {
+      volumeSaveTimeout.current = null;
+      setVolumePending(false);
       const ok = await saveSettings({ sound_volume: value });
       if (ok) {
-        toast.success("Volume updated!", { description: `Set to ${value}%` });
+        savedVolume.current = value;
+        toast.success("Volume saved", { description: value === 0 ? "Sound muted" : `Volume set to ${value}%` });
       } else {
+        setVolume(savedVolume.current);
         toast.error("Could not save. Try again!");
       }
     }, 500);
@@ -149,6 +185,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
     setter: (v: boolean) => void,
     label: string
   ) => {
+    if (savingPreferenceRef.current || volumeSaveTimeout.current) return;
     setter(value);
     const ok = await saveSettings({ [key]: value } as Partial<SettingsPayload>);
     if (ok) {
@@ -278,24 +315,6 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
     );
   };
 
-  const Row = ({
-    title,
-    description,
-    children,
-  }: {
-    title: string;
-    description?: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="flex items-center justify-between gap-4 py-3.5">
-      <div className="min-w-0">
-        <p className="text-[var(--ink)]">{title}</p>
-        {description && <p className="text-xs text-[var(--ink-muted)] mt-0.5">{description}</p>}
-      </div>
-      <div className="flex-shrink-0">{children}</div>
-    </div>
-  );
-
   if (isLoadingSettings) {
     return (
       <div className="size-full bg-[var(--paper)] flex items-center justify-center">
@@ -311,14 +330,9 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
   }
 
   return (
-    <div className="size-full bg-[var(--paper)] overflow-auto">
+    <div className="settings-page size-full bg-[var(--paper)] overflow-auto">
       <div className="min-h-full px-6 md:px-10 py-8">
         <div className="max-w-3xl mx-auto">
-          {/* Top bar */}
-          <div className="flex items-center justify-center mb-8">
-            <span className="text-xs uppercase tracking-wider text-[var(--ink-muted)]">Settings</span>
-          </div>
-
           {/* Title */}
           <motion.div
             initial={{ y: -8, opacity: 0 }}
@@ -327,7 +341,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
           >
             <p className="text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">Preferences</p>
             <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight">Settings</h1>
-            <p className="text-[var(--ink-soft)] mt-2">Customize your learning experience.</p>
+            <p className="text-[var(--ink-soft)] mt-2">Make Readlr feel right for you.</p>
           </motion.div>
 
           <div className="space-y-4">
@@ -346,6 +360,9 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
                     <span className="text-sm text-[#4F46E5]">{volume}%</span>
                   </div>
                   <input
+                    aria-label="Sound volume"
+                    aria-valuetext={volume === 0 ? "Muted" : `${volume} percent`}
+                    disabled={savingPreference || !token}
                     type="range"
                     min={0}
                     max={100}
@@ -354,8 +371,10 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
                     className="w-full h-1.5 bg-[var(--paper-deep)] rounded-full appearance-none cursor-pointer accent-[#4F46E5]"
                   />
                 </div>
-                <Row title="Voice feedback" description="Play audio for correct answers">
+                <Row title="Voice feedback" description="Hear Milo celebrate completed challenges">
                   <Toggle
+                    label="Voice feedback"
+                    disabled={savingPreference || volumePending || !token}
                     checked={voiceFeedback}
                     onChange={(v) => handleToggleSetting("voice_feedback", v, setVoiceFeedback, "Voice feedback")}
                   />
@@ -374,12 +393,16 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
               <div className="divide-y divide-[var(--hairline)]">
                 <Row title="Daily reminders" description="A reminder when you open Readlr, once a day">
                   <Toggle
+                    label="Daily reminders"
+                    disabled={savingPreference || volumePending || !token}
                     checked={notifications}
                     onChange={(v) => handleToggleSetting("daily_reminders", v, setNotifications, "Daily reminders")}
                   />
                 </Row>
                 <Row title="Achievement alerts" description="Celebrate your wins">
                   <Toggle
+                    label="Achievement alerts"
+                    disabled={savingPreference || volumePending || !token}
                     checked={achievementAlerts}
                     onChange={(v) => handleToggleSetting("achievement_alerts", v, setAchievementAlerts, "Achievement alerts")}
                   />
@@ -398,6 +421,8 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
               <div className="divide-y divide-[var(--hairline)]">
                 <Row title="Dark mode" description="Reduce eye strain">
                   <Toggle
+                    label="Dark mode"
+                    disabled={savingPreference || volumePending || !token}
                     checked={darkMode}
                     onChange={(v) =>
                       handleToggleSetting("dark_mode", v, (x) => { setDarkMode(x); applyDarkMode(x); }, "Dark mode")
@@ -416,6 +441,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
             >
               <SectionHeader id="language" />
               <select
+                aria-label="Interface language"
                 value="English"
                 disabled
                 onChange={(e) => handleLanguageChange(e.target.value)}
@@ -469,15 +495,16 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
             >
               <SectionHeader id="privacy" />
               <div className="divide-y divide-[var(--hairline)]">
-                <button className="w-full py-3.5 flex items-center justify-between text-left text-[var(--ink)] hover:text-[#4F46E5] transition-colors">
-                  <span>Privacy policy</span>
-                  <ChevronRight className="w-4 h-4 text-[var(--ink-muted)]" />
-                </button>
+                <details className="settings-data-details">
+                  <summary>Your data in Readlr <ChevronRight size={16}/></summary>
+                  <p>Account settings and synced lesson progress are associated with your account. My Practice attempt history is stored separately in this browser for each learner and does not currently sync across devices.</p>
+                  <p>Ask a grown-up before clearing browser data or deleting an account. Clearing browser data can remove device-only practice history.</p>
+                </details>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="w-full py-3.5 flex items-center justify-between text-left text-[#DC2626] hover:opacity-80 transition-opacity"
                 >
-                  <span>Delete my data</span>
+                  <span>Delete account</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -518,6 +545,8 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
                     <p className="text-xs text-[var(--ink-muted)] mt-0.5">Choose your favourite character</p>
                   </div>
                   <button
+                    aria-label="Close avatar picker"
+                    title="Close avatar picker"
                     onClick={() => setShowAvatarPicker(false)}
                     className="w-8 h-8 bg-[var(--paper)] rounded-lg flex items-center justify-center hover:bg-[var(--paper-deep)] transition-colors"
                   >
@@ -529,6 +558,8 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
                   {AVATAR_OPTIONS.map((emoji) => (
                     <button
                       key={emoji}
+                      aria-label={`Choose ${emoji} avatar`}
+                      aria-pressed={currentAvatar === emoji}
                       onClick={() => handlePickAvatar(emoji)}
                       disabled={isSaving}
                       className={`h-14 rounded-xl text-3xl flex items-center justify-center transition-all hover:scale-110 ${
@@ -633,7 +664,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
         <AlertDialogContent className="bg-card rounded-2xl border border-[var(--hairline)]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[var(--ink)] text-xl">
-              Delete your data?
+              Delete your account?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-[var(--ink-soft)]">
               This permanently deletes your account, progress, and settings. This cannot be undone.
