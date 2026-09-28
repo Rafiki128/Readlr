@@ -7,6 +7,8 @@ import { useAudioManager } from "../../hooks/useAudioManager";
 import { usePracticeSession } from "../../hooks/usePracticeSession";
 import { VowelChallengeView } from "./VowelChallengeView";
 import { getLearningSettings, learningVolume } from "../../hooks/learningSettings";
+import { useBridgeAudio } from "../../hooks/useBridgeAudio";
+import { startAudioPlayback } from "../../hooks/audioPlayback";
 
 type FluencyTier = "fluent" | "halting" | "syllabic";
 type StageOneLevelType =
@@ -799,6 +801,8 @@ function getChallenge(stageId: number, levelId: number): Challenge {
 }
 
 export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: GameLevelProps) {
+  const recordingPrompts = useBridgeAudio("/audio/stage1");
+  const cancelVoicePlayback = useRef<(() => void) | null>(null);
   const { accent, tint } = STAGE_ACCENTS[stageId] ?? STAGE_ACCENTS[1];
   const { playAudio, stopAudio, stopAllAudio, speakText } = useAudioManager();
 
@@ -825,6 +829,7 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
   const recordingChunksRef = useRef<BlobPart[]>([]);
   const learnerAudioRef = useRef<HTMLAudioElement | null>(null);
   const recordingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageOneCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageOneReplayCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageOneRecordingPlaybackFinishedRef = useRef(false);
@@ -897,6 +902,8 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
     stageOneActiveRef.current = true;
     return () => {
       stageOneActiveRef.current = false;
+      cancelVoicePlayback.current?.();
+      if (recordingFlushTimerRef.current) clearTimeout(recordingFlushTimerRef.current);
       if (recordingLeadInRef.current) clearTimeout(recordingLeadInRef.current);
       stopAllAudio();
       stopListening();
@@ -1282,6 +1289,16 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
     }
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== "inactive") {
+      recordingFlushTimerRef.current = setTimeout(() => {
+        practice.finish("error");
+        recorder.onstop = null;
+        mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+        if (!stageOneActiveRef.current) return;
+        setIsRecording(false);
+        setHasRecording(false);
+        setCharacterState("encouraging");
+        setBubbleMessage("The recording did not finish. Tap to try again.");
+      }, 5000);
       recorder.stop();
     }
   };
@@ -1295,7 +1312,10 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
     learnerAudioRef.current = audio;
     setCharacterState("listening");
     setBubbleMessage(autoReplay ? "Listen. This is your vowel sound coming back to you." : "Listen closely. That is your explorer voice on the trail.");
-    audio.onended = () => {
+    cancelVoicePlayback.current?.();
+    const playback = startAudioPlayback(audio);
+    cancelVoicePlayback.current = playback.cancel;
+    void playback.done.then(() => {
       if (!stageOneActiveRef.current || learnerAudioRef.current !== audio) return;
       stageOneRecordingPlaybackFinishedRef.current = true;
       setCharacterState(autoReplay ? "celebrating" : "idle");
@@ -1316,8 +1336,8 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
           finishStageOneAutomatically();
         }, 650);
       }
-    };
-    audio.play().catch(() => {
+    }).catch((error: Error) => {
+      if (error.name === "AbortError") return;
       if (!stageOneActiveRef.current) return;
       setHasRecording(false);
       setCharacterState("encouraging");
@@ -1367,6 +1387,8 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
       };
 
       recorder.onerror = () => {
+        if (recordingFlushTimerRef.current) clearTimeout(recordingFlushTimerRef.current);
+        if (recordingStopTimerRef.current) clearTimeout(recordingStopTimerRef.current);
         practice.finish("error");
         recorder.onstop = null;
         stream.getTracks().forEach((track) => track.stop());
@@ -1377,11 +1399,19 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
       };
 
       recorder.onstop = () => {
+        if (recordingFlushTimerRef.current) clearTimeout(recordingFlushTimerRef.current);
         practice.finish(stageOneActiveRef.current ? "recorded" : "interrupted");
         stream.getTracks().forEach((track) => track.stop());
         if (!stageOneActiveRef.current) return;
         mediaStreamRef.current = null;
         const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        if (!blob.size) {
+          setIsRecording(false);
+          setHasRecording(false);
+          setCharacterState("encouraging");
+          setBubbleMessage("That recording was empty. Tap to try again.");
+          return;
+        }
         const nextUrl = URL.createObjectURL(blob);
         setRecordingUrl((current) => {
           if (current) URL.revokeObjectURL(current);
@@ -1391,22 +1421,17 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
         setIsRecording(false);
         setCharacterState("speaking");
         setBubbleMessage("Great. Milo is playing your sound back now.");
-        const doneAudio = playAudio("/audio/stage1/RecordingDone.wav");
-        if (doneAudio) {
-          doneAudio.onended = () => {
+        void (async () => {
+          try {
+            await recordingPrompts.play("/audio/stage1/RecordingDone.wav");
             if (!stageOneActiveRef.current) return;
-            const listenBackAudio = playAudio("/audio/stage1/NowListenBack.wav");
-            if (listenBackAudio) {
-              listenBackAudio.onended = () => playStageOneRecordingUrl(nextUrl, true);
-              listenBackAudio.onerror = () => playStageOneRecordingUrl(nextUrl, true);
-            } else {
-              playStageOneRecordingUrl(nextUrl, true);
-            }
-          };
-          doneAudio.onerror = () => playStageOneRecordingUrl(nextUrl, true);
-        } else {
-          playStageOneRecordingUrl(nextUrl, true);
-        }
+            await recordingPrompts.play("/audio/stage1/NowListenBack.wav");
+          } catch (error) {
+            if ((error as Error).name === "AbortError") return;
+            // A missing prompt must not prevent the child from hearing their voice.
+          }
+          if (stageOneActiveRef.current) playStageOneRecordingUrl(nextUrl, true);
+        })();
       };
 
       setCharacterState("speaking");
@@ -1439,12 +1464,9 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
           }
         }, 900);
       };
-      const prompt = playAudio("/audio/stage1/RecordingStarts.wav");
-      if (prompt) {
-        prompt.onended = startAfterPrompt;
-        prompt.onerror = startAfterPrompt;
-        prompt.play().catch(startAfterPrompt);
-      } else startAfterPrompt();
+      void recordingPrompts.play("/audio/stage1/RecordingStarts.wav").then(startAfterPrompt).catch((error: Error) => {
+        if (error.name !== "AbortError") startAfterPrompt();
+      });
     } catch {
       if (!stageOneActiveRef.current) return;
       setIsRecording(false);

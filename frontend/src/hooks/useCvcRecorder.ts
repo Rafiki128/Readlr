@@ -17,13 +17,14 @@ export function useCvcRecorder(telemetry?: { begin: () => void; finish: (outcome
       let recorder:MediaRecorder | undefined;
       let sampling:ReturnType<typeof setInterval> | undefined;
       let ending:ReturnType<typeof setTimeout> | undefined;
+      let flushing:ReturnType<typeof setTimeout> | undefined;
       let settled = false;
       const chunks:BlobPart[] = [];
       const finish = (error?:Error, blob?:Blob, quiet = false) => {
         if (settled) return;
         settled = true;
         telemetry?.finish(quiet ? "silence" : error ? error.name === "AbortError" ? "interrupted" : "error" : "voice_detected");
-        clearInterval(sampling); clearTimeout(ending);
+        clearInterval(sampling); clearTimeout(ending); clearTimeout(flushing);
         if (recorder) { recorder.onstop=null; recorder.ondataavailable=null; recorder.onerror=null; if(recorder.state!=="inactive") recorder.stop(); }
         stream.getTracks().forEach(track=>track.stop());
         void context?.close().catch(()=>{});
@@ -59,7 +60,10 @@ export function useCvcRecorder(telemetry?: { begin: () => void; finish: (outcome
             peak=Math.max(peak,rms); if(rms>=.018) frames++;
             onTick(Math.max(1,Math.ceil((4000-Date.now()+start)/1000)));
           },50);
-          ending=setTimeout(()=>{ if(recorder?.state==="recording") recorder.stop(); },4000);
+          ending=setTimeout(()=>{
+            flushing=setTimeout(()=>finish(new Error("The recording did not finish. Tap to try again.")),5000);
+            if(recorder?.state==="recording") recorder.stop();
+          },4000);
         }).catch(error=>finish(error instanceof Error ? error : new Error("Please allow the microphone and try again.")));
       } catch { finish(new Error("Please allow the microphone and try again.")); }
     });

@@ -42,12 +42,14 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
   const audioContext = useRef<AudioContext | null>(null);
   const interval = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingUrl = useRef<string | null>(null);
   const cancelCapture = useRef<(() => void) | null>(null);
 
   function releaseMicrophone() {
     if (interval.current) clearInterval(interval.current);
     if (timeout.current) clearTimeout(timeout.current);
+    if (flushTimeout.current) clearTimeout(flushTimeout.current);
     if (recorder.current?.state === "recording") {
       recorder.current.onstop = null;
       recorder.current.stop();
@@ -241,7 +243,16 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
         peak = Math.max(peak, rms);
         if (rms >= .018) voicedFrames++;
       }, 50);
-      timeout.current = setTimeout(() => { if (recording.state === "recording") recording.stop(); }, 4000);
+      timeout.current = setTimeout(() => {
+        flushTimeout.current = setTimeout(() => {
+          practice.finish("error");
+          cancelCapture.current = null;
+          recording.onstop = null;
+          releaseMicrophone();
+          reject(new Error("The recording did not finish. Tap to try again."));
+        }, 5000);
+        if (recording.state === "recording") recording.stop();
+      }, 4000);
     });
   }
 
