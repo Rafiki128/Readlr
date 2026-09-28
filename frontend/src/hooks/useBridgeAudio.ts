@@ -4,6 +4,7 @@ import { stopAllGlobalAudio } from "./useAudioManager";
 import { narrationLines } from "./bridgeNarrationLines";
 import { resolveStageTwoAudioPath } from "../app/components/stageTwoAudio";
 import { learningVolume } from "./learningSettings";
+import { startAudioPlayback } from "./audioPlayback";
 
 export function useBridgeAudio(basePath = "/audio/stage2") {
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -41,35 +42,14 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
   }
 
   function play(path: string, onProgress?: (fraction: number) => void) {
-    return new Promise<void>((resolve, reject) => {
-      const player = new Audio(resolveStageTwoAudioPath(path));
-      player.volume = learningVolume();
-      audio.current = player;
-      let settled = false;
-      let watchdog: ReturnType<typeof setTimeout>;
-      const finish = (error?: unknown) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(watchdog);
-        cancelPending.current = null;
-        player.onended = null;
-        player.onerror = null;
-        player.ontimeupdate = null;
-        player.onloadedmetadata = null;
-        player.pause();
-        if (audio.current === player) audio.current = null;
-        error ? reject(error) : resolve();
-      };
-      cancelPending.current = () => finish(new DOMException("Stopped", "AbortError"));
-      player.onended = () => finish();
-      player.onerror = () => finish(new Error("Audio unavailable"));
-      watchdog = setTimeout(() => finish(new Error("Audio took too long to start. Tap to try again.")), 15000);
-      player.onloadedmetadata = () => {
-        clearTimeout(watchdog);
-        watchdog = setTimeout(() => finish(new Error("Audio stopped. Tap to try again.")), Math.max(15000, (player.duration || 0) * 1000 + 10000));
-      };
-      player.ontimeupdate = () => { if (Number.isFinite(player.duration) && player.duration > 0) onProgress?.(player.currentTime / player.duration); };
-      player.play().catch(finish);
+    const player = new Audio(resolveStageTwoAudioPath(path));
+    player.volume = learningVolume();
+    audio.current = player;
+    const playback = startAudioPlayback(player, onProgress);
+    cancelPending.current = playback.cancel;
+    return playback.done.finally(() => {
+      if (cancelPending.current === playback.cancel) cancelPending.current = null;
+      if (audio.current === player) audio.current = null;
     });
   }
 

@@ -13,9 +13,10 @@ import "./challengeRooms.css";
 import "./challengeControls.css";
 import { getLearningSettings } from "../../hooks/learningSettings";
 import { usePracticeSession } from "../../hooks/usePracticeSession";
+import { recognizeCvc } from "../../hooks/recognizeCvc";
 import { CVC_AUDIO, cvcLessonAudio, cvcCrownAudio, cvcReadyAudio, cvcModelAudio } from "./stageThreeAudio";
 
-type Phase = "intro"|"speaking"|"choice"|"ready"|"preparing"|"recording"|"playback"|"magic"|"reward";
+type Phase = "intro"|"speaking"|"choice"|"ready"|"preparing"|"recording"|"playback"|"checking"|"magic"|"reward";
 interface Props { learnerId?:number|null; lesson?:CvcLesson; jewel?:number; onBack:()=>void; onComplete:()=>void; onNext:()=>void }
 export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}:Props) {
   const crown=!lesson, word=lesson?.word || CROWN_WORDS[jewel];
@@ -37,6 +38,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
   const busy=useRef(false), alive=useRef(true), saved=useRef(false);
   const resume=useRef<Phase>("intro");
   const recording=useRef<string|null>(null);
+  const checking=useRef<AbortController|null>(null);
   const hasChoice=!!lesson && lesson.mode!=="read";
   const missingChoice=!!lesson && ["ending","middle","change"].includes(lesson.mode);
   const missing=lesson?.mode==="ending"?2:1;
@@ -48,10 +50,11 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
     const hide=()=> {
       if(!document.hidden || !busy.current) return;
       sound.stop(); recorder.stop();
+      checking.current?.abort();
       if(alive.current) { setPhase(resume.current); setError("Ready when you are. Tap to try again."); }
     };
     document.addEventListener("visibilitychange",hide);
-    return ()=> { alive.current=false; clearTimeout(start); sound.stop(); recorder.stop(); if(recording.current) URL.revokeObjectURL(recording.current); document.removeEventListener("visibilitychange",hide); };
+    return ()=> { alive.current=false; checking.current?.abort(); clearTimeout(start); sound.stop(); recorder.stop(); if(recording.current) URL.revokeObjectURL(recording.current); document.removeEventListener("visibilitychange",hide); };
   },[]);
 
   async function run(action:()=>Promise<void>) {
@@ -147,6 +150,28 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
     recording.current=URL.createObjectURL(blob);
     setPhase("playback"); setMessage("Listen to your voice!");
     await sound.play(recording.current);
+    if(word.length===3) {
+      setPhase("checking");setMessage("Milo is checking your word...");
+      const controller=new AbortController();checking.current=controller;
+      let timedOut=false;
+      const timeout=setTimeout(()=>{timedOut=true;controller.abort();},25000);
+      try {
+        const result=await recognizeCvc(blob,word,controller.signal);
+        if(!alive.current || controller.signal.aborted) throw new DOMException("Stopped","AbortError");
+        practice.recognize(result.status);
+        if(result.status!=="matched") {
+          setPhase("ready");setJoined(false);
+          setMessage(result.status==="different"&&result.transcript
+            ? `Milo heard "${result.transcript}". Let's listen to ${word}, then try again.`
+            : "Milo wasn't sure what he heard. Wait for the listening cue, then say the whole word.");
+          return;
+        }
+      } catch(error) {
+        if(alive.current) practice.recognize("unavailable");
+        if(timedOut) throw new Error("Word checking took too long. Please try again.");
+        throw error;
+      } finally {clearTimeout(timeout);if(checking.current===controller)checking.current=null;}
+    }
     setPhase("magic"); setJoined(true);
     await sound.wait(1200);
     if(!alive.current) return;
@@ -160,7 +185,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
   }
   const enabled=["intro","ready","reward"].includes(phase);
   const voiceStep = showingResult ? 3 : phase === "playback" ? 2 : ["ready", "preparing", "recording"].includes(phase) ? 1 : 0;
-  const ActionIcon = showingResult ? Check : phase === "playback" ? Headphones : ["intro", "speaking"].includes(phase) ? Volume2 : Mic;
+  const ActionIcon = showingResult ? Check : phase === "checking" ? Sparkles : phase === "playback" ? Headphones : ["intro", "speaking"].includes(phase) ? Volume2 : Mic;
   return <div className={`cvc-root cvc-play cvc-phase-${phase}`}>
     <nav className="cvc-nav"><button onClick={onBack}><ArrowLeft size={18}/> Castle map</button><span>{crown?"The Crown of Three Lights":`${lesson.id} / 20`}</span></nav>
     <main className="cvc-play-main">
@@ -182,12 +207,12 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
         </div>
         <ChallengeRoomFrame kind="cvc"/>
       </div>
-      <div className="cvc-room-status" aria-live="polite">{phase==="recording"?<><Mic size={17}/> Listening - {seconds}</>:phase==="playback"?<><Headphones size={17}/> Your voice</>:showingResult?<><Check size={17}/> {crown?"Jewel restored!":"Magic made!"}</>:<><Sparkles size={16}/> {joined?word:"Three sounds, one word"}</>}</div>
+      <div className="cvc-room-status" aria-live="polite">{phase==="checking"?<><Sparkles size={17}/> Checking your word...</>:phase==="recording"?<><Mic size={17}/> Listening - {seconds}</>:phase==="playback"?<><Headphones size={17}/> Your voice</>:showingResult?<><Check size={17}/> {crown?"Jewel restored!":"Magic made!"}</>:<><Sparkles size={16}/> {joined?word:"Three sounds, one word"}</>}</div>
       <div className="cvc-action-area">
       {phase==="choice"&&lesson&&lesson.mode!=="conjure"&&<div className={`cvc-choices ${lesson.mode==="match"?"cvc-word-choices":""}`} aria-label={lesson.mode==="build"?"Build the word":lesson.mode==="match"?"Choose the word":"Choose the missing letter"}>{(lesson.mode==="build"?cvcLetterTray(lesson):lesson.mode==="match"?cvcWordChoices(lesson):cvcChoices(lesson)).map(letter=><button disabled={isBusy||(lesson.mode==="build"&&placed.includes(letter))} aria-label={`Choose ${letter}`} className={wrong===letter?"is-wrong":""} key={letter} onClick={()=>void run(()=>lesson.mode==="build"?place(letter):lesson.mode==="match"?match(letter):choose(letter))}>{letter}</button>)}</div>}
       <div className="cvc-controls">
         <button className="cvc-replay" title={phase==="reward"?"Hear your voice":"Hear Milo"} aria-label={phase==="reward"?"Hear your voice":"Hear Milo"} disabled={isBusy||(!enabled&&phase!=="choice")} onClick={()=>void run(async()=>{ if(phase==="reward"&&recording.current) await sound.play(recording.current); else if(phase==="intro") await introduce(); else { await model(); if(phase==="choice") setJoined(false); } })}>{phase==="reward"?<Headphones/>:<Volume2/>}</button>
-        {phase==="reward"?<button className="cvc-primary" disabled={isBusy} onClick={onNext}>{crown&&jewel===2?"My crown":crown?"Next jewel":"Back to castle map"}<ArrowRight size={20}/></button>:phase!=="choice"&&<button className="cvc-primary" disabled={!enabled||isBusy} onClick={()=>void run(phase==="intro"?introduce:record)}><ActionIcon size={25}/>{phase==="intro"?"Listen to Milo":phase==="recording"?`Say ${word}`:phase==="preparing"?"Get ready...":phase==="playback"?"Hear your voice":phase==="magic"?"You helped Milo!":phase==="speaking"?"Listen to Milo":`Practice my ${word} ${word.length===3?"word":"sound"}`}</button>}
+        {phase==="reward"?<button className="cvc-primary" disabled={isBusy} onClick={onNext}>{crown&&jewel===2?"My crown":crown?"Next jewel":"Back to castle map"}<ArrowRight size={20}/></button>:phase!=="choice"&&<button className="cvc-primary" disabled={!enabled||isBusy} onClick={()=>void run(phase==="intro"?introduce:record)}><ActionIcon size={25}/>{phase==="checking"?"Checking your word...":phase==="intro"?"Listen to Milo":phase==="recording"?`Say ${word}`:phase==="preparing"?"Get ready...":phase==="playback"?"Hear your voice":phase==="magic"?"You helped Milo!":phase==="speaking"?"Listen to Milo":`Practice my ${word} ${word.length===3?"word":"sound"}`}</button>}
       </div>
       </div>
       {error&&<p className="cvc-error" role="alert">{error}</p>}

@@ -6,6 +6,7 @@ export interface PracticeAttempt {
   outcome: PracticeOutcome; correctiveFeedbackTriggered: boolean;
   accuracy: number | null; asrConfidence: number | null; tier: FluencyTier | null; selfCorrected: boolean | null;
   assessmentSource: "not_assessed" | "validated_assessment";
+  wordRecognition?: "matched" | "different" | "uncertain" | "unavailable";
 }
 export const PRACTICE_CHANGED = "readlr-practice-changed";
 export const practiceKey = (id: number) => `readlr_practice_v1_${id}`;
@@ -33,6 +34,7 @@ export function parsePractice(raw: string | null, studentId: number): PracticeAt
       Number.isFinite(r.timestamp) && r.timestamp > 0 && Number.isInteger(r.attemptNumber) && r.attemptNumber > 0 &&
       Number.isFinite(r.totalDurationMs) && r.totalDurationMs >= 0 && ["recorded","voice_detected","silence","error","interrupted"].includes(r.outcome) &&
       typeof r.correctiveFeedbackTriggered === "boolean" &&
+      (r.wordRecognition === undefined || ["matched","different","uncertain","unavailable"].includes(r.wordRecognition)) &&
       (r.assessmentSource === "not_assessed" ? r.accuracy === null && r.asrConfidence === null && r.tier === null && r.selfCorrected === null :
         r.assessmentSource === "validated_assessment" && Number.isFinite(r.accuracy) && r.accuracy >= 0 && r.accuracy <= 1 &&
         Number.isFinite(r.asrConfidence) && r.asrConfidence >= 0 && r.asrConfidence <= 1 && r.totalDurationMs > 0 &&
@@ -62,6 +64,7 @@ export function createPracticeTracker(studentId: number | null | undefined, stag
   const sessionId = uuid();
   let pending: PracticeAttempt | null = null;
   let attemptNumber = 0;
+  let last: PracticeAttempt | null = null;
   return {
     begin() {
       if (pending || !validLearner(studentId)) return;
@@ -72,8 +75,14 @@ export function createPracticeTracker(studentId: number | null | undefined, stag
     },
     finish(outcome: PracticeOutcome) {
       if (!pending) return;
-      save({...pending, outcome, totalDurationMs: Math.max(0,now()-pending.timestamp)});
+      last = {...pending, outcome, totalDurationMs: Math.max(0,now()-pending.timestamp)};
+      save(last);
       pending = null;
+    },
+    recognize(wordRecognition: NonNullable<PracticeAttempt['wordRecognition']>) {
+      if(!last) return;
+      last={...last,wordRecognition,correctiveFeedbackTriggered:wordRecognition==='different'};
+      save(last);
     },
   };
 }
