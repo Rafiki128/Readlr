@@ -30,6 +30,8 @@ import { Help } from "./components/Help";
 import { ProfilePage } from "./components/ProfilePage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { LearningIntroduction } from "./components/LearningIntroduction";
+import { hasIntroduction, finishIntroduction } from "../hooks/learningIntroduction";
 
 // Stage configuration for determining progress
 const STAGE_CONFIG: Record<number, { title: string; totalLevels: number; nextStageId?: number }> = {
@@ -275,9 +277,10 @@ function AppContent() {
   const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
   const [stageComplete, setStageComplete] = useState<{ stageId: number; frames: UnlockedFrame[] } | null>(null);
   const [journeyActivityOpen, setJourneyActivityOpen] = useState(false);
+  const [introductionOpen, setIntroductionOpen] = useState(false);
   const completionHandledRef = useRef(false);
 
-  useEffect(() => { setStickerReward(null); setStageComplete(null); }, [user?.id]);
+  useEffect(() => { setStickerReward(null); setStageComplete(null); setIntroductionOpen(false); }, [user?.id]);
   useEffect(() => {
     if (currentScreen !== "level-map" && currentScreen !== "vowel-power-complete") setStickerReward(null);
     if (currentScreen === "game") completionHandledRef.current = false;
@@ -498,6 +501,7 @@ function AppContent() {
   };
 
   const handleStartAdventure = () => {
+    if (learnerId && !hasIntroduction(learnerId)) setIntroductionOpen(true);
     setCurrentScreen("stage-selection");
   };
 
@@ -719,6 +723,13 @@ function AppContent() {
     return <AdminDashboard />;
   }
 
+  if (introductionOpen && learnerId) return <LearningIntroduction key={learnerId} learnerId={learnerId} userName={learnerName} completedByStage={completedByStage} onLessonDone={() => {
+    finishIntroduction(learnerId); setIntroductionOpen(false);
+    setSelectedStage(1); setSelectedLevel(1); setMapEntry("dojo"); setCurrentScreen("level-map");
+  }} onDone={() => {
+    finishIntroduction(learnerId); setIntroductionOpen(false);
+  }} />;
+
   return (
     <div className="size-full flex flex-col">
       {showLearnerHeader && (
@@ -873,7 +884,7 @@ function AppContent() {
         )}
 
         {currentScreen === "help" && (
-          <Help />
+          <Help onTutorial={() => setIntroductionOpen(true)} />
         )}
 
         {currentScreen === "profile" && (

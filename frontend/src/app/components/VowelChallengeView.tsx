@@ -5,12 +5,14 @@ import { CharacterCompanion, type CharacterState } from "./CharacterCompanion";
 import "./vowelChallenge.css";
 import "./challengeControls.css";
 import { TrailPowerScene } from "./TrailPowerScene";
+import { NarrationHeader } from "./NarrationHeader";
 
 interface Props {
   vowel: string; sound: string; ability: string; title: string; message: string;
   characterState: CharacterState; training: boolean; ready: boolean;
   recording: boolean; recorded: boolean; celebrating: boolean;
   preparing?: boolean;
+  onSkip?: () => void;
   onBack: () => void; onReplay: () => void; onRecord: () => void;
 }
 
@@ -36,7 +38,7 @@ export function VowelChallengeView(p: Props) {
           ))}
         </ol>
         <div className="vowel-play__dialogue" aria-live="polite" aria-atomic="true">
-          <span>Milo says</span>
+          <NarrationHeader canSkip={Boolean(!p.ready && !p.recording && !p.recorded && !p.preparing && p.onSkip)} onSkip={p.onSkip}/>
           <motion.p key={p.message} initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
             {p.message.split(/(\/[aeiou]\/|\b(?:A Armor|E Echo|I Insight|O Orb|U Uplift)\b)/gi).map((part, index) => {
               const sound = /^\/[aeiou]\/$/i.test(part);

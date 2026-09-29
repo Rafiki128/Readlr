@@ -5,6 +5,7 @@ import { StickerBookView } from "../app/components/StickerBook";
 import { UnifiedDashboard } from "../app/components/UnifiedDashboard";
 import { MyPractice } from "../app/components/MyPractice";
 import { Help } from "../app/components/Help";
+import { LearningIntroduction } from "../app/components/LearningIntroduction";
 import { weekStart, type PracticeAttempt } from "../hooks/practiceRecords";
 import { createRoot } from "react-dom/client";
 import { CvcKingdom } from "../app/components/CvcKingdom";
@@ -29,6 +30,7 @@ function CvcPreview() {
     accuracy:null,asrConfidence:null,tier:null,selfCorrected:null,assessmentSource:"not_assessed",
   })));
   function select(value:number) {setSelection(value);setVisit(n=>n+1);setCompleted(false);}
+  if (selection === 32) return <LearningIntroduction onDone={() => select(0)} />;
   return <div style={{height:"100dvh",display:"flex",flexDirection:"column",background:"#faf7f2"}}>
     <header style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,flexWrap:"wrap",padding:"10px 16px",background:"#ecfdf5",borderBottom:"1px solid #a7f3d0",color:"#065f46",flexShrink:0}}>
       <strong>Challenge Preview</strong>
@@ -43,6 +45,7 @@ function CvcPreview() {
           <option value={29}>My Progress - sample journey</option>
           <option value={30}>My Practice - sample recordings</option>
           <option value={31}>Help & guidance</option>
+          <option value={32}>Tutorial & microphone check</option>
           <option value={23}>Storybook - all pages preview</option>
           <option value={-11}>Chapter 1 introduction</option>
           <option value={-12}>Chapter 2 introduction</option>
@@ -58,7 +61,7 @@ function CvcPreview() {
       <span style={{fontSize:12}} role="status">{completed?"Preview completed. Account progress unchanged.":"No account progress is changed."}</span>
     </header>
     {selection===30&&<div style={{overflow:"auto",flex:1}}><div style={{maxWidth:1100,margin:"0 auto",padding:16}}><MyPractice records={practiceSample}/></div></div>}
-    {selection===31&&<div style={{flex:1,minHeight:0}}><Help/></div>}
+    {selection===31&&<div style={{flex:1,minHeight:0}}><Help onTutorial={()=>select(32)}/></div>}
     {selection!==30&&selection!==31&&<div style={{flex:1,minHeight:0,display:selection===23?"flex":undefined}}>
       {selection===29?<UnifiedDashboard userName="Explorer" completedByStage={{1:20,2:8,3:0}} onBack={()=>select(0)} onContinue={stage=>select(stage===3?0:-1)}/>:selection===26?<Achievements onBack={()=>select(0)} completedByStage={{1:20,2:8,3:0}}/>:selection===27||selection===28?<StickerBookView key={selection} onBack={()=>select(0)} completedByStage={selection===27?{1:20,2:8,3:0}:{}}/>:selection===24 || selection===25?<PhonemeBank key={selection} onBack={()=>select(0)} completedByStage={selection===24?{1:20,2:20,3:20}:{}}/>:selection===23?<div className="cvc-root" style={{width:"100%"}}><CvcRoyalBook completed={19} onPractice={select}/></div>:<>
       {selection<=-11?<StoryScene key={`${selection}-${visit}`} stageId={-selection-10} dojoCompleted bridgeWorkshopCompleted onBack={()=>select(0)} onBegin={()=>select(selection===-12?-1:selection===-13?1:0)} onGoToValley={()=>select(0)} onGoToBridgeMap={()=>select(-2)}/>:selection<0?<BridgePractice key={`${selection}-${visit}`} lesson={selection===-1?WORKSHOP_LESSONS[0]:CROSSING_LESSONS[(-selection-2)*5]} onBack={()=>select(0)} onComplete={()=>setCompleted(true)}/>:selection===0?<CvcKingdom key={visit} onBack={()=>{location.href="/";}}/>:<CvcChallenge key={`${selection}-${visit}`} lesson={CVC_LESSONS.find(lesson=>lesson.id===selection)} jewel={Math.max(0,selection-20)} onBack={()=>select(0)} onComplete={()=>setCompleted(true)} onNext={()=>select(selection<22?selection+1:0)}/>}

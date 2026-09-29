@@ -14,6 +14,8 @@ import "./challengeRooms.css";
 import "./challengeControls.css";
 import { getLearningSettings } from "../../hooks/learningSettings";
 import { usePracticeSession } from "../../hooks/usePracticeSession";
+import { explanationSeen } from "../../hooks/learningIntroduction";
+import { NarrationHeader } from "./NarrationHeader";
 
 type Phase = "start" | "narrating" | "choice" | "join" | "ready" | "preparing" | "recording" | "playback" | "building" | "reward" | "error";
 
@@ -37,6 +39,12 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
   const active = useRef(true);
   const busy = useRef(false);
   const saved = useRef(false);
+  const [explaining, setExplaining] = useState(false);
+  function skipExplanation() {
+    sound.stop(); setExplaining(false); setCue("none"); setJoined(false);
+    setMessage(choice ? "Choose the matching sound piece. Use the speaker to hear it." : "Tap to join the two sound pieces.");
+    setPhase(choice ? "choice" : "join");
+  }
   const stream = useRef<MediaStream | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
@@ -131,6 +139,13 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
       setJoined(false);
       setSelected(false);
       setCue("none");
+      setExplaining(true);
+      if (explanationSeen(learnerId, `bridge-${lesson.id}`)) {
+        await playBlend();
+        setExplaining(false); setPhase(choice ? "choice" : "join");
+        setMessage(choice ? "Choose the matching sound piece." : "Tap to join the two sound pieces.");
+        return;
+      }
       await sayLesson("Intro");
       if (!active.current) return;
       if (lesson.id === "workshop-1") {
@@ -157,7 +172,7 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
         setJoined(false);
         if(choice) await explain("BridgePickPiece.wav", "Which sound piece did you hear? Tap its match.");
         else await explain("BridgeJoinPieces.wav", "Your turn! Tap to join the two sound pieces.");
-        if(active.current) setPhase(choice ? "choice" : "join");
+        if(active.current) { explanationSeen(learnerId, `bridge-${lesson.id}`, true); setExplaining(false); setPhase(choice ? "choice" : "join"); }
       }
     });
   }
@@ -302,7 +317,7 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
         {[{name:"Listen",icon:Volume2},{name:"Say it",icon:Mic},{name:"Hear it",icon:Headphones}].map((item,index)=><li key={item.name} data-current={step===index} data-done={step>index}>{step>index?<Check size={17}/>:<item.icon size={17}/>}<span>{item.name}</span></li>)}
       </ol>
       <section className="bridge-guided-frame bridge-sound-room" data-training={lesson.training}>
-        <div className="bridge-dialogue" aria-live="polite" aria-atomic="true"><span><Link2 size={15} aria-hidden="true"/> Milo says</span><motion.p key={message} initial={reducedMotion ? false : {opacity:0,y:5}} animate={{opacity:1,y:0}} transition={{duration:.22}}>{highlightedMessage}</motion.p><div className="bridge-dialogue__dots" aria-hidden="true"><i /><i /><i /></div></div>
+        <div className="bridge-dialogue" aria-live="polite" aria-atomic="true"><NarrationHeader icon={<Link2 size={15} aria-hidden="true"/>} canSkip={explaining && phase === "narrating"} onSkip={skipExplanation}/><motion.p key={message} initial={reducedMotion ? false : {opacity:0,y:5}} animate={{opacity:1,y:0}} transition={{duration:.22}}>{highlightedMessage}</motion.p><div className="bridge-dialogue__dots" aria-hidden="true"><i /><i /><i /></div></div>
         <div className="bridge-builder-deck">
         <div className="bridge-practice__scene" data-workshop={lesson.training}><BridgeScene built={fastened} mode={lesson.mode} region={lesson.region} workshop={lesson.training} /><div className="bridge-practice__milo"><CharacterCompanion size={125} state={speaking ? "speaking" : phase === "recording" ? "listening" : fastened ? "celebrating" : "idle"} /></div>{phase === "building" && lesson.training && <motion.div className="sound-link-delivery" initial={{y:100,scale:1,opacity:1}} animate={{y:0,scale:.65,opacity:[1,1,0]}} transition={{duration:reducedMotion?0:1.5}}>{lesson.blend.toLowerCase()}<Link2 size={22}/></motion.div>}</div>
         <BlendWorkbench blend={lesson.blend} cue={cue} joined={joined} fastened={fastened} hidden={Boolean(choice && !selected)} />
@@ -311,6 +326,7 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
       </section>
       {phase === "choice" && <div className="bridge-choices">{choices.map(value => <button key={value} onClick={() => choose(value)} aria-label={`Choose ${value}`}>{value}</button>)}</div>}
       <div className="bridge-practice__actions">
+        {phase === "choice" && <button title="Hear the blend" aria-label="Hear the blend" onClick={() => void run(playBlend)}><Volume2 size={22}/></button>}
         {["narrating", "preparing", "recording", "playback", "building"].includes(phase) && <button className="bridge-practice__audio" disabled aria-label="Hear the blend again" title="Hear the blend again"><Volume2 size={22}/></button>}
         {phase === "start" && <button className="bridge-practice__audio" onClick={introduce} aria-label="Hear Milo" title="Hear Milo"><Volume2 size={22} /></button>}
         {phase === "join" && <button className="bridge-primary" onClick={joinPieces}><Link2 size={22}/>Join my sounds</button>}
