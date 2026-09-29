@@ -18,6 +18,7 @@ interface StoryScene {
 }
 
 interface StorySceneProps {
+  guided?: boolean;
   stageId: number;
   dojoCompleted?: boolean;
   bridgeWorkshopCompleted?: boolean;
@@ -65,7 +66,7 @@ function chapterBeginAudio(stageId: number) {
   return null;
 }
 
-export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompleted = false, onGoToValley, onGoToBridgeMap, onBack, onBegin }: StorySceneProps) {
+export function StoryScene({ guided = false, stageId, dojoCompleted = false, bridgeWorkshopCompleted = false, onGoToValley, onGoToBridgeMap, onBack, onBegin }: StorySceneProps) {
   const scene = SCENES[stageId] ?? SCENES[1];
   const { playAudio, stopAudio, speakText } = useAudioManager();
   const [speaking, setSpeaking] = useState(false);
@@ -139,7 +140,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
   // Keep one sequence per visit; audio helpers are recreated on render.
   useEffect(() => {
     const timer = setTimeout(() => {
-      playIntroduction();
+      if (!guided) playIntroduction();
     }, 700);
     timerRef.current = timer;
 
@@ -149,7 +150,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
       if (timerRef.current) clearTimeout(timerRef.current);
       stopAudio();
     };
-  }, [stageId]);
+  }, [stageId, guided]);
 
   const handleListen = () => {
     if (beginningRef.current) return;
@@ -158,6 +159,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
   };
 
   const handleBegin = () => {
+    if (guided) { cancelNarration(); onBegin(); return; }
     if (beginningRef.current) return;
     beginningRef.current = true;
     setBeginning(true);
@@ -299,6 +301,7 @@ export function StoryScene({ stageId, dojoCompleted = false, bridgeWorkshopCompl
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleBegin}
+                  data-tour="begin-chapter"
                   disabled={beginning}
                   className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-2xl text-white text-sm sm:text-lg font-medium transition-colors hover:opacity-90 w-full sm:w-auto justify-center sm:justify-start"
                   style={{

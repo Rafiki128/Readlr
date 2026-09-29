@@ -9,6 +9,7 @@ import { VowelChallengeView } from "./VowelChallengeView";
 import { getLearningSettings, learningVolume } from "../../hooks/learningSettings";
 import { useBridgeAudio } from "../../hooks/useBridgeAudio";
 import { startAudioPlayback } from "../../hooks/audioPlayback";
+import { explanationSeen } from "../../hooks/learningIntroduction";
 
 type FluencyTier = "fluent" | "halting" | "syllabic";
 type StageOneLevelType =
@@ -802,6 +803,7 @@ function getChallenge(stageId: number, levelId: number): Challenge {
 
 export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: GameLevelProps) {
   const recordingPrompts = useBridgeAudio("/audio/stage1");
+  const skipExplanationRef = useRef<(() => void) | null>(null);
   const cancelVoicePlayback = useRef<(() => void) | null>(null);
   const { accent, tint } = STAGE_ACCENTS[stageId] ?? STAGE_ACCENTS[1];
   const { playAudio, stopAudio, stopAllAudio, speakText } = useAudioManager();
@@ -978,6 +980,14 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
 
     const timers: ReturnType<typeof setTimeout>[] = [];
     let cancelled = false;
+    skipExplanationRef.current = () => {
+      cancelled = true;
+      stopAllAudio();
+      setStageOneIntroRevealed(true);
+      setStageOneVisibleChoiceCount(stageOneDoor ? 1 : 0);
+      setCharacterState("idle");
+      setBubbleMessage(`Your turn! Say ${activePower.sound}.`);
+    };
 
     const revealStageOneActivity = () => {
       if (cancelled) return;
@@ -994,6 +1004,7 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
         const readyAudio = stageOneDoor ? playAudio(stageOneDoor.readyAudioPath) : playAudio("/audio/stage1/TapToUsePower.wav");
         const finishReadyPrompt = () => {
           if (cancelled) return;
+          explanationSeen(learnerId, `vowel-${levelId}`, true);
           setStageOneIntroRevealed(true);
           setCharacterState("idle");
           setBubbleMessage(readyMessage);
@@ -1075,7 +1086,8 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
 
     const autoplayTimer = setTimeout(() => {
       if (isStageOneQuest) {
-        playStageOneNarrationStep(0);
+        if (explanationSeen(learnerId, `vowel-${levelId}`)) revealStageOneActivity();
+        else playStageOneNarrationStep(0);
         return;
       }
 
@@ -1085,6 +1097,7 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
     return () => {
       cancelled = true;
       clearTimeout(autoplayTimer);
+      skipExplanationRef.current = null;
       timers.forEach(clearTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1484,6 +1497,7 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
       title={stageOneDoor ? "Train your vowel power" : activePowerChallenge.title}
       message={bubbleMessage} characterState={characterState}
       preparing={preparingRecording}
+      onSkip={() => skipExplanationRef.current?.()}
       training={Boolean(stageOneDoor)} ready={stageOneIntroRevealed}
       recording={isRecording} recorded={hasRecording} celebrating={stageOneRewardRevealed}
       onBack={onBack} onReplay={playStageOneModel} onRecord={startStageOneRecording}

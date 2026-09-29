@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Mic, Trophy, Map, Search, ChevronDown, Volume2, Headphones, Heart, X } from "lucide-react";
+import { BookOpen, Mic, Trophy, Map, Search, ChevronDown, Volume2, Headphones, Heart, X, RotateCcw, ArrowRight } from "lucide-react";
 import "./help.css";
 
 const topics = [
@@ -31,7 +31,7 @@ const topics = [
   ]},
 ] as const;
 
-export function Help() {
+export function Help({ onTutorial }: { onTutorial?: () => void }) {
   const [topic,setTopic]=useState<string>("journey");
   const [query,setQuery]=useState("");
   const search=query.trim().toLowerCase();
@@ -39,7 +39,13 @@ export function Help() {
   const results=topics.flatMap(item=>item.answers.map(([question,answer])=>({question,answer,topic:item.title,id:item.id})))
     .filter(item=>search?`${item.question} ${item.answer} ${item.topic}`.toLowerCase().includes(search):item.id===topic);
   return <div className="readlr-help"><main className="help-inner">
-    <header className="help-heading"><div><p className="help-eyebrow">A little help along the way</p><h1>Help & guidance</h1><p>For young readers and the grown-ups beside them.</p></div><BookOpen size={48} aria-hidden="true"/></header>
+    <header className="help-heading"><div><p className="help-eyebrow">A little help along the way</p><h1>Help & guidance</h1><p>For young readers and the grown-ups beside them.</p></div>
+      {onTutorial ? <button onClick={onTutorial} className="help-tutorial" aria-label="Replay Milo's tutorial and microphone check">
+        <span className="help-tutorial__icon"><RotateCcw size={22} aria-hidden="true"/></span>
+        <span className="help-tutorial__label"><strong>Take a tour with Milo</strong><small>Tutorial & microphone check</small></span>
+        <ArrowRight size={19} className="help-tutorial__arrow" aria-hidden="true"/>
+      </button> : <BookOpen size={48} aria-hidden="true"/>}
+    </header>
     <ol className="help-voice-flow" aria-label="Voice practice sequence">{[{icon:Volume2,title:"Listen to Milo",text:"Hear the sound first."},{icon:Mic,title:"Your turn",text:"Wait for the listening cue."},{icon:Headphones,title:"Hear your voice",text:"Listen back together."}].map(({icon:Icon,title,text},i)=><li key={title}><span className={`help-step step-${i}`}><Icon size={23}/></span><div><h2>{title}</h2><p>{text}</p></div></li>)}</ol>
     <div className="help-search"><Search size={20} aria-hidden="true"/><input aria-label="Search help" placeholder="Search sounds, stages, progress..." value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label="Clear search" title="Clear search" onClick={()=>setQuery("")}><X size={18}/></button>}</div>
     <div className="help-layout"><nav aria-label="Help topics">{topics.map(({id,title,icon:Icon})=><button key={id} aria-current={!search&&topic===id?"page":undefined} onClick={()=>{setTopic(id);setQuery("");}}><Icon size={19}/>{title}</button>)}</nav>

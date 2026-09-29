@@ -14,6 +14,8 @@ import "./challengeControls.css";
 import { getLearningSettings } from "../../hooks/learningSettings";
 import { usePracticeSession } from "../../hooks/usePracticeSession";
 import { recognizeCvc } from "../../hooks/recognizeCvc";
+import { explanationSeen } from "../../hooks/learningIntroduction";
+import { NarrationHeader } from "./NarrationHeader";
 import { CVC_AUDIO, cvcLessonAudio, cvcCrownAudio, cvcReadyAudio, cvcModelAudio } from "./stageThreeAudio";
 
 type Phase = "intro"|"speaking"|"choice"|"ready"|"preparing"|"recording"|"playback"|"checking"|"magic"|"reward";
@@ -33,6 +35,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
   const [chosen,setChosen]=useState(false);
   const [wrong,setWrong]=useState("");
   const [isBusy,setIsBusy]=useState(false);
+  const [explaining,setExplaining]=useState(false);
   const [placed,setPlaced]=useState("");
   const placedRef=useRef("");
   const busy=useRef(false), alive=useRef(true), saved=useRef(false);
@@ -105,7 +108,9 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
   }
   async function introduce() {
     resume.current="intro"; setPhase("speaking");
-    await say(lesson?.story || CROWN_PROMPTS[jewel],lesson?cvcLessonAudio(lesson.id,"Intro"):cvcCrownAudio(jewel,"Intro"));
+    setExplaining(true);
+    if (!explanationSeen(learnerId, `cvc-${lesson?.id ?? `crown-${jewel}`}`))
+      await say(lesson?.story || CROWN_PROMPTS[jewel],lesson?cvcLessonAudio(lesson.id,"Intro"):cvcCrownAudio(jewel,"Intro"));
     if(hasChoice && !chosen) {
       if(lesson!.mode!=="conjure") await model();
       setJoined(false); resume.current="choice";
@@ -114,6 +119,14 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
     }
     else if(lesson && lesson.id<=5) await teach();
     else { if(lesson?.mode!=="read") await model(); setPhase("ready"); resume.current="ready"; setMessage(`Your turn! Say ${word}.`); }
+    explanationSeen(learnerId, `cvc-${lesson?.id ?? `crown-${jewel}`}`, true);
+    setExplaining(false);
+  }
+  function skipExplanation() {
+    sound.stop(); setExplaining(false); setBlending(false); setActiveLetter(-1); setJoined(false);
+    const next = hasChoice && !chosen ? "choice" : "ready";
+    resume.current = next; setPhase(next);
+    setMessage(next === "choice" ? cvcPuzzleLine(lesson!) : `Your turn! Say ${word}.`);
   }
   async function finishPuzzle() {
     setWrong(""); setChosen(true); resume.current="ready";
@@ -193,7 +206,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
       <ol className="cvc-voice-steps" aria-label="Challenge steps">
         {[{name:"Listen",icon:Volume2},{name:"Say it",icon:Mic},{name:"Hear it",icon:Headphones}].map((step,index)=><li key={step.name} data-current={voiceStep===index} data-done={voiceStep>index} aria-current={voiceStep===index?"step":undefined}>{voiceStep>index?<Check size={17}/>:<step.icon size={17}/>}<span>{step.name}</span></li>)}
       </ol>
-      <div className="cvc-subtitle cvc-storybook-caption" aria-live="polite"><span><BookOpen size={15} aria-hidden="true"/> Milo says</span><p>{highlight(message)}</p><span className="cvc-caption-seal" aria-hidden="true"><Sparkles size={15}/></span></div>
+      <div className="cvc-subtitle cvc-storybook-caption" aria-live="polite"><NarrationHeader icon={<BookOpen size={15} aria-hidden="true"/>} canSkip={explaining && phase === "speaking"} onSkip={skipExplanation}/><p>{highlight(message)}</p><span className="cvc-caption-seal" aria-hidden="true"><Sparkles size={15}/></span></div>
       <div className={`cvc-theatre ${showingResult?"cvc-restored":""} ${lesson?"cvc-dynamic-scene":""} cvc-spell-${word}`}>
         <CastleBackdrop area={lesson?.area ?? 3}/>
         <div className="cvc-spell-dais" aria-hidden="true"><i/><i/><i/></div>

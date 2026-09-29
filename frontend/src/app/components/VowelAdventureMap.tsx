@@ -49,8 +49,8 @@ function Landscape({ region }: { region: number }) {
   </svg>;
 }
 
-export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onSelectLevel }: {
-  completedCount?: number; initialView?: "dojo" | "valley"; onBack: () => void; onSelectLevel: (id: number) => void;
+export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onSelectLevel, guided = false }: {
+  completedCount?: number; initialView?: "dojo" | "valley"; onBack: () => void; onSelectLevel: (id: number) => void; guided?: boolean;
 }) {
   const completed = Math.max(0, Math.min(20, completedCount));
   const [room, setRoom] = useState(completed < 5 || initialView === "dojo" || (initialView !== "valley" && completed === 5));
@@ -61,6 +61,7 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
   const currentRef = useRef<HTMLButtonElement>(null);
   const next = Math.min(20, completed + 1);
   useEffect(() => {
+    if (guided) return;
     if (!room) {
       setTrailArrival(false);
       const container = scrollRef.current;
@@ -86,7 +87,7 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
       ? "/audio/stage1/DojoIntro.wav"
       : "/audio/stage1/DojoReturn.wav"), 450);
     return () => clearTimeout(timer);
-  }, [room, completed]);
+  }, [room, completed, guided]);
   const dismiss = () => {
     localStorage.setItem("readlr_vowel_dojo_unlock_dismissed", "true");
     setNotice(false);

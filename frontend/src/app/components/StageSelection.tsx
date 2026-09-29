@@ -119,6 +119,7 @@ export function StageSelection({
             {quickActions.map(({ label, icon: Icon, onClick, tint, color }) => (
               <motion.button
                 key={label}
+                data-tour={label}
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onClick}
@@ -144,6 +145,7 @@ export function StageSelection({
               return (
                 <motion.button
                   key={stage.id}
+                  data-tour={`stage-${stage.id}`}
                   initial={{ y: 16, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: index * 0.08, ease: "easeOut" }}
