@@ -34,6 +34,13 @@ export async function handleUpdateMySettings(req: Request, res: Response) {
     const body = req.body as UpdateSettingsRequest;
     const updates: UpdateSettingsRequest = {};
 
+    if (body.milo_voice !== undefined) {
+      if (body.milo_voice !== 'milo' && body.milo_voice !== 'classic') {
+        return res.status(400).json({ error: 'milo_voice must be milo or classic' });
+      }
+      updates.milo_voice = body.milo_voice;
+    }
+
     if (body.sound_volume !== undefined) {
       const volume = Number(body.sound_volume);
       if (!Number.isInteger(volume) || volume < 0 || volume > 100) {

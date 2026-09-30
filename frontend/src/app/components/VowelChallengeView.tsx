@@ -50,7 +50,7 @@ export function VowelChallengeView(p: Props) {
           </motion.p>
         </div>
         <div className="vowel-play__scene" data-trail={!p.training}>
-          <div className="vowel-play__milo"><CharacterCompanion state={p.characterState} phoneme={p.vowel} size={180} /></div>
+          <div className="vowel-play__milo"><CharacterCompanion state={p.characterState} phoneme={p.vowel} size={180} gesture={p.celebrating ? "reveal" : p.characterState === "speaking" && !p.preparing ? "point" : "rest"} lookAt={p.celebrating || p.characterState === "speaking" && !p.preparing ? "right" : "viewer"} /></div>
           {!p.training && <TrailPowerScene title={p.title} vowel={p.vowel} active={p.celebrating} />}
           <motion.div className="vowel-play__power" animate={p.celebrating && !reduced ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.7 }}>
             <VowelPowerSymbol vowel={p.vowel} />

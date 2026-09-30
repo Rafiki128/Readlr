@@ -89,7 +89,7 @@ export function GuidedLessonTour({onDone,onSkip}:{onDone:()=>void;onSkip:()=>voi
   }}>
     <header className="guided-tour__header"><span><Compass size={22}/><strong>Try your first lesson</strong><small>Practice only - no progress saved</small></span><button className="guided-tour__skip" onClick={()=>leave(true)}>{step>=4?"Do this later":"Skip lesson tour"}</button></header>
     <div ref={coach} className="lesson-coach" role="region" aria-label="Milo's lesson guide">
-      <CharacterCompanion size={80} state={capture==="recording"?"listening":"idle"}/>
+      <CharacterCompanion size={80} state={capture==="recording"||capture==="playing"?"listening":sound.isPlaying?"speaking":error?"encouraging":"idle"}/>
       <div><span className="lesson-coach__step">FIRST LESSON / {step+1} OF {steps.length}</span><h2>{capture==="recording"?"Your turn! Say /a/":capture==="preparing"?"Wait for the listening cue":capture==="playing"?"That's your voice!":current.title}</h2><p>{capture==="idle"?current.text:capture==="recording"?"Milo is listening. The recording will stop by itself.":capture==="playing"?"Listen to your recording.":"Choose Allow if your browser asks. Your turn is coming."}</p>
       {step===4&&(permission==="denied"||permissionFailed)?<MicrophonePermissionHelp disabled={capture!=="idle"} onRetry={()=>void run(record)}/>:error&&<p className="intro-error" role="alert">{error}</p>}
       {step===2&&<button className="lesson-coach__next" onClick={advance}>Let's listen <ArrowRight size={18}/></button>}
@@ -102,7 +102,7 @@ export function GuidedLessonTour({onDone,onSkip}:{onDone:()=>void;onSkip:()=>voi
     }}>
       {step===0?<StoryScene guided stageId={1} onBack={()=>leave(true)} onBegin={advance}/>:
       step===1?<VowelAdventureMap guided initialView="dojo" completedCount={0} onBack={()=>leave(true)} onSelectLevel={advance}/>:
-      <><VowelChallengeView vowel="A" sound="/a/" ability="A Armor" title="Train your vowel power" message={capture==="recording"?"Your turn! Say /a/.":step===5?"Tap Hear my voice to listen to yourself.":"Listen, say /a/, then hear your voice."} characterState={capture==="recording"?"listening":"idle"} training ready recording={capture==="recording"} preparing={capture==="preparing"} recorded={step===5} celebrating={false}
+      <><VowelChallengeView vowel="A" sound="/a/" ability="A Armor" title="Train your vowel power" message={capture==="recording"?"Your turn! Say /a/.":step===5?"Tap Hear my voice to listen to yourself.":"Listen, say /a/, then hear your voice."} characterState={capture==="recording"||capture==="playing"?"listening":sound.isPlaying?"speaking":error?"encouraging":"idle"} training ready recording={capture==="recording"} preparing={capture==="preparing"} recorded={step===5} celebrating={false}
         onBack={()=>leave()} onReplay={()=>void run(async()=>{const id=generation.current;await sound.play("/audio/stage1/A.wav");if(alive.current&&generation.current===id)advance();})} onRecord={()=>void run(record)}/>
       {step===5&&<div className="lesson-voice"><button data-tour="my-voice" disabled={capture==="playing"} onClick={()=>void run(async()=>{if(!url.current)return;const id=generation.current;setCapture("playing");await sound.play(url.current);if(alive.current&&generation.current===id)advance();})}><Headphones size={22}/>{capture==="playing"?"Playing your recording...":"Hear my voice"}</button></div>}</>}
     </div>

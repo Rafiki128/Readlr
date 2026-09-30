@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { resolveStageOneAudioPath } from '../app/components/stageOneAudio';
 import { resolveStageTwoAudioPath } from '../app/components/stageTwoAudio';
-import { learningVolume } from './learningSettings';
+import { getLearningSettings, learningVolume } from './learningSettings';
+import { voiceCandidates, withVoiceFallback } from './miloVoice';
 
 // Global audio manager to prevent overlapping audio across the entire app
 let globalAudioRef: HTMLAudioElement | null = null;
@@ -59,7 +60,9 @@ export function useAudioManager() {
     isPlayingRef.current = false;
     
     try {
-      const audio = new Audio(resolveStageTwoAudioPath(resolveStageOneAudioPath(audioPath)));
+      const paths = voiceCandidates(audioPath, getLearningSettings().milo_voice)
+        .map(path => resolveStageTwoAudioPath(resolveStageOneAudioPath(path)));
+      const audio = withVoiceFallback(new Audio(), paths);
       audio.volume = learningVolume();
       
       globalAudioRef = audio;

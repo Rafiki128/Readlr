@@ -86,7 +86,7 @@ export function LearningIntroduction({ onDone, onLessonDone, learnerId, complete
         </ol>
         <div className="mic-studio">
           <div className="mic-studio__scene" aria-hidden="true">
-            <div className="mic-studio__milo"><CharacterCompanion size={140} state={status==="recording"?"listening":heard?"celebrating":"idle"}/></div>
+            <div className="mic-studio__milo"><CharacterCompanion size={140} state={status==="recording"||status==="playing"?"listening":sound.isPlaying?"speaking":error?"encouraging":heard?"celebrating":"idle"}/></div>
             <div className="mic-studio__sound">{[14,24,38,26,48,32,20].map((height,index)=><i key={index} style={{height,animationDelay:`${index*90}ms`}}/>)}</div>
             <div className="mic-studio__microphone">{heard?<Check size={42}/>:status==="playing"?<Headphones size={42}/>:<Mic size={42}/>}</div>
           </div>
@@ -112,7 +112,7 @@ export function LearningIntroduction({ onDone, onLessonDone, learnerId, complete
   return <main className="learning-intro">
     <header><span>Meet your reading buddy</span><button onClick={() => step < 3 ? next(3) : onDone()}>{step < 3 ? "Skip tutorial" : "Do this later"}</button></header>
     <section aria-labelledby="intro-title">
-      <CharacterCompanion size={145} state={status === "recording" ? "listening" : heard ? "celebrating" : "idle"}/>
+      <CharacterCompanion size={145} state={status === "recording" || status === "playing" ? "listening" : sound.isPlaying ? "speaking" : error ? "encouraging" : heard ? "celebrating" : "idle"}/>
       <p className="intro-step">{step < 3 ? `Step ${step + 1} of 3` : "Microphone check"}</p>
       <h1 id="intro-title">{["Let's begin together", "Find your next adventure", "Listen again", "Your voice matters"][step]}</h1>
       <p className="intro-line">{lines[step]}</p>

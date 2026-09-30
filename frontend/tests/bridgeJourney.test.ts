@@ -26,7 +26,7 @@ test("bridge journey climbs from the brook at the bottom to the sky at the top",
   }
 });
 test("all five vowel models exist and legacy blending navigation is removed",()=>{
-  for(const vowel of ["A","E","I","O","U"]) assert.ok(existsSync(new URL(`../public/audio/stage1/${vowel}.wav`,import.meta.url)));
+  for(const vowel of ["A","E","I","O","U"]) assert.ok(existsSync(new URL(`../public/audio/stage1/classic-milo/${vowel}.wav`,import.meta.url)));
   const workshop=readFileSync(new URL("../src/app/components/BlendingWorkshop.tsx",import.meta.url),"utf8");
   const map=readFileSync(new URL("../src/app/components/LevelMap.tsx",import.meta.url),"utf8");
   assert.ok(!workshop.includes("onLegacy"));

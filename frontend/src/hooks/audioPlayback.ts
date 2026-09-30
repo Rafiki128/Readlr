@@ -5,6 +5,18 @@ export function playbackTimeout(duration: number) {
     : 15000;
 }
 
+export function observeAudioActivity(player: EventTarget, onChange: (active: boolean) => void) {
+  const start = () => onChange(true);
+  const stop = () => onChange(false);
+  const stopEvents = ["pause", "waiting", "ended", "error", "emptied"];
+  player.addEventListener("playing", start);
+  stopEvents.forEach(event => player.addEventListener(event, stop));
+  return () => {
+    player.removeEventListener("playing", start);
+    stopEvents.forEach(event => player.removeEventListener(event, stop));
+  };
+}
+
 export function startAudioPlayback(player: HTMLAudioElement, onProgress?: (fraction: number) => void) {
   let cancel = () => {};
   const done = new Promise<void>((resolve, reject) => {

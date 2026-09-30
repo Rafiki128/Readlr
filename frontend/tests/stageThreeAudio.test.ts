@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
+import { classicRecordingPath } from "../src/hooks/miloVoice.ts";
 import { CVC_LESSONS, CROWN_WORDS } from "../src/app/components/cvcContent.ts";
 import { CVC_AUDIO, cvcLessonAudio, cvcCrownAudio, cvcReadyAudio, cvcModelAudio } from "../src/app/components/stageThreeAudio.ts";
 
-const directory = new URL("../public/audio/stage3/", import.meta.url);
+const directory = new URL("../public/audio/stage3/classic-milo/", import.meta.url);
 function recording(file: string) {
-  const bytes = readFileSync(new URL(file, directory));
+  const bytes = readFileSync(new URL(`../public${classicRecordingPath(`/audio/stage3/${file}`)}`, import.meta.url));
   assert.ok(bytes.length > 44, file);
   assert.equal(bytes.toString("ascii",0,4),"RIFF",file);
   assert.equal(bytes.toString("ascii",8,12),"WAVE",file);

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../modules/auth/auth.context";
 import { useFrames } from "../hooks/useFrames";
 import { getLearningSettings, updateLearningSettings } from "../../hooks/learningSettings";
+import type { MiloVoice } from "../../hooks/miloVoice";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 import "./settings.css";
 import { applyDarkMode } from "../hooks/useDarkMode";
 import { AvatarFrame } from "./AvatarFrame";
@@ -39,6 +41,7 @@ interface SettingsProps {
 }
 
 interface SettingsPayload {
+  milo_voice: MiloVoice;
   sound_volume: number;
   voice_feedback: boolean;
   daily_reminders: boolean;
@@ -81,6 +84,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
   const { frames, equipFrame, equippedAssetKey } = useFrames();
 
   const [volume, setVolume] = useState(()=>getLearningSettings().sound_volume);
+  const [miloVoice, setMiloVoice] = useState(()=>getLearningSettings().milo_voice);
   const [voiceFeedback, setVoiceFeedback] = useState(()=>getLearningSettings().voice_feedback);
   const [notifications, setNotifications] = useState(()=>getLearningSettings().daily_reminders);
   const [achievementAlerts, setAchievementAlerts] = useState(()=>getLearningSettings().achievement_alerts);
@@ -115,6 +119,7 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
         if (settingsRes.ok) {
           const data = await settingsRes.json();
           updateLearningSettings(data.settings);
+          setMiloVoice(getLearningSettings().milo_voice);
           setVolume(data.settings.sound_volume);
           savedVolume.current = data.settings.sound_volume;
           setVoiceFeedback(data.settings.voice_feedback);
@@ -177,6 +182,14 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
         toast.error("Could not save. Try again!");
       }
     }, 500);
+  };
+
+  const handleVoiceChange = async (value: MiloVoice) => {
+    if (savingPreferenceRef.current || volumeSaveTimeout.current) return;
+    const previous = miloVoice;
+    setMiloVoice(value);
+    if (await saveSettings({ milo_voice: value })) toast.success("Milo's voice saved");
+    else { setMiloVoice(previous); toast.error("Could not save. Try again!"); }
   };
 
   const handleToggleSetting = async (
@@ -355,6 +368,28 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
               <SectionHeader id="audio" />
               <div className="divide-y divide-[var(--hairline)]">
                 <div className="py-3.5">
+                  <label htmlFor="milo-voice" className="block text-[var(--ink)] mb-2">Milo's voice</label>
+                  <Select value={miloVoice}
+                    disabled={savingPreference || volumePending || !token}
+                    onValueChange={value => void handleVoiceChange(value as MiloVoice)}>
+                    <SelectTrigger id="milo-voice" aria-describedby="milo-voice-note" className="settings-select">
+                      <Volume2 aria-hidden="true"/><SelectValue>{miloVoice === "milo" ? "Milo - Default" : "Classic Milo"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="settings-select-menu" sideOffset={6}>
+                      <SelectItem value="milo" textValue="Milo Default" className="settings-select-option">
+                        <span className="settings-option-copy"><strong>Milo <small>Default</small></strong><span>New voice coming soon</span></span>
+                      </SelectItem>
+                      <SelectItem value="classic" textValue="Classic Milo" className="settings-select-option">
+                        <span className="settings-option-copy"><strong>Classic Milo</strong><span>The original recorded voice</span></span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p id="milo-voice-note" className="text-xs text-[var(--ink-muted)] mt-2">
+                    {miloVoice === "milo" ? "Milo's new voice is on its way. You'll hear Classic Milo for now." : "Keep Milo's original recorded voice."}
+                    {" "}If a recording is unavailable, a computer voice will read the line.
+                  </p>
+                </div>
+                <div className="py-3.5">
                   <div className="flex items-baseline justify-between mb-2">
                     <p className="text-[var(--ink)]">Volume</p>
                     <span className="text-sm text-[#4F46E5]">{volume}%</span>
@@ -440,15 +475,10 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
               className="bg-card rounded-2xl p-6 border border-[var(--hairline)]"
             >
               <SectionHeader id="language" />
-              <select
-                aria-label="Interface language"
-                value="English"
-                disabled
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                className="w-full px-4 py-3 bg-[var(--paper)] border border-[var(--hairline)] rounded-xl text-[var(--ink)] focus:border-[#4F46E5] focus:outline-none focus:ring-4 focus:ring-[var(--accent-soft)] transition-all"
-              >
-                <option value="English">English</option>
-              </select>
+              <Select value="English" disabled onValueChange={handleLanguageChange}>
+                <SelectTrigger aria-label="Interface language" className="settings-select"><Globe aria-hidden="true"/><SelectValue/></SelectTrigger>
+                <SelectContent className="settings-select-menu"><SelectItem value="English">English</SelectItem></SelectContent>
+              </Select>
               <p className="text-sm text-[var(--ink-muted)] mt-2">Lessons and recordings are currently available in English.</p>
             </motion.section>
 
