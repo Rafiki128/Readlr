@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Headphones, Mic, RotateCcw, Volume2, Link2, Chec
 import { BlendWorkbench, type BlendCue } from "./BlendWorkbench";
 import "./blendWorkbench.css";
 import { CharacterCompanion } from "./CharacterCompanion";
+import { miloLessonPose } from "./miloBehavior";
 import { BridgeScene } from "./BridgeScene";
 import { BRIDGE_LINES, hasVoiceSignal, type BridgeLine } from "./stageTwoContent";
 import { CONSONANT_SOUND_FALLBACKS, lessonChoices, type BridgeLesson } from "./bridgeCurriculum";
@@ -299,10 +300,12 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
     });
   }
 
-  const speaking = phase === "narrating" || phase === "preparing";
   const ready = phase === "ready";
   const reward = phase === "reward";
   const fastened = reward || phase === "building";
+  const milo = miloLessonPose({ recording: phase === "recording", playback: phase === "playback", speaking: sound.isPlaying,
+    retrying: phase === "error", success: fastened, joining: cue === "blend" && joined,
+    teaching: cue === "consonant" || cue === "vowel", lookAt: "down-right" });
   const practiceLabel = `Practice my ${lesson.blend.toLowerCase()} sound`;
   const status = phase === "preparing" ? "Wait for your turn..." : phase === "recording" ? "Milo is listening..." : phase === "playback" ? "That is your voice!" : phase === "building" ? "Your sound is fastening the bridge." : ready ? "Your turn!" : "";
   const step = reward ? 3 : phase === "playback" || phase === "building" ? 2 : phase === "recording" || ready || phase === "preparing" ? 1 : 0;
@@ -319,7 +322,7 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
       <section className="bridge-guided-frame bridge-sound-room" data-training={lesson.training}>
         <div className="bridge-dialogue" aria-live="polite" aria-atomic="true"><NarrationHeader icon={<Link2 size={15} aria-hidden="true"/>} canSkip={explaining && phase === "narrating"} onSkip={skipExplanation}/><motion.p key={message} initial={reducedMotion ? false : {opacity:0,y:5}} animate={{opacity:1,y:0}} transition={{duration:.22}}>{highlightedMessage}</motion.p><div className="bridge-dialogue__dots" aria-hidden="true"><i /><i /><i /></div></div>
         <div className="bridge-builder-deck">
-        <div className="bridge-practice__scene" data-workshop={lesson.training}><BridgeScene built={fastened} mode={lesson.mode} region={lesson.region} workshop={lesson.training} /><div className="bridge-practice__milo"><CharacterCompanion size={125} state={speaking ? "speaking" : phase === "recording" ? "listening" : fastened ? "celebrating" : "idle"} /></div>{phase === "building" && lesson.training && <motion.div className="sound-link-delivery" initial={{y:100,scale:1,opacity:1}} animate={{y:0,scale:.65,opacity:[1,1,0]}} transition={{duration:reducedMotion?0:1.5}}>{lesson.blend.toLowerCase()}<Link2 size={22}/></motion.div>}</div>
+        <div className="bridge-practice__scene" data-workshop={lesson.training}><BridgeScene built={fastened} mode={lesson.mode} region={lesson.region} workshop={lesson.training} /><div className="bridge-practice__milo"><CharacterCompanion size={145} {...milo} cueKey={cue} /></div>{phase === "building" && lesson.training && <motion.div className="sound-link-delivery" initial={{y:100,scale:1,opacity:1}} animate={{y:0,scale:.65,opacity:[1,1,0]}} transition={{duration:reducedMotion?0:1.5}}>{lesson.blend.toLowerCase()}<Link2 size={22}/></motion.div>}</div>
         <BlendWorkbench blend={lesson.blend} cue={cue} joined={joined} fastened={fastened} hidden={Boolean(choice && !selected)} />
         <ChallengeRoomFrame kind="bridge"/>
         </div>

@@ -5,7 +5,7 @@ import { resolveStageTwoAudioPath } from "../src/app/components/stageTwoAudio.ts
 import { CONSONANTS, CROSSING_LESSONS, WORKSHOP_LESSONS } from "../src/app/components/bridgeCurriculum.ts";
 import { BRIDGE_LINES } from "../src/app/components/stageTwoContent.ts";
 
-const directory = new URL("../public/audio/stage2/", import.meta.url);
+const directory = new URL("../public/audio/stage2/classic-milo/", import.meta.url);
 function checkRecording(filename: string) {
   const mapped = resolveStageTwoAudioPath(`/audio/stage2/${filename}`).split("/").at(-1)!;
   const recording = readFileSync(new URL(mapped, directory));
@@ -36,9 +36,10 @@ test("Sound Shelf has all consonants and every consonant-vowel blend recording",
 
 test("Stage 2 aliases are scoped and idempotent", () => {
   for (const blend of ["HU", "JA"]) {
-    const mapped = `/audio/stage2/Pronounce${blend}.wav.wav`;
+    const mapped = `/audio/stage2/classic-milo/Pronounce${blend}.wav.wav`;
     assert.equal(resolveStageTwoAudioPath(`/audio/stage2/Pronounce${blend}.wav`), mapped);
     assert.equal(resolveStageTwoAudioPath(mapped), mapped);
   }
-  for (const path of ["/audio/stage2/PronounceMA.wav", "/audio/stage3/PronounceMAP.wav", "blob:recording"]) assert.equal(resolveStageTwoAudioPath(path), path);
+  assert.equal(resolveStageTwoAudioPath("/audio/stage2/PronounceMA.wav"), "/audio/stage2/classic-milo/PronounceMA.wav");
+  for (const path of ["/audio/stage2/default-milo/PronounceHU.wav", "/audio/stage3/PronounceMAP.wav", "blob:recording"]) assert.equal(resolveStageTwoAudioPath(path), path);
 });

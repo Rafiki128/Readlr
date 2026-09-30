@@ -36,3 +36,11 @@
 .cvc-stones.is-blending .cvc-stone:nth-child(2){border-radius:0 8px 8px 0;outline:3px solid #fbbf24;outline-offset:3px}
 .cvc-stones .cvc-stone{transition:margin .6s,transform .4s,background .4s,box-shadow .4s}
 @media(prefers-reduced-motion:reduce){.bridge-builder-deck,.cvc-play .cvc-theatre{animation:none}}
+
+/* Keep the full-body companion readable without entering the letter workspace. */
+.bridge-sound-room .bridge-practice__scene .bridge-practice__milo{width:145px;height:145px}
+@media(max-width:600px){
+  .bridge-sound-room .bridge-practice__scene .bridge-practice__milo{transform:scale(.8)}
+  .bridge-practice[data-phase="reward"] .bridge-sound-room .bridge-practice__milo{left:calc(100% - 125px)}
+  .cvc-play .cvc-theatre .cvc-milo{left:9%;transform:scale(.85);transform-origin:top left}
+}

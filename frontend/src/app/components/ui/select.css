@@ -1,0 +1,12 @@
+.readlr-select-trigger[data-slot=select-trigger]{min-height:44px;height:auto;min-width:0;border:1px solid var(--hairline,#dedee8);border-radius:8px;background:var(--card,#fff);color:var(--ink,#273443);padding:10px 12px;gap:12px;letter-spacing:0;white-space:normal;justify-content:space-between;text-align:left}
+.readlr-select-trigger [data-slot=select-value]{min-width:0;flex:1;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+.readlr-select-trigger[data-state=open]{border-color:#8060cf;box-shadow:0 0 0 3px #8060cf20}
+.readlr-select-menu[data-slot=select-content]{width:var(--radix-select-trigger-width);max-width:calc(100vw - 24px);max-height:min(360px,var(--radix-select-content-available-height));border:1px solid var(--hairline,#dedee8);border-radius:8px;background:var(--card,#fff);color:var(--ink,#273443);box-shadow:0 10px 30px #30264d20;letter-spacing:0}
+.readlr-select-menu [data-radix-select-viewport]{height:auto!important;min-width:0!important;width:100%}
+.readlr-select-option[data-slot=select-item]{min-height:44px;padding:10px 34px 10px 12px;border-radius:6px;white-space:normal;overflow-wrap:anywhere;cursor:pointer;line-height:1.4}
+.readlr-select-option[data-highlighted]{background:#eee7fc;color:#452782}
+.readlr-select-option[data-state=checked]{background:#f4f0fc;color:#543596}
+.readlr-select-option[data-state=checked][data-highlighted]{background:#e8dff8}
+.practice-toolbar .readlr-select-trigger{width:230px;max-width:100%}
+.rewards-filter .readlr-select-trigger{width:180px;max-width:100%}
+@media(prefers-reduced-motion:reduce){.readlr-select-menu,.readlr-select-trigger{animation:none!important;transition:none!important}}

@@ -1,4 +1,15 @@
 .settings-page{letter-spacing:0}
+.settings-select[data-slot=select-trigger]{min-height:54px;height:auto;border-radius:8px;background:var(--paper);border-color:var(--hairline);padding:12px 16px;color:var(--ink);white-space:normal;gap:12px}
+.settings-select [data-slot=select-value]{flex:1;text-align:left}
+.settings-select[data-state=open]{border-color:#8060cf;box-shadow:0 0 0 3px #8060cf20}
+.settings-select-menu{width:var(--radix-select-trigger-width);max-width:calc(100vw - 32px);border:1px solid var(--hairline);border-radius:8px;background:var(--card,#fff);padding:4px;box-shadow:0 10px 30px #30264d20;letter-spacing:0}
+.settings-select-option{min-height:68px;padding:12px 38px 12px 12px;border-radius:6px;cursor:pointer;color:var(--ink)}
+.settings-select-option[data-highlighted]{background:#f0eaff;color:#452782}
+.settings-select-option[data-state=checked]{background:#f4f0fc}
+.settings-option-copy{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:normal}
+.settings-option-copy strong{font-weight:600;font-size:15px}
+.settings-option-copy>span{font-size:12px;color:var(--ink-soft)}
+.settings-option-copy small{margin-left:8px;font-size:10px;font-weight:600;color:#087b68;background:#dcf6ee;padding:3px 6px;border-radius:4px}
 .settings-page h1{font-size:36px;line-height:1.2;font-weight:600;letter-spacing:0}
 .settings-page section{border-radius:8px;box-shadow:none}
 .settings-page [role=switch]{flex-shrink:0;outline-offset:4px}

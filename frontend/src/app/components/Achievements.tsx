@@ -1,3 +1,4 @@
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
@@ -356,7 +357,7 @@ export function Achievements({ onBack, completedByStage = {}, learnerId }: Achie
       </section>
       <div className="rewards-toolbar"><nav className="rewards-tabs" aria-label="Achievement status">
         {([{id:"all",label:"All badges"},{id:"earned",label:"Earned"},{id:"next",label:"Still to discover"}] as const).map(tab=><button key={tab.id} aria-pressed={view===tab.id} onClick={()=>setView(tab.id)}>{tab.label}<span>{tab.id==="all"?withState.length:tab.id==="earned"?unlockedCount:withState.length-unlockedCount}</span></button>)}
-      </nav><label className="rewards-filter">Category<select value={filter} onChange={event=>setFilter(event.target.value as Category)}>{categories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label></div>
+      </nav><label className="rewards-filter">Category<Select value={filter} onValueChange={value=>setFilter(value as Category)}><SelectTrigger aria-label="Category"><SelectValue/></SelectTrigger><SelectContent>{categories.map(category=><SelectItem key={category.id} value={String(category.id)}>{category.name}</SelectItem>)}</SelectContent></Select></label></div>
       <div className="achievement-grid">
         {shown.map((achievement,index)=>{const Icon=achievement.icon;return <motion.article key={achievement.id} initial={reducedMotion?false:{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:Math.min(index*.025,.15)}} className={`achievement-card ${achievement.unlocked?"is-earned":"is-growing"}`} style={{"--reward-color":achievement.accent,"--reward-tint":achievement.tint} as CSSProperties}>
           <div className="achievement-card-top"><div className="reward-medallion"><Icon size={30}/></div><span className="reward-state">{achievement.unlocked?<><Check size={14}/>Earned</>:<><Lock size={13}/>Not yet</>}</span></div>

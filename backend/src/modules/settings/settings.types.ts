@@ -3,6 +3,7 @@
  */
 
 export interface SettingsResponse {
+  milo_voice: 'milo' | 'classic';
   sound_volume: number;
   voice_feedback: boolean;
   daily_reminders: boolean;
@@ -12,6 +13,7 @@ export interface SettingsResponse {
 }
 
 export interface UpdateSettingsRequest {
+  milo_voice?: 'milo' | 'classic';
   sound_volume?: number;
   voice_feedback?: boolean;
   daily_reminders?: boolean;

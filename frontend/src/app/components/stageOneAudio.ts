@@ -8,5 +8,7 @@ export function resolveStageOneAudioPath(path: string): string {
   const prefix = "/audio/stage1/";
   if (!path.startsWith(prefix)) return path;
   const name = path.slice(prefix.length);
-  return `${prefix}${RECORDING_ALIASES[name] ?? name}`;
+  if (name.startsWith("default-milo/")) return path;
+  const filename = name.replace(/^classic-milo\//, "");
+  return `${prefix}classic-milo/${RECORDING_ALIASES[filename] ?? filename}`;
 }

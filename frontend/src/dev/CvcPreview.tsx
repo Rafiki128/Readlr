@@ -1,3 +1,4 @@
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../app/components/ui/select";
 import { useState } from "react";
 import { PhonemeBank } from "../app/components/PhonemeBank";
 import { Achievements } from "../app/components/Achievements";
@@ -6,6 +7,7 @@ import { UnifiedDashboard } from "../app/components/UnifiedDashboard";
 import { MyPractice } from "../app/components/MyPractice";
 import { Help } from "../app/components/Help";
 import { LearningIntroduction } from "../app/components/LearningIntroduction";
+import { MiloPreview } from "./MiloPreview";
 import { weekStart, type PracticeAttempt } from "../hooks/practiceRecords";
 import { createRoot } from "react-dom/client";
 import { CvcKingdom } from "../app/components/CvcKingdom";
@@ -20,7 +22,7 @@ import "../app/components/bridgeJourney.css";
 import "../styles/index.css";
 
 function CvcPreview() {
-  const [selection,setSelection]=useState(0);
+  const [selection,setSelection]=useState(() => location.hash === "#milo" ? 33 : 0);
   const [visit,setVisit]=useState(0);
   const [completed,setCompleted]=useState(false);
   const [practiceSample]=useState<PracticeAttempt[]>(()=>Array.from({length:12},(_,i)=>({
@@ -31,32 +33,34 @@ function CvcPreview() {
   })));
   function select(value:number) {setSelection(value);setVisit(n=>n+1);setCompleted(false);}
   if (selection === 32) return <LearningIntroduction onDone={() => select(0)} />;
+  if (selection === 33) return <MiloPreview onBack={() => select(0)}/>;
   return <div style={{height:"100dvh",display:"flex",flexDirection:"column",background:"#faf7f2"}}>
     <header style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,flexWrap:"wrap",padding:"10px 16px",background:"#ecfdf5",borderBottom:"1px solid #a7f3d0",color:"#065f46",flexShrink:0}}>
       <strong>Challenge Preview</strong>
       <label style={{display:"flex",alignItems:"center",gap:8}}>Open
-        <select aria-label="Preview scene" value={selection} onChange={event=>select(Number(event.target.value))} style={{padding:8,border:"1px solid #a7f3d0",borderRadius:8,background:"white",maxWidth:240,color:"#1f2430"}}>
-          <option value={0}>Castle map</option>
-          <option value={24}>Sound Library - unlocked</option>
-          <option value={25}>Sound Library - new learner</option>
-          <option value={26}>Achievements - sample progress</option>
-          <option value={27}>Sticker Book - sample progress</option>
-          <option value={28}>Sticker Book - new learner</option>
-          <option value={29}>My Progress - sample journey</option>
-          <option value={30}>My Practice - sample recordings</option>
-          <option value={31}>Help & guidance</option>
-          <option value={32}>Tutorial & microphone check</option>
-          <option value={23}>Storybook - all pages preview</option>
-          <option value={-11}>Chapter 1 introduction</option>
-          <option value={-12}>Chapter 2 introduction</option>
-          <option value={-13}>Chapter 3 introduction</option>
-          <option value={-1}>Stage 2 - Workshop</option>
-          <option value={-2}>Stage 2 - Brook bridge</option>
-          <option value={-3}>Stage 2 - Waterfall bridge</option>
-          <option value={-4}>Stage 2 - Sky bridge</option>
-          {CVC_LESSONS.map(lesson=><option key={lesson.id} value={lesson.id}>{lesson.id}. {lesson.word.toUpperCase()} - {lesson.title}</option>)}
-          <option value={20}>Crown: vowel jewel</option><option value={21}>Crown: blend jewel</option><option value={22}>Crown: word jewel</option>
-        </select>
+        <Select value={String(selection)} onValueChange={value=>select(Number(value))}><SelectTrigger aria-label="Preview scene" style={{width:240,maxWidth:"100%"}}><SelectValue/></SelectTrigger><SelectContent>
+          <SelectItem value={String(0)}>Castle map</SelectItem>
+          <SelectItem value={String(33)}>Milo - character studio</SelectItem>
+          <SelectItem value={String(24)}>Sound Library - unlocked</SelectItem>
+          <SelectItem value={String(25)}>Sound Library - new learner</SelectItem>
+          <SelectItem value={String(26)}>Achievements - sample progress</SelectItem>
+          <SelectItem value={String(27)}>Sticker Book - sample progress</SelectItem>
+          <SelectItem value={String(28)}>Sticker Book - new learner</SelectItem>
+          <SelectItem value={String(29)}>My Progress - sample journey</SelectItem>
+          <SelectItem value={String(30)}>My Practice - sample recordings</SelectItem>
+          <SelectItem value={String(31)}>Help & guidance</SelectItem>
+          <SelectItem value={String(32)}>Tutorial & microphone check</SelectItem>
+          <SelectItem value={String(23)}>Storybook - all pages preview</SelectItem>
+          <SelectItem value={String(-11)}>Chapter 1 introduction</SelectItem>
+          <SelectItem value={String(-12)}>Chapter 2 introduction</SelectItem>
+          <SelectItem value={String(-13)}>Chapter 3 introduction</SelectItem>
+          <SelectItem value={String(-1)}>Stage 2 - Workshop</SelectItem>
+          <SelectItem value={String(-2)}>Stage 2 - Brook bridge</SelectItem>
+          <SelectItem value={String(-3)}>Stage 2 - Waterfall bridge</SelectItem>
+          <SelectItem value={String(-4)}>Stage 2 - Sky bridge</SelectItem>
+          {CVC_LESSONS.map(lesson=><SelectItem key={lesson.id} value={String(lesson.id)}>{lesson.id}. {lesson.word.toUpperCase()} - {lesson.title}</SelectItem>)}
+          <SelectItem value={String(20)}>Crown: vowel jewel</SelectItem><SelectItem value={String(21)}>Crown: blend jewel</SelectItem><SelectItem value={String(22)}>Crown: word jewel</SelectItem>
+        </SelectContent></Select>
       </label>
       <span style={{fontSize:12}} role="status">{completed?"Preview completed. Account progress unchanged.":"No account progress is changed."}</span>
     </header>

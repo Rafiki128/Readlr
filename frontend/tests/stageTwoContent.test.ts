@@ -42,5 +42,5 @@ test("every runtime narration line is documented verbatim", () => {
   for (const { file, text } of Object.values(BRIDGE_LINES)) {
     assert.ok(script.includes(`| ${file} | ${text} |`), file);
   }
-  assert.ok(existsSync(new URL(`../public${BRIDGE_MODEL}`, import.meta.url)));
+  assert.ok(existsSync(new URL(`../public${BRIDGE_MODEL.replace('/stage2/', '/stage2/classic-milo/')}`, import.meta.url)));
 });

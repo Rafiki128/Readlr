@@ -11,7 +11,7 @@ test("every scripted Stage 1 recording maps to a nonempty WAV file", () => {
   assert.ok(filenames.length >= 70);
   for (const filename of filenames) {
     const path = resolveStageOneAudioPath(`/audio/stage1/${filename}`);
-    const recording = readFileSync(new URL(path.split("/").at(-1)!, audioDirectory));
+    const recording = readFileSync(new URL(`../public${path}`, import.meta.url));
     assert.ok(recording.length > 44, filename);
     assert.equal(recording.toString("ascii", 0, 4), "RIFF", filename);
     assert.equal(recording.toString("ascii", 8, 12), "WAVE", filename);
@@ -19,8 +19,8 @@ test("every scripted Stage 1 recording maps to a nonempty WAV file", () => {
 });
 
 test("supplied double extensions resolve without changing other stage paths", () => {
-  assert.equal(resolveStageOneAudioPath("/audio/stage1/ChallengeELittleLightPath.wav"), "/audio/stage1/ChallengeELittleLightPath.w.wav");
-  assert.equal(resolveStageOneAudioPath("/audio/stage1/ChallengeIMissingMapLine.wav"), "/audio/stage1/ChallengeIMissingMapLine.wa.wav");
-  assert.equal(resolveStageOneAudioPath("/audio/stage1/TrainA.wav"), "/audio/stage1/TrainA.wav");
+  assert.equal(resolveStageOneAudioPath("/audio/stage1/ChallengeELittleLightPath.wav"), "/audio/stage1/classic-milo/ChallengeELittleLightPath.w.wav");
+  assert.equal(resolveStageOneAudioPath("/audio/stage1/ChallengeIMissingMapLine.wav"), "/audio/stage1/classic-milo/ChallengeIMissingMapLine.wa.wav");
+  assert.equal(resolveStageOneAudioPath("/audio/stage1/TrainA.wav"), "/audio/stage1/classic-milo/TrainA.wav");
   assert.equal(resolveStageOneAudioPath("/audio/stage2/MA.wav"), "/audio/stage2/MA.wav");
 });

@@ -13,6 +13,7 @@ import { SettingsResponse, UpdateSettingsRequest } from './settings.types.js';
 
 function toResponse(settings: LearnerSettings): SettingsResponse {
   return {
+    milo_voice: settings.milo_voice ?? 'milo',
     sound_volume: settings.sound_volume,
     voice_feedback: settings.voice_feedback,
     daily_reminders: settings.daily_reminders,

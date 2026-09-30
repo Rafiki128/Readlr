@@ -4,6 +4,7 @@ export interface LearnerSettings {
   id: number;
   user_id: number;
   sound_volume: number;
+  milo_voice: 'milo' | 'classic';
   voice_feedback: boolean;
   daily_reminders: boolean;
   achievement_alerts: boolean;
@@ -15,6 +16,7 @@ export interface LearnerSettings {
 
 const DEFAULT_SETTINGS: Omit<LearnerSettings, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
   sound_volume: 80,
+  milo_voice: 'milo',
   voice_feedback: true,
   daily_reminders: true,
   achievement_alerts: true,

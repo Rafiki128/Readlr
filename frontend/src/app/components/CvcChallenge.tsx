@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Mic, Volume2, Headphones, Check, Sparkles, BookO
 import { useBridgeAudio } from "../../hooks/useBridgeAudio";
 import { useCvcRecorder } from "../../hooks/useCvcRecorder";
 import { CharacterCompanion } from "./CharacterCompanion";
+import { miloLessonPose } from "./miloBehavior";
 import { CastleBackdrop, CvcCrown } from "./CvcArt";
 import { CROWN_PROMPTS, CROWN_RESULTS, CROWN_WORDS, cvcChoices, cvcReadyLine, type CvcLesson } from "./cvcContent";
 import { CONSONANT_SOUND_FALLBACKS } from "./bridgeCurriculum";
@@ -34,6 +35,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
   const [blending,setBlending]=useState(false);
   const [chosen,setChosen]=useState(false);
   const [wrong,setWrong]=useState("");
+  const [needsEncouragement,setNeedsEncouragement]=useState(false);
   const [isBusy,setIsBusy]=useState(false);
   const [explaining,setExplaining]=useState(false);
   const [placed,setPlaced]=useState("");
@@ -63,6 +65,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
   async function run(action:()=>Promise<void>) {
     if(busy.current) return;
     busy.current=true; setIsBusy(true); setError("");
+    setNeedsEncouragement(false);
     try { await action(); }
     catch(cause) {
       recorder.stop();
@@ -173,6 +176,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
         if(!alive.current || controller.signal.aborted) throw new DOMException("Stopped","AbortError");
         practice.recognize(result.status);
         if(result.status!=="matched") {
+          setNeedsEncouragement(true);
           setPhase("ready");setJoined(false);
           setMessage(result.status==="different"&&result.transcript
             ? `Milo heard "${result.transcript}". Let's listen to ${word}, then try again.`
@@ -197,6 +201,9 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
     return text.split(/(\b[a-z]{1,3}\b)/gi).map((part,index)=>part.toLowerCase()===word?<strong key={index}>{part}</strong>:part);
   }
   const enabled=["intro","ready","reward"].includes(phase);
+  const milo = miloLessonPose({ recording: phase === "recording", playback: phase === "playback", checking: phase === "checking",
+    speaking: sound.isPlaying, retrying: Boolean(error || wrong || needsEncouragement), success: showingResult,
+    joining: blending, teaching: activeLetter >= 0, lookAt: activeLetter === 0 ? "down" : activeLetter === 1 ? "down-right" : "right" });
   const voiceStep = showingResult ? 3 : phase === "playback" ? 2 : ["ready", "preparing", "recording"].includes(phase) ? 1 : 0;
   const ActionIcon = showingResult ? Check : phase === "checking" ? Sparkles : phase === "playback" ? Headphones : ["intro", "speaking"].includes(phase) ? Volume2 : Mic;
   return <div className={`cvc-root cvc-play cvc-phase-${phase}`}>
@@ -211,7 +218,7 @@ export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}
         <CastleBackdrop area={lesson?.area ?? 3}/>
         <div className="cvc-spell-dais" aria-hidden="true"><i/><i/><i/></div>
         {lesson&&<CvcSpellScene word={word} restored={showingResult}/>}
-        <div className="cvc-milo"><CharacterCompanion size={108} state={phase==="recording"?"listening":phase==="reward"?"celebrating":phase==="speaking"||phase==="preparing"?"speaking":"idle"}/></div>
+        <div className="cvc-milo"><CharacterCompanion size={132} {...milo} cueKey={activeLetter}/></div>
         {crown&&<div className="cvc-object is-visible"><CvcCrown jewels={jewel+(showingResult?1:0)}/></div>}
         <div className={`cvc-stones ${joined?"is-joined":""} ${blending?"is-blending":""}`} aria-label={`Letters in ${word}`}>
           {word.split("").map((letter,index)=>lesson?.mode==="conjure"&&!chosen?<button key={index} disabled={phase!=="choice"||isBusy||index!==placed.length} aria-label={`Sound ${index+1}: ${letter}`} onClick={()=>void run(()=>place(letter))} className={`cvc-stone ${/[aeiou]/.test(letter)?"is-vowel":""} ${index===placed.length?"is-next":""} ${index===activeLetter?"is-speaking":""}`}>{letter}</button>:<div key={index} className={`cvc-stone ${/[aeiou]/.test(letter)?"is-vowel":""} ${index===activeLetter?"is-speaking":""}`}>

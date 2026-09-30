@@ -1,12 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BRIDGE_LINES, type BridgeLine } from "../app/components/stageTwoContent";
 import { stopAllGlobalAudio } from "./useAudioManager";
 import { narrationLines } from "./bridgeNarrationLines";
 import { resolveStageTwoAudioPath } from "../app/components/stageTwoAudio";
-import { learningVolume } from "./learningSettings";
-import { startAudioPlayback } from "./audioPlayback";
+import { getLearningSettings, learningVolume } from "./learningSettings";
+import { voiceCandidates, withVoiceFallback } from "./miloVoice";
+import { resolveStageOneAudioPath } from "../app/components/stageOneAudio";
+import { observeAudioActivity, startAudioPlayback } from "./audioPlayback";
 
 export function useBridgeAudio(basePath = "/audio/stage2") {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const mounted = useRef(true);
   const audio = useRef<HTMLAudioElement | null>(null);
   const speech = useRef<SpeechSynthesisUtterance | null>(null);
   const cancelPending = useRef<(() => void) | null>(null);
@@ -15,6 +19,7 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
 
   function stop() {
     generation.current++;
+    if (mounted.current) setIsPlaying(false);
     cancelPending.current?.();
     cancelPending.current = null;
     if (timer.current) clearTimeout(timer.current);
@@ -42,14 +47,20 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
   }
 
   function play(path: string, onProgress?: (fraction: number) => void) {
-    const player = new Audio(resolveStageTwoAudioPath(path));
+    const paths = voiceCandidates(path, getLearningSettings().milo_voice)
+      .map(candidate => resolveStageTwoAudioPath(resolveStageOneAudioPath(candidate)));
+    const player = withVoiceFallback(new Audio(), paths);
     player.volume = learningVolume();
     audio.current = player;
+    const unobserve = observeAudioActivity(player, active => {
+      if (mounted.current && audio.current === player) setIsPlaying(active);
+    });
     const playback = startAudioPlayback(player, onProgress);
     cancelPending.current = playback.cancel;
     return playback.done.finally(() => {
+      unobserve();
       if (cancelPending.current === playback.cancel) cancelPending.current = null;
-      if (audio.current === player) audio.current = null;
+      if (audio.current === player) { audio.current = null; if (mounted.current) setIsPlaying(false); }
     });
   }
 
@@ -65,7 +76,7 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
     // Full recordings have no cue sheet yet; distribute captions by text length.
     try { if (!entry.file) throw new Error("Use speech"); await play(`${basePath}/${entry.file}`, fraction=>showPosition(fraction*total)); return; }
     catch (error) {
-      if (generation.current !== current || (error as Error).name === "AbortError") throw error;
+      if (generation.current !== current || ["AbortError", "NotAllowedError"].includes((error as Error).name)) throw error;
     }
     for (const line of lines) {
     if (generation.current !== current) throw new DOMException("Stopped", "AbortError");
@@ -81,6 +92,10 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
         cancelPending.current = null;
         utterance.onend = null;
         utterance.onerror = null;
+        utterance.onstart = null;
+        utterance.onpause = null;
+        utterance.onresume = null;
+        if (mounted.current) setIsPlaying(false);
         speech.current = null;
         error ? reject(error) : resolve();
       };
@@ -93,6 +108,8 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
         window.speechSynthesis.cancel();
       };
       utterance.onend = () => finish();
+      utterance.onstart = utterance.onresume = () => { if (mounted.current) setIsPlaying(true); };
+      utterance.onpause = () => { if (mounted.current) setIsPlaying(false); };
       utterance.onerror = event => finish(event.error === "not-allowed" ? new DOMException("Tap to enable sound", "NotAllowedError") : new Error("Narration unavailable"));
       window.speechSynthesis.speak(utterance);
     });
@@ -100,8 +117,9 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
   }
 
   useEffect(() => {
+    mounted.current = true;
     stopAllGlobalAudio();
-    return stop;
+    return () => { mounted.current = false; stop(); };
   }, []);
-  return { play, narrate: (line: BridgeLine) => narrateText(BRIDGE_LINES[line]), narrateText, wait, stop };
+  return { play, narrate: (line: BridgeLine) => narrateText(BRIDGE_LINES[line]), narrateText, wait, stop, isPlaying };
 }

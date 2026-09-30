@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { LIBRARY_CONSONANTS, LIBRARY_VOWELS, libraryStageOpen, recordingKey, soundPath } from "../src/app/components/soundLibraryContent.ts";
 import { resolveStageTwoAudioPath } from "../src/app/components/stageTwoAudio.ts";
+import { resolveStageOneAudioPath } from "../src/app/components/stageOneAudio.ts";
 
 test("library uses all vowel and 105 direct blend recordings", () => {
   assert.equal(LIBRARY_CONSONANTS.length * LIBRARY_VOWELS.length, 105);
   for (const vowel of LIBRARY_VOWELS) {
-    assert.ok(existsSync(new URL(`../public${soundPath("vowels", vowel)}`, import.meta.url)));
+    assert.ok(existsSync(new URL(`../public${resolveStageOneAudioPath(soundPath("vowels", vowel))}`, import.meta.url)));
     for (const consonant of LIBRARY_CONSONANTS) assert.ok(existsSync(new URL(`../public${resolveStageTwoAudioPath(soundPath("blends", consonant + vowel))}`, import.meta.url)));
   }
   assert.equal(soundPath("words", "sun"), "/audio/stage3/PronounceSUN.wav");
