@@ -5,6 +5,7 @@ import { CvcCrown } from "./CvcArt";
 import { STICKERS, isStickerEarned } from "./stickers";
 import { progressSummary } from "./progressSummary";
 import { MyPractice } from "./MyPractice";
+import { earnedProgress } from './progressReset';
 import "./rewardsCollection.css";
 import "./readingProgress.css";
 
@@ -18,7 +19,8 @@ export function UnifiedDashboard({learnerId,userName="Student",completedByStage=
 }) {
   const [tab,setTab]=useState<"journey"|"milestones"|"practice">("journey");
   const summary=progressSummary(completedByStage);
-  const earned=STICKERS.filter(sticker=>isStickerEarned(sticker,completedByStage));
+  const rewardProgress=Object.fromEntries([1,2,3].map(stage=>[stage,Math.max(completedByStage[stage]??0,earnedProgress(learnerId)[stage]??0)]));
+  const earned=STICKERS.filter(sticker=>isStickerEarned(sticker,rewardProgress));
   const next=STAGES[(summary.next||3)-1];
   const nextCount=summary.stages[(summary.next||3)-1];
   return <main className="rewards-page reading-progress"><div className="rewards-inner">

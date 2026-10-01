@@ -9,6 +9,7 @@ const { supabase } = await import('../src/database/db.js');
 const { requireRole } = await import('../src/middleware/auth.js');
 const { enforceClassroom, saveClassroom, heartbeat } = await import('../src/modules/admin/classroom.controller.js');
 const { handleSyncMyValley } = await import('../src/modules/progress/progress.controller.js');
+const { resetProgress } = await import('../src/modules/progress/reset.controller.js');
 const open = { mode: 'open', stage: null, message: '', surveyUrl: '' };
 
 function response() {
@@ -16,6 +17,38 @@ function response() {
     status(code: number) { this.statusCode = code; return this; },
     json(body: unknown) { this.body = body; return this; } };
 }
+
+test('reset validates confirmation and scopes the atomic reset to the authenticated admin', async () => {
+  const original = supabase.rpc;
+  const calls: any[] = [];
+  supabase.rpc = (async (name: string, args: unknown) => { calls.push({name,args}); return {data: 2,error: null}; }) as any;
+  try {
+    for (const body of [
+      { target: 'class', stages: [1], confirmation: '' },
+      { target: 'class', stages: [1,1], confirmation: 'RESET' },
+      { target: 'class', stages: [], confirmation: 'RESET' },
+      { target: 'class', stages: [4], confirmation: 'RESET' },
+      { target: -1, stages: [1], confirmation: 'RESET' },
+    ]) {
+      const res = response();
+      await resetProgress({ userId: 7, body } as any, res as any);
+      assert.equal(res.statusCode, 400);
+    }
+    assert.equal(calls.length, 0);
+    for (const target of [11, 'class']) {
+      const res = response();
+      await resetProgress({ userId: 7, body: { target, stages: [1,3], confirmation: 'RESET', actor: 999 } } as any, res as any);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.affected, 2);
+      assert.deepEqual(calls.at(-1), {name: 'reset_learning_progress',args: {p_actor: 7,p_target: target === 'class' ? null : target,p_stages: [1,3]}});
+    }
+    supabase.rpc = (async () => ({data: null,error: {message: 'Unavailable'}})) as any;
+    const res = response();
+    await resetProgress({ userId: 7, body: {target: 'class',stages: [1],confirmation: 'RESET'} } as any, res as any);
+    assert.equal(res.statusCode, 503);
+    assert.match(res.body.message, /not confirmed/);
+  } finally { supabase.rpc = original; }
+});
 function mockQueries(role: string, policy = open, overrides = {}, unavailable = false) {
   const original = supabase.from;
   supabase.from = (() => {
@@ -89,6 +122,7 @@ test('presence rejects invalid levels and screen names without writing data', as
 
 test('Valley backfill resolves the stage number and saves only the authenticated learner', async () => {
   const original = supabase.from;
+  const originalRpc = supabase.rpc;
   const filters: Array<[string,string,unknown]> = [];
   let progress: any = null;
   supabase.from = ((table: string) => {
@@ -97,12 +131,18 @@ test('Valley backfill resolves the stage number and saves only the authenticated
       eq: (key: string, value: unknown) => { filters.push([table,key,value]); return query; },
       maybeSingle: async () => ({ data: table === 'learner_profiles' ? { id: 15, user_id: 7 } : table === 'stages' ? { id: 101, stage_number: 1 } : progress, error: null }),
       insert: (value: unknown) => { progress = { id: 90, completed_levels: 0, ...(value as object) }; return query; },
-      single: async () => ({ data: progress, error: null }),
+      single: async () => ({ data: table === 'stages' ? { id: 101, stage_number: 1 } : progress, error: null }),
       update: (value: unknown) => { progress = { ...progress, ...(value as object) }; return query; },
       then: (resolve: (value: unknown) => void) => resolve({ data: table === 'frames' ? [] : null, error: null }),
     };
     return query;
   }) as typeof supabase.from;
+  supabase.rpc = (async (name: string, args: any) => {
+    assert.equal(name, 'sync_stage_guarded');
+    assert.equal(args.p_epoch, 0);
+    progress = { learner_id: args.p_learner, stage_id: 101, completed_levels: args.p_completed, total_levels: 20 };
+    return { data: { progress }, error: null };
+  }) as any;
   try {
     const req = { userId: 7, params: { stage: '1' }, body: { completed_levels: 20, total_levels: 20, learner_id: 999 } };
     const res = response();
@@ -115,5 +155,5 @@ test('Valley backfill resolves the stage number and saves only the authenticated
     const invalid = response();
     await handleSyncMyValley({ ...req, body: { completed_levels: 21, total_levels: 20 } } as any, invalid as any);
     assert.equal(invalid.statusCode, 400);
-  } finally { supabase.from = original; }
+  } finally { supabase.from = original; supabase.rpc = originalRpc; }
 });

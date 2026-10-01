@@ -13,6 +13,7 @@ import "./blendingWorkshop.css";
 import "./bridgeJourney.css";
 import "./continuousLandscape.css";
 import { notifyJourneyChanged, JOURNEY_RESTORED } from "./journeySync";
+import { earnedProgress } from './progressReset';
 
 export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, onProgress, onActivityChange }: {
   learnerId?: number | null; initialView?: "workshop" | "bridges"; onBack: () => void; onProgress?: (completed: number, journey: object) => void;
@@ -76,7 +77,7 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, 
   return <div className="bridge-adventure">
     <header className="bridge-nav">
       <button onClick={onBack}><ArrowLeft size={19} />Stages</button>
-      <span><Star size={17} />{progress.points} points</span>
+      <span><Star size={17} />{Math.max(progress.points, Math.max(0, (earnedProgress(learnerId)[2] ?? 0) - 5) * 100)} points</span>
       <button onClick={()=>setRoom(!room)}>{room ? <Route size={19} /> : <Hammer size={19} />}{room ? "Journey map" : "Workshop"}</button>
     </header>
     <div className="bridge-adventure__scroll" ref={scroll}>

@@ -9,6 +9,7 @@ export interface AdminLearner {
   createdAt: string;
   lastActivity: string | null;
   presence: {stage:number|null;level:number|null;screen:string;last_seen:string} | null;
+  earnedProgress?: Record<number,number>;
   progress: Array<{
     stageId: number;
     completedLevels: number;
@@ -49,6 +50,7 @@ async function getLearnerBatch(users: Array<{id:number;email:string;created_at:s
     .select('id, user_id, name, avatar, grade')
     .in('user_id', userIds)) as Array<{ id: number; user_id: number; name: string; avatar: string; grade: number }>;
   const profileIds = profiles.map((profile) => profile.id);
+  const rewardRows = profileIds.length ? unwrap(await supabase.from('learner_stage_state').select('learner_id,stage_number,earned_completed').in('learner_id',profileIds)) as Array<{learner_id:number;stage_number:number;earned_completed:number}> : [];
   const presenceRows = unwrap(await supabase.from('learner_presence').select('user_id,stage,level,screen,last_seen').in('user_id',userIds)) as Array<{user_id:number;stage:number|null;level:number|null;screen:string;last_seen:string}>;
   const journeyRows = profileIds.length ? unwrap(await supabase.from('reading_journeys').select('learner_id,stage_number,completed,updated_at').in('learner_id',profileIds)) as Array<{learner_id:number;stage_number:number;completed:number;updated_at:string}> : [];
   const [progressRows, sessions] = profileIds.length === 0
@@ -83,6 +85,7 @@ async function getLearnerBatch(users: Array<{id:number;email:string;created_at:s
     const profile = profileByUserId.get(user.id);
     return {
       id: user.id,
+      earnedProgress: Object.fromEntries(rewardRows.filter(row => row.learner_id === profile?.id).map(row => [row.stage_number,row.earned_completed])),
       email: user.email,
       name: profile?.name ?? user.email.split('@')[0],
       avatar: profile?.avatar ?? 'learner',
