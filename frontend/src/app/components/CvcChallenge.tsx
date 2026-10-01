@@ -17,11 +17,13 @@ import { usePracticeSession } from "../../hooks/usePracticeSession";
 import { recognizeCvc } from "../../hooks/recognizeCvc";
 import { explanationSeen } from "../../hooks/learningIntroduction";
 import { NarrationHeader } from "./NarrationHeader";
+import { useClassroomActivity } from '../hooks/useClassroom';
 import { CVC_AUDIO, cvcLessonAudio, cvcCrownAudio, cvcReadyAudio, cvcModelAudio } from "./stageThreeAudio";
 
 type Phase = "intro"|"speaking"|"choice"|"ready"|"preparing"|"recording"|"playback"|"checking"|"magic"|"reward";
 interface Props { learnerId?:number|null; lesson?:CvcLesson; jewel?:number; onBack:()=>void; onComplete:()=>void; onNext:()=>void }
 export function CvcChallenge({learnerId,lesson,jewel=0,onBack,onComplete,onNext}:Props) {
+  useClassroomActivity(3, lesson?.id ?? 20, 'cvc-challenge');
   const crown=!lesson, word=lesson?.word || CROWN_WORDS[jewel];
   const sound=useBridgeAudio("/audio/stage3");
   const practice=usePracticeSession(learnerId,3,lesson?`lesson-${lesson.id}`:`crown-${jewel}`,word);

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginRequest, RegisterRequest, AuthResponse } from './auth.types.js';
+import { registrationRole } from './adminInvitation.js';
 
 export class AuthController {
   private authService: AuthService;
@@ -29,15 +30,16 @@ export class AuthController {
         return;
       }
 
-      // Public registration can create learner accounts only. Staff roles are
-      // assigned by an administrator directly in the database.
+      // Staff roles are assigned only after server-side invitation checks.
       if (role !== 'learner') {
         res.status(403).json({ success: false, message: 'Staff accounts are invitation-only' });
         return;
       }
 
       // Register user
-      const user = await this.authService.register(email, password, role as 'learner' | 'teacher', name);
+      const normalizedEmail = email.trim().toLowerCase();
+      const assignedRole = registrationRole(normalizedEmail, req.body.adminInvitation);
+      const user = await this.authService.register(normalizedEmail, password, assignedRole, name);
 
       // Generate token
       const token = this.authService.generateToken(user.id, user.email, user.role);
@@ -72,7 +74,7 @@ export class AuthController {
       }
 
       // Login user
-      const user = await this.authService.login(email, password);
+      const user = await this.authService.login(email.trim().toLowerCase(), password);
 
       // Generate token
       const token = this.authService.generateToken(user.id, user.email, user.role);

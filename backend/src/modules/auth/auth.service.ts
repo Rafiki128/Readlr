@@ -21,7 +21,7 @@ export class AuthService {
   async register(
     email: string,
     password: string,
-    role: 'learner' | 'teacher',
+    role: 'learner' | 'teacher' | 'admin',
     name: string
   ): Promise<{ id: number; email: string; role: string; name: string }> {
     // Check if user exists

@@ -11,6 +11,23 @@ import {
 } from './progress.service.js';
 import { getLearnerByUserId } from '../learner/learner.service.js';
 import { unlockFramesForStage } from '../frames/frames.service.js';
+import { getStageByNumber } from '../../database/models/stage.model.js';
+
+export async function handleSyncMyValley(req: Request, res: Response) {
+  const { completed_levels, total_levels } = req.body;
+  if (Number(req.params.stage) !== 1 || !Number.isInteger(completed_levels) || completed_levels < 0 || completed_levels > 20 || total_levels !== 20) {
+    res.status(400).json({ error: 'Invalid Valley progress' }); return;
+  }
+  try {
+    const [learner, stage] = await Promise.all([getLearnerByUserId((req as any).userId), getStageByNumber(1)]);
+    if (!stage) throw new Error('Valley stage definition is missing');
+    req.params.learnerId = String(learner.id);
+    req.params.stageId = String(stage.id);
+    await handleUpdateProgress(req, res);
+  } catch {
+    res.status(500).json({ error: 'Could not sync Valley progress. Check stage setup.' });
+  }
+}
 
 async function ensureOwnLearner(req: Request, learnerId: number): Promise<void> {
   const userId = (req as any).userId;

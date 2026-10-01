@@ -11,6 +11,8 @@ interface RegisterProps {
 export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
   const { register, isLoading, error } = useAuth();
   const [email, setEmail] = useState('');
+  const [adminInvitation, setAdminInvitation] = useState('');
+  const adminEmail = email.trim().toLowerCase().endsWith('@admin.readlr.com');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -38,7 +40,8 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
     }
 
     try {
-      await register(email, password, confirmPassword, 'learner', name);
+      await register(email, password, confirmPassword, 'learner', name, adminEmail ? adminInvitation : undefined);
+      setAdminInvitation('');
       setEmail('');
       setName('');
       setPassword('');
@@ -88,6 +91,13 @@ export const Register: React.FC<RegisterProps> = ({ onSuccess, onSwitchToLogin }
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {adminEmail && <div>
+              <label htmlFor="admin-invitation" className="block text-sm mb-2">Administrator invitation code</label>
+              <input id="admin-invitation" type="password" autoComplete="off" required value={adminInvitation}
+                onChange={event=>setAdminInvitation(event.target.value)} disabled={isLoading}
+                className="w-full px-4 py-3 border-2 rounded-lg bg-card"/>
+              <p className="text-xs mt-2 text-[var(--ink-soft)]">Use the private code provided by your Readlr system owner.</p>
+            </div>}
             <div>
               <label className="block text-[var(--ink)] font-medium text-sm mb-2">Full Name</label>
               <input

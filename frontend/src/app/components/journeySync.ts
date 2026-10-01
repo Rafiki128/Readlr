@@ -5,6 +5,13 @@ import { contiguousCount, mergeSnapshot, type JourneySnapshot } from "./journeyS
 export type { JourneySnapshot } from "./journeySnapshot";
 export const JOURNEY_CHANGED = "readlr:journey-changed";
 export const JOURNEY_RESTORED = "readlr:journey-restored";
+export function readValleyCompleted(userId?: number): number {
+  if (!userId) return 0;
+  try {
+    const count = JSON.parse(localStorage.getItem(`readlr_progress_user_${userId}`) || '{}')[1];
+    return Number.isInteger(count) && count >= 0 ? Math.min(20, count) : 0;
+  } catch { return 0; }
+}
 export function notifyJourneyChanged(learnerId?: number | null) {
   if (learnerId) window.dispatchEvent(new CustomEvent(JOURNEY_CHANGED, { detail: learnerId }));
 }
