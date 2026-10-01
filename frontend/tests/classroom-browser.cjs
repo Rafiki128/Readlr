@@ -222,17 +222,32 @@ const path = require('node:path');
     await page.getByRole('combobox', { name: 'Access', exact: true }).click();
     await page.getByRole('option', { name: 'Use class setting' }).click();
     assert.match(await page.getByRole('combobox', { name: 'Access', exact: true }).innerText(), /Use class setting/);
-    await page.route('**/api/admin/learners', route => route.fulfill({ json: { learners: Array.from({ length: 18 }, (_, i) => ({
+    await page.route('**/api/admin/learners', route => route.fulfill({ json: { learners: Array.from({ length: 120 }, (_, i) => ({
       id: i + 100, name: 'Learner ' + String(i + 1).padStart(2, '0'), email: 'learner' + i + '@example.com', avatar: '', grade: 1,
       createdAt: '2026-09-30', lastActivity: null, presence: null,
       progress: [1,2,3].map(stageId => ({ stageId, completedLevels: 20, totalLevels: 20, completionPercentage: 100, lastUpdated: '2026-09-30' })),
     })) } }));
     await page.getByRole('button', { name: 'Learner overview', exact: true }).click();
     await page.getByRole('button', { name: 'Refresh learners' }).click();
-    await page.getByText('Page 1 of 2', { exact: true }).waitFor();
+    await page.getByText('Page 1 of 8', { exact: true }).waitFor();
     assert.equal(await page.locator('.admin-learner-row').count(), 15);
     await page.getByRole('button', { name: 'Next', exact: true }).click();
-    assert.equal(await page.locator('.admin-learner-row').count(), 3);
+    assert.equal(await page.locator('.admin-learner-row').count(), 15);
+    await page.getByRole('button', { name: 'Classroom controls', exact: true }).click();
+    const list = page.getByRole('region', { name: 'Learners to manage' });
+    assert.equal(await list.locator('button').count(), 120);
+    assert.equal(await list.evaluate(el => el.clientHeight <= 480 && el.scrollHeight > el.clientHeight), true);
+    const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    await list.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollHeight), pageHeight);
+    await list.getByRole('button').filter({ hasText: 'Learner 120' }).click();
+    assert.equal(await page.locator('.admin-editor-toolbar h3').innerText(), 'Learner 120');
+    if (process.argv[3]) await page.screenshot({ path: path.join(process.argv[3], 'admin-large-list.png'), fullPage: true });
+    await page.setViewportSize({ width: 393, height: 852 });
+    assert.equal(await list.evaluate(el => el.clientHeight <= 160 && el.scrollHeight > el.clientHeight), true);
+    await page.getByRole('textbox', { name: 'Find a learner to manage' }).fill('Learner 120');
+    assert.equal(await list.locator('button').count(), 1);
+    if (process.argv[3]) await page.screenshot({ path: path.join(process.argv[3], 'admin-large-list-mobile.png'), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     assert.deepEqual(errors, []);
     console.log('Admin controls, learner restrictions, all-stage completion backfill, failure retries and admin 100% display passed.');
