@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { supabase, unwrap } from '../database/db.js';
 
 function getJwtSecret(): string {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
@@ -40,7 +41,12 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
 }
 
 export function requireRole(...roles: string[]) {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    // Recheck stored roles so a revoked admin token cannot retain staff access.
+    try {
+      const user = unwrap(await supabase.from('users').select('role').eq('id',req.userId).maybeSingle());
+      req.userRole = user?.role;
+    } catch { res.status(503).json({success:false,message:'Could not verify access'}); return; }
     if (!req.userRole || !roles.includes(req.userRole)) {
       res.status(403).json({ success: false, message: 'Access denied' });
       return;

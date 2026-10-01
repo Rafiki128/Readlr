@@ -17,6 +17,7 @@ import { getLearningSettings } from "../../hooks/learningSettings";
 import { usePracticeSession } from "../../hooks/usePracticeSession";
 import { explanationSeen } from "../../hooks/learningIntroduction";
 import { NarrationHeader } from "./NarrationHeader";
+import { useClassroomActivity } from '../hooks/useClassroom';
 
 type Phase = "start" | "narrating" | "choice" | "join" | "ready" | "preparing" | "recording" | "playback" | "building" | "reward" | "error";
 
@@ -24,6 +25,7 @@ export function BridgePractice({ learnerId, lesson, onBack, onComplete, onNext }
   learnerId?: number | null; lesson: BridgeLesson; onBack: () => void; onComplete: () => void; onNext?: () => void;
 }) {
   const practice = usePracticeSession(learnerId, 2, lesson.id, lesson.blend);
+  useClassroomActivity(2, Number(lesson.id.split('-')[1]) + (lesson.training ? 0 : 5), lesson.training ? 'workshop' : 'bridge-challenge');
   const crossing = !lesson.training;
   const reducedMotion = useReducedMotion();
   const choice = lessonChoices(lesson);

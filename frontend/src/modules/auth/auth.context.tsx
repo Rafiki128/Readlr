@@ -12,7 +12,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  register: (email: string, password: string, confirmPassword: string, role: 'learner' | 'teacher', name: string) => Promise<void>;
+  register: (email: string, password: string, confirmPassword: string, role: 'learner' | 'teacher', name: string, adminInvitation?:string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   error: string | null;
@@ -74,7 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password: string,
       confirmPassword: string,
       role: 'learner' | 'teacher',
-      name: string
+      name: string,
+      adminInvitation?: string
     ) => {
       setIsLoading(true);
       setError(null);
@@ -91,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             confirmPassword,
             role,
             name,
+            adminInvitation,
           }),
         });
 

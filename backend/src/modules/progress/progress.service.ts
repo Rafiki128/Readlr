@@ -11,11 +11,13 @@ import {
   updateProgressJourney as updateProgressJourneyDB,
 } from '../../database/models/progress.model.js';
 import { ProgressResponse, LearnerProgressSummary } from './progress.types.js';
+import { getAllStages } from '../../database/models/stage.model.js';
 
 export async function getLearnerProgressSummary(
   learnerId: number
 ): Promise<LearnerProgressSummary> {
-  const progressList = await getLearnerProgressDB(learnerId);
+  const [progressList, definitions] = await Promise.all([getLearnerProgressDB(learnerId), getAllStages()]);
+  const stageNumbers = new Map(definitions.map(stage => [stage.id, stage.stage_number]));
 
   const overallPercentage =
     progressList.length > 0
@@ -27,7 +29,7 @@ export async function getLearnerProgressSummary(
 
   return {
     learner_id: learnerId,
-    stages: progressList as ProgressResponse[],
+    stages: progressList.map(progress => ({ ...progress, stage_number: stageNumbers.get(progress.stage_id) })),
     overall_completion_percentage: overallPercentage,
   };
 }

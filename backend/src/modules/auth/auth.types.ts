@@ -4,6 +4,7 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
+  adminInvitation?: string;
   email: string;
   password: string;
   confirmPassword: string;

@@ -6,6 +6,7 @@ export interface ProgressResponse {
   id: number;
   learner_id: number;
   stage_id: number;
+  stage_number?: number;
   completed_levels: number;
   total_levels: number;
   completion_percentage: number;

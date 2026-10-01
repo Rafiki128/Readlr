@@ -26,6 +26,8 @@ interface Stage {
 }
 
 interface StageSelectionProps {
+  allowedStage?: number | null;
+  allowedStages?: number[] | null;
   learnerId?: number | null;
   onSelectStage: (stageId: number) => void;
   onViewProgress: () => void;
@@ -36,6 +38,8 @@ interface StageSelectionProps {
 }
 
 export function StageSelection({
+  allowedStage,
+  allowedStages,
   learnerId,
   onSelectStage,
   onViewProgress,
@@ -61,7 +65,7 @@ export function StageSelection({
     accentSoft: def.accentSoft,
     completed: def.id === 3 ? readCvcJourney(learnerId).completed : def.id === 2 ? bridgeCompleted : completedByStage[def.id] ?? 0,
     total: def.total,
-    locked: def.id === 3
+    locked: allowedStages ? !allowedStages.includes(def.id) : allowedStage ? def.id !== allowedStage : def.id === 3
       ? bridgeCompleted < 20 && (completedByStage[2] ?? 0) < 20 && readCvcJourney(learnerId).completed === 0
       : idx > 0 && (completedByStage[idx] ?? 0) < stageDefs[idx - 1].total,
   }));
@@ -218,7 +222,7 @@ export function StageSelection({
                     {stage.locked ? (
                       <p className="text-sm text-[var(--ink-muted)] inline-flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5" />
-                        Finish the previous stage to unlock
+                        {allowedStages || allowedStage ? 'Not in today\'s activity' : 'Finish the previous stage to unlock'}
                       </p>
                     ) : (
                       <span

@@ -14,6 +14,9 @@ import { Landing } from "./components/Landing";
 import { LearnerProfile } from "./components/LearnerProfile";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StageSelection } from "./components/StageSelection";
+import { useClassroom } from "./hooks/useClassroom";
+import { ClassroomMessage } from "./components/ClassroomMessage";
+import { ClassroomNotice } from "./components/ClassroomNotice";
 import { GameLevel } from "./components/GameLevel";
 import { StoryScene } from "./components/StoryScene";
 import { bridgeStorageKey, furtherBridgeJourney, readBridgeJourney } from "./components/stageTwoContent";
@@ -272,6 +275,12 @@ function AppContent() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialRoute.authMode ?? 'register');
   const [selectedStage, setSelectedStage] = useState<number>(initialRoute.stageId ?? 1);
   const [selectedLevel, setSelectedLevel] = useState<number>(initialRoute.levelId ?? 1);
+  const stageScreen = ["story-scene", "chapter-bridge", "level-map", "game", "vowel-power-complete"].includes(currentScreen);
+  const classroom = useClassroom(token, user?.role === 'learner', {
+    stage: stageScreen ? selectedStage : null,
+    level: currentScreen === 'game' ? selectedLevel : null,
+    screen: currentScreen,
+  });
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
@@ -294,7 +303,9 @@ function AppContent() {
   const [learnerId, setLearnerId] = useState<number | null>(null);
   const updateJourneyProgress = useCallback((stage:number,count:number) => {
     setCompletedByStage(previous => {
-      const next = {...previous, [stage]:count};
+      const stored = readProgressFromStorage(user?.id);
+      const next = Object.fromEntries([1,2,3].map(id => [id, Math.max(previous[id] ?? 0, stored[id] ?? 0)]));
+      next[stage] = Math.max(next[stage] ?? 0,count);
       try { saveProgressToStorage(user?.id,next); } catch { /* Local journey data remains the backup. */ }
       return next;
     });
@@ -431,8 +442,9 @@ function AppContent() {
 
             const stages = Array.isArray(progressData) ? progressData : (progressData.stages ?? []);
             stages.forEach((progress: any) => {
-              if ([2,3].includes(progress.stage_id) && progress.total_levels !== 20) return;
-              newCompletedByStage[progress.stage_id] = progress.completed_levels;
+              const stage = progress.stage_number ?? progress.stage_id;
+              if ([2,3].includes(stage) && progress.total_levels !== 20) return;
+              newCompletedByStage[stage] = progress.completed_levels;
             });
             
             setCompletedByStage((prev) => {
@@ -447,7 +459,7 @@ function AppContent() {
             });
 
             // Keep whichever journey is further along on both the device and the server.
-            const serverJourney = (stageId: number) => stages.find((progress: any) => progress.stage_id === stageId)?.journey;
+            const serverJourney = (stageId: number) => stages.find((progress: any) => (progress.stage_number ?? progress.stage_id) === stageId)?.journey;
             const bridge = furtherBridgeJourney(readBridgeJourney(learnerId), serverJourney(2));
             const cvc = furtherCvcJourney(readCvcJourney(learnerId), serverJourney(3));
             try {
@@ -537,42 +549,18 @@ function AppContent() {
     setCurrentScreen("game");
   };
 
-  // Saves a stage's completed-level count on this device and the server without ever lowering it.
-  const recordStageProgress = async (stageId: number, completed: number, journey?: object) => {
+  // Persist locally before notifying the single retrying cloud writer.
+  const recordStageProgress = async (stageId: number, completed: number, _journey?: object) => {
+    const stored = readProgressFromStorage(user?.id);
+    saveProgressToStorage(user?.id, { ...stored, [stageId]: Math.max(stored[stageId] ?? 0, completed) });
     setCompletedByStage((prev) => {
       const nextProgress = { ...prev, [stageId]: Math.max(prev[stageId] ?? 0, completed) };
-      saveProgressToStorage(user?.id, nextProgress);
       return nextProgress;
     });
 
-    // Stages 2 and 3 are persisted by useJourneySync, including offline retries.
+    // Stage 2/3 journey changes already notify the same writer.
     if (stageId !== 1) return;
-    if (learnerId && token) {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-        const stageConfig = STAGE_CONFIG[stageId];
-
-        const progressRes = await fetch(`${API_URL}/progress/learners/${learnerId}/stages/${stageId}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            completed_levels: completed,
-            total_levels: stageConfig.totalLevels,
-            journey,
-          }),
-        });
-        if (progressRes.ok) {
-          const data = await progressRes.json();
-          window.dispatchEvent(new Event("readlr:frames-changed"));
-          if (data.unlocked_frames?.length && getLearningSettings().achievement_alerts) setStageComplete({ stageId, frames: data.unlocked_frames });
-        }
-      } catch (error) {
-        console.error('Failed to save progress to backend:', error);
-      }
-    }
+    notifyJourneyChanged(learnerId);
   };
 
   const handleLevelComplete = async () => {
@@ -723,15 +711,28 @@ function AppContent() {
     return <AdminDashboard />;
   }
 
-  if (introductionOpen && learnerId) return <LearningIntroduction key={learnerId} learnerId={learnerId} userName={learnerName} completedByStage={completedByStage} onLessonDone={() => {
+  const classroomMessage = user?.role === 'learner' && !classroom.error ? <ClassroomMessage key={user.id} userId={user.id} policy={classroom.policy} /> : null;
+  const allClassroomStagesUnlocked = classroom.policy?.mode === 'stages' &&
+    [1, 2, 3].every(stage => classroom.policy?.stages?.includes(stage));
+
+  if (user?.role === 'learner' && currentScreen !== 'learner-profile' &&
+    (classroom.error || !classroom.policy || ['paused', 'survey'].includes(classroom.policy.mode) ||
+      (['stage', 'stages'].includes(classroom.policy.mode) && ((stageScreen && !(classroom.policy.mode === 'stage' ? [classroom.policy.stage] : classroom.policy.stages ?? []).includes(selectedStage)) || introductionOpen || (currentScreen === 'phoneme-bank' && !allClassroomStagesUnlocked))))) {
+    return <>{classroomMessage}<ClassroomNotice policy={classroom.policy} error={classroom.error} onLogout={logout} onStage={stage => {
+      setIntroductionOpen(false); setSelectedLevel(1); handleSelectStage(stage);
+    }} /></>;
+  }
+
+  if (introductionOpen && learnerId) return <>{classroomMessage}<LearningIntroduction key={learnerId} learnerId={learnerId} userName={learnerName} completedByStage={completedByStage} onLessonDone={() => {
     finishIntroduction(learnerId); setIntroductionOpen(false);
     setSelectedStage(1); setSelectedLevel(1); setMapEntry("dojo"); setCurrentScreen("level-map");
   }} onDone={() => {
     finishIntroduction(learnerId); setIntroductionOpen(false);
-  }} />;
+  }} /></>;
 
   return (
     <div className="size-full flex flex-col">
+      {classroomMessage}
       {showLearnerHeader && (
         <NavigationHeader
           userName={learnerName}
@@ -753,6 +754,8 @@ function AppContent() {
 
         {currentScreen === "stage-selection" && (
           <StageSelection
+            allowedStage={classroom.policy?.mode === 'stage' ? classroom.policy.stage : null}
+            allowedStages={classroom.policy?.mode === 'stages' ? classroom.policy.stages ?? [] : null}
             learnerId={learnerId}
             onSelectStage={handleSelectStage}
             onViewProgress={handleViewProgress}
