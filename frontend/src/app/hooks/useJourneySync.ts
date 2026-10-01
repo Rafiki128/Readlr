@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { JOURNEY_CHANGED, localJourneys, readValleyCompleted, restoreJourney, type JourneySnapshot } from "../components/journeySync";
 import { getLearningSettings } from "../../hooks/learningSettings";
 import { markPracticeToday } from "./useLearningSettings";
+import { applyResetState, epochKey, preserveRewards } from '../components/progressReset';
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 export function useJourneySync(learnerId: number | null, token: string | null, onProgress: (stage:number,count:number)=>void, userId?:number, onFrames?: (stage:number, frames:Array<{id:number;name:string;asset_key:string}>)=>void) {
@@ -44,6 +45,13 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
         if (!response.ok) throw new Error("Load failed");
         const data=await response.json();
         if (controller.signal.aborted) return;
+        const resetResponse = await fetch(`${API}/progress/me/reset-state`, { headers, signal: controller.signal });
+        if (!resetResponse.ok || !userId) throw new Error('Reset state unavailable');
+        const resetData = await resetResponse.json();
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(resetData.stages)) throw new Error('Invalid reset state');
+        const { changed: wasReset, epochs } = applyResetState(learnerId!, userId, resetData.stages);
+        if (wasReset) { window.location.replace('/home'); return; }
         for (const remote of data.journeys as JourneySnapshot[]) restoreJourney(learnerId!,remote);
         let failed = false;
         try {
@@ -52,12 +60,13 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
           const summary = await response.json();
           const valley = summary.stages?.find((row:{stage_number?:number;stage_id:number})=>(row.stage_number ?? row.stage_id) === 1);
           const completed = Math.max(readValleyCompleted(userId), valley?.completed_levels ?? 0);
+          onProgress(1, completed);
           if (completed > 0) {
-            const result = await fetch(`${API}/progress/me/stages/1`, {method:'PUT',headers,signal:controller.signal,body:JSON.stringify({completed_levels:completed,total_levels:20})});
+            const result = await fetch(`${API}/progress/me/stages/1`, {method:'PUT',headers,signal:controller.signal,body:JSON.stringify({completed_levels:completed,total_levels:20,epoch:epochs[1] ?? 0})});
             if (await permittedResult(result)) {
               const saved = await result.json();
               if (controller.signal.aborted) return;
-              onProgress(1,saved.completed_levels); frames(1,saved);
+              preserveRewards(learnerId!, {1:saved.completed_levels}); onProgress(1,saved.completed_levels); frames(1,saved);
             }
           }
         } catch { failed = true; }
@@ -65,11 +74,12 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
           // Do not turn a legacy 8/10-level completion into a new curriculum completion.
           if (!local.completed && !data.journeys.some((j:JourneySnapshot)=>j.stage_number===local.stage_number)) continue;
           try {
-            const result=await fetch(`${API}/progress/me/journeys/${local.stage_number}`,{method:"PUT",headers,signal:controller.signal,body:JSON.stringify(local)});
+            const result=await fetch(`${API}/progress/me/journeys/${local.stage_number}`,{method:"PUT",headers,signal:controller.signal,body:JSON.stringify({...local,epoch:epochs[local.stage_number] ?? 0})});
             if (!(await permittedResult(result))) continue;
             const saved=await result.json();
             if (controller.signal.aborted) return;
             restoreJourney(learnerId!,saved.journey);
+            preserveRewards(learnerId!, {[local.stage_number]:saved.journey.completed});
             onProgress(local.stage_number,saved.journey.completed);
             frames(local.stage_number,saved);
           } catch { failed = true; }
@@ -84,9 +94,11 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
     window.addEventListener("online",retry);
     const visible = () => { if (!document.hidden) retry(); };
     document.addEventListener('visibilitychange',visible);
-    const timer=setInterval(retry,60000);
+    const storage = (event: StorageEvent) => { if (event.key === epochKey(learnerId)) window.location.replace('/home'); };
+    window.addEventListener('storage',storage);
+    const timer=setInterval(retry,15000);
     void sync();
-    return()=> {controller.abort();clearInterval(timer);window.removeEventListener(JOURNEY_CHANGED,changed);window.removeEventListener("online",retry);document.removeEventListener('visibilitychange',visible);};
+    return()=> {controller.abort();clearInterval(timer);window.removeEventListener('storage',storage);window.removeEventListener(JOURNEY_CHANGED,changed);window.removeEventListener("online",retry);document.removeEventListener('visibilitychange',visible);};
   },[learnerId,token,onProgress,userId,onFrames]);
   return syncError;
 }

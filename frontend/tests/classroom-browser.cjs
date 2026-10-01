@@ -9,6 +9,13 @@ const path = require('node:path');
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     await context.addInitScript(() => localStorage.setItem('auth_token', 'test-session'));
     const page = await context.newPage();
+    async function openLearnerAfterReset() {
+      let visits = 0;
+      const refreshed = page.waitForEvent('framenavigated', frame => frame === page.mainFrame() && frame.url().endsWith('/home') && ++visits === 2);
+      await page.goto('http://127.0.0.1:5173/home');
+      await refreshed;
+      await page.waitForLoadState('domcontentloaded');
+    }
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     const open = { mode: 'open', stage: null, message: '', surveyUrl: '' };
@@ -16,6 +23,9 @@ const path = require('node:path');
     const writes = [];
     const journeyWrites = [];
     const savedProgress = { 1: 0, 2: 0, 3: 0 };
+    const resetEpochs = { 1: 0, 2: 0, 3: 0 };
+    const rewards = { 1: 0, 2: 0, 3: 0 };
+    const resets = [];
     let failStage2 = false;
     let role = 'admin';
     let conflict = false;
@@ -29,6 +39,17 @@ const path = require('node:path');
       if (pathname.endsWith('/auth/profile')) data = { user: { id: 7, email: 'd.sabandal@admin.readlr.com', role, name: 'Test Admin' } };
       else if (pathname.endsWith('/admin/learners')) data = { learners: [{ id: 11, name: 'Test Student', email: 'test.student@example.com', avatar: '', grade: 1, createdAt: '2026-09-30T00:00:00Z', lastActivity: null, presence: { stage: 2, level: 7, screen: 'bridge-challenge', last_seen: new Date().toISOString() }, progress: [1,2,3].map(stageId => ({ stageId, completedLevels: savedProgress[stageId], totalLevels: 20, completionPercentage: savedProgress[stageId] * 5, lastUpdated: '2026-09-30' })) }] };
       else if (pathname.endsWith('/frames/me')) data = { frames: [] };
+      else if (pathname.endsWith('/progress/me/reset-state')) data = { stages: [1,2,3].map(stage => ({stage_number: stage,epoch: resetEpochs[stage],earned_completed: rewards[stage]})) };
+      else if (pathname.endsWith('/admin/classroom/reset')) {
+        const body = request.postDataJSON();
+        resets.push(body);
+        for (const stage of body.stages) {
+          rewards[stage] = Math.max(rewards[stage], savedProgress[stage]);
+          savedProgress[stage] = 0;
+          resetEpochs[stage]++;
+        }
+        data = {affected: 1,message: 'Reset saved for 1 learner(s). Earned rewards are preserved.'};
+      }
       else if (pathname.endsWith('/admin/classroom/me')) {
         status = unavailable ? 503 : 200;
         data = { policy: state.policy, revision: state.revision };
@@ -74,6 +95,25 @@ const path = require('node:path');
     await page.goto('http://127.0.0.1:5173/admin/learners');
     await page.getByRole('button', { name: 'Classroom controls', exact: true }).click();
     await page.getByRole('heading', { name: 'Classroom controls' }).waitFor();
+    async function checkActionAlignment() {
+      const discard = page.getByRole('button', {name: 'Discard edits', exact: true});
+      const apply = page.getByRole('button', {name: 'Apply controls', exact: true});
+      await apply.scrollIntoViewIfNeeded();
+      const first = await discard.boundingBox();
+      const second = await apply.boundingBox();
+      assert.ok(first && second);
+      assert.ok(Math.abs(first.y - second.y) < 1, 'Action buttons must share a top edge');
+      assert.equal(first.height, second.height);
+    }
+    await checkActionAlignment();
+    await page.setViewportSize({width: 393,height: 852});
+    await checkActionAlignment();
+    if (process.argv[3]) await page.locator('.admin-access-actions').screenshot({path: path.join(process.argv[3], 'admin-actions-aligned.png')});
+    await page.setViewportSize({width: 1440,height: 1000});
+    const discardBounds = await page.getByRole('button', { name: 'Discard edits' }).boundingBox();
+    const applyBounds = await page.getByRole('button', { name: 'Apply controls' }).boundingBox();
+    assert.equal(discardBounds.y, applyBounds.y);
+    assert.equal(discardBounds.height, applyBounds.height);
     await page.getByRole('combobox', { name: 'Access', exact: true }).click();
     await page.getByRole('option', { name: 'Unlock selected stages' }).click();
     await page.getByRole('checkbox', { name: 'Stage 1 Valley of Vowels' }).uncheck();
@@ -222,6 +262,54 @@ const path = require('node:path');
     await page.getByRole('combobox', { name: 'Access', exact: true }).click();
     await page.getByRole('option', { name: 'Use class setting' }).click();
     assert.match(await page.getByRole('combobox', { name: 'Access', exact: true }).innerText(), /Use class setting/);
+    const resetTools = page.locator('.admin-reset-tools');
+    await resetTools.scrollIntoViewIfNeeded();
+    if (process.argv[3]) await page.screenshot({path: path.join(process.argv[3], 'admin-reset-section.png')});
+    assert.equal(await resetTools.getByRole('button', {name: 'Review reset'}).isDisabled(), true);
+    await resetTools.getByRole('checkbox', {name: 'Stage 2',exact: true}).check();
+    await resetTools.getByRole('button', {name: 'Review reset'}).click();
+    assert.equal(await page.getByRole('button', {name: 'Reset progress',exact: true}).isDisabled(), true);
+    await page.getByRole('button', {name: 'Cancel',exact: true}).click();
+    assert.equal(resets.length, 0);
+    await resetTools.getByRole('button', {name: 'Review reset'}).click();
+    await page.getByRole('textbox', {name: 'Reset confirmation'}).fill('RESET');
+    await page.getByRole('alertdialog').evaluate(async el => { await Promise.all(el.getAnimations().map(animation => animation.finished)); });
+    if (process.argv[3]) await page.screenshot({path: path.join(process.argv[3], 'admin-reset-desktop.png')});
+    await page.setViewportSize({width: 393,height: 852});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    if (process.argv[3]) await page.screenshot({path: path.join(process.argv[3], 'admin-reset-mobile.png')});
+    await page.getByRole('button', {name: 'Reset progress',exact: true}).click();
+    await resetTools.getByRole('status').filter({hasText: 'Reset saved'}).waitFor();
+    assert.deepEqual(resets[0], {target: 11,stages: [2],confirmation: 'RESET'});
+    assert.deepEqual(savedProgress, {1:20,2:0,3:20});
+    role = 'learner';
+    await openLearnerAfterReset();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('readlr_reset_epochs_15') || '{}')[2] === 1);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('readlr_progress_user_7'))[2]), 0);
+    assert.equal(await page.evaluate(() => localStorage.getItem('readlr_bridge_v2_learner_15')), null);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('readlr_earned_progress_15'))[2]), 20);
+    assert.equal(savedProgress[2], 0);
+    role = 'admin';
+    await page.goto('http://127.0.0.1:5173/admin/learners');
+    await page.getByRole('button', {name: 'Classroom controls',exact: true}).click();
+    await resetTools.scrollIntoViewIfNeeded();
+    if (process.argv[3]) await page.screenshot({path: path.join(process.argv[3], 'admin-reset-section-mobile.png'),fullPage:true});
+    await resetTools.getByRole('checkbox', {name: 'All stages',exact: true}).check();
+    await resetTools.getByRole('button', {name: 'Review reset'}).click();
+    await page.getByRole('textbox', {name: 'Reset confirmation'}).fill('RESET');
+    await page.getByRole('button', {name: 'Reset progress',exact: true}).click();
+    await resetTools.getByRole('status').filter({hasText: 'Reset saved'}).waitFor();
+    assert.deepEqual(resets[1], {target: 'class',stages: [1,2,3],confirmation: 'RESET'});
+    assert.deepEqual(savedProgress, {1:0,2:0,3:0});
+    assert.deepEqual(rewards, {1:20,2:20,3:20});
+    role = 'learner';
+    await openLearnerAfterReset();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('readlr_reset_epochs_15') || '{}')[3] === 1);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('readlr_progress_user_7'))), {1:0,2:0,3:0});
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('readlr_earned_progress_15'))), {1:20,2:20,3:20});
+    role = 'admin';
+    await page.goto('http://127.0.0.1:5173/admin/learners');
+    await page.setViewportSize({width:1440,height:1000});
     await page.route('**/api/admin/learners', route => route.fulfill({ json: { learners: Array.from({ length: 120 }, (_, i) => ({
       id: i + 100, name: 'Learner ' + String(i + 1).padStart(2, '0'), email: 'learner' + i + '@example.com', avatar: '', grade: 1,
       createdAt: '2026-09-30', lastActivity: null, presence: null,
@@ -250,7 +338,7 @@ const path = require('node:path');
     if (process.argv[3]) await page.screenshot({ path: path.join(process.argv[3], 'admin-large-list-mobile.png'), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     assert.deepEqual(errors, []);
-    console.log('Admin controls, learner restrictions, all-stage completion backfill, failure retries and admin 100% display passed.');
+    console.log('Admin controls, restrictions, progress sync, individual/class resets, preserved rewards, desktop/mobile dialogs and long rosters passed.');
     await context.close();
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

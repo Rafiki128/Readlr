@@ -16,8 +16,8 @@ export async function getReadingJourneys(req: Request, res: Response) {
 
 export async function syncReadingJourney(req: Request, res: Response) {
   const stage = Number(req.params.stage);
-  const { completed, jewels = 0 } = req.body;
-  if (![2,3].includes(stage) || !Number.isInteger(completed) || completed < 0 || completed > 20 ||
+  const { completed, jewels = 0, epoch = 0 } = req.body;
+  if (!Number.isInteger(epoch) || epoch < 0 || ![2,3].includes(stage) || !Number.isInteger(completed) || completed < 0 || completed > 20 ||
       !Number.isInteger(jewels) || jewels < 0 || jewels > 3 || (stage === 2 && jewels !== 0) ||
       (stage === 3 && ((completed < 19 && jewels !== 0) || (completed === 20 && jewels !== 3) || (completed < 20 && jewels === 3)))) {
     res.status(400).json({ error: 'Invalid reading journey' }); return;
@@ -25,8 +25,8 @@ export async function syncReadingJourney(req: Request, res: Response) {
   try {
     const userId = (req as any).userId;
     const learner = await getLearnerByUserId(userId);
-    const rows = unwrap(await supabase.rpc('sync_reading_journey', { p_learner: learner.id, p_stage: stage, p_completed: completed, p_jewels: jewels }));
-    const journey = rows[0];
+    const result = unwrap(await supabase.rpc('sync_stage_guarded', { p_learner: learner.id, p_stage: stage, p_completed: completed, p_jewels: jewels, p_epoch: epoch }));
+    const journey = result.journey;
     // Reconcile on every completed sync: frame inserts are idempotent, including after a failed request.
     let unlocked_frames: unknown[] = [];
     if (journey.completed === 20) {
@@ -37,6 +37,9 @@ export async function syncReadingJourney(req: Request, res: Response) {
     res.json({ journey, unlocked_frames });
   } catch (error) {
     console.error('Reading journey sync failed:', error);
+    if (String((error as Error).message).includes('STALE_PROGRESS_EPOCH')) {
+      res.status(409).json({ code: 'progress_reset', error: 'Reload reset progress before saving.' }); return;
+    }
     res.status(500).json({ error: 'Could not sync reading journey' });
   }
 }

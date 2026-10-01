@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { earnedProgress } from './progressReset';
 import { ArrowLeft, ArrowRight, BookOpen, Check, Crown, Lock, Printer, Sparkles } from "lucide-react";
 import { CvcChallenge } from "./CvcChallenge";
 import { CvcCastle, CvcCrown, WordObject } from "./CvcArt";
@@ -60,7 +61,7 @@ export function CvcKingdom({learnerId,onBack,onProgress,onActivityChange}:Props)
   }
   if(activity) return <CvcChallenge key={`${activity.id}-${activity.jewel}`} learnerId={learnerId} lesson={CVC_LESSONS.find(item=>item.id===activity.id)} jewel={activity.jewel}
     onBack={()=>setActivity(null)} onNext={next} onComplete={()=>save(activity.id===20?restoreCrownJewel(current.current,activity.jewel):finishCvcLesson(current.current,activity.id))}/>;
-  const points=journey.completed*100;
+  const points=Math.max(journey.completed, earnedProgress(learnerId)[3] ?? 0)*100;
   const positions=CASTLE_STOPS;
   return <div className="cvc-root cvc-kingdom">
     {entering&&<div className="cvc-realm-entry" role="status"><div className="cvc-entry-door cvc-entry-door--left"/><div className="cvc-entry-door cvc-entry-door--right"/><div className="cvc-entry-title"><Crown size={42}/><p>The final adventure</p><h1>CVC Kingdom</h1><button onClick={()=>setEntering(false)}>Enter the kingdom<ArrowRight size={18}/></button></div></div>}

@@ -1,3 +1,4 @@
+import { supabase, unwrap } from '../../database/db.js';
 /**
  * Progress Service
  * Business logic for progress tracking
@@ -6,9 +7,6 @@
 import {
   getLearnerProgress as getLearnerProgressDB,
   getProgressByLearnerAndStage as getProgressByLearnerAndStageDB,
-  updateProgress as updateProgressDB,
-  createProgress as createProgressDB,
-  updateProgressJourney as updateProgressJourneyDB,
 } from '../../database/models/progress.model.js';
 import { ProgressResponse, LearnerProgressSummary } from './progress.types.js';
 import { getAllStages } from '../../database/models/stage.model.js';
@@ -50,25 +48,15 @@ export async function updateStageProgress(
   stageId: number,
   completedLevels: number,
   totalLevels: number,
-  journey?: unknown
+  journey?: unknown,
+  epoch = 0
 ): Promise<ProgressResponse> {
-  // Check if progress exists, if not create it
-  let progress = await getProgressByLearnerAndStageDB(learnerId, stageId);
-  if (!progress) {
-    progress = await createProgressDB(learnerId, stageId, totalLevels);
-  }
-
-  // Neither the stage total nor the completed count ever goes backwards, and the count never exceeds the total.
-  const nextTotal = Math.max(totalLevels, progress.total_levels);
-  const nextCompleted = Math.max(progress.completed_levels, Math.min(completedLevels, nextTotal));
-  await updateProgressDB(learnerId, stageId, nextCompleted, nextTotal);
-
-  // Only a journey at least as far along as the saved count replaces it; failures never block the count.
-  const isJourney = typeof journey === 'object' && journey !== null && !Array.isArray(journey) && JSON.stringify(journey).length <= 2000;
-  if (isJourney && completedLevels >= nextCompleted) {
-    await updateProgressJourneyDB(learnerId, stageId, journey).catch((error) => console.error('Failed to save journey:', error));
-  }
-
-  // Return updated progress
-  return getStageProgress(learnerId, stageId);
+  const stage = unwrap(await supabase.from('stages').select('stage_number').eq('id', stageId).single());
+  if (!stage) throw new Error('Stage not found');
+  const result = unwrap(await supabase.rpc('sync_stage_guarded', {
+    p_learner: learnerId, p_stage: stage.stage_number, p_completed: completedLevels,
+    p_jewels: stage.stage_number === 3 && completedLevels === 20 ? 3 : 0,
+    p_epoch: epoch, p_total: totalLevels, p_journey: journey ?? null,
+  }));
+  return result.progress as ProgressResponse;
 }

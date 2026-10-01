@@ -79,12 +79,12 @@ export async function handleGetStageProgress(req: Request, res: Response) {
 export async function handleUpdateProgress(req: Request, res: Response) {
   try {
     const { learnerId, stageId } = req.params;
-    const { completed_levels, total_levels, journey } = req.body;
+    const { completed_levels, total_levels, journey, epoch = 0 } = req.body;
     const parsedLearnerId = parseInt(learnerId);
 
     await ensureOwnLearner(req, parsedLearnerId);
 
-    if (completed_levels === undefined || total_levels === undefined) {
+    if (!Number.isInteger(completed_levels) || completed_levels < 0 || completed_levels > 20 || total_levels !== 20 || !Number.isInteger(epoch) || epoch < 0) {
       return res.status(400).json({
         error: 'completed_levels and total_levels are required',
       });
@@ -97,7 +97,8 @@ export async function handleUpdateProgress(req: Request, res: Response) {
       parsedStageId,
       completed_levels,
       total_levels,
-      journey
+      journey,
+      epoch
     );
 
     const isStageComplete = progress.completed_levels >= progress.total_levels;
@@ -109,6 +110,9 @@ export async function handleUpdateProgress(req: Request, res: Response) {
     res.json({ ...progress, unlocked_frames: unlockedFrames });
   } catch (error) {
     console.error('Error updating progress:', error);
+    if (String((error as Error).message).includes('STALE_PROGRESS_EPOCH')) {
+      res.status(409).json({ code: 'progress_reset', error: 'Reload reset progress before saving.' }); return;
+    }
     res.status(error instanceof Error && error.message === 'Access denied' ? 403 : 500).json({ error: 'Failed to update progress' });
   }
 }

@@ -8,6 +8,7 @@ import './adminDashboard.css';
 import { accessLabel, type ClassroomState } from './classroomAccess';
 
 interface Learner {
+  earnedProgress?: Record<number,number>;
   id: number; email: string; name: string; avatar: string; grade: number;
   createdAt: string; lastActivity: string | null;
   presence: { stage: number | null; level: number | null; screen: string; last_seen: string } | null;
@@ -42,6 +43,11 @@ export function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const refreshProgress = () => setRefresh(n => n + 1);
+    window.addEventListener('readlr:admin-progress-reset', refreshProgress);
+    return () => window.removeEventListener('readlr:admin-progress-reset', refreshProgress);
+  }, []);
   useEffect(() => {
     if (!token) return;
     let active = true;
@@ -93,7 +99,7 @@ export function AdminDashboard() {
       <div className="admin-brand"><img src="/readlr-mark.svg" alt="" /><strong>Readlr</strong><span>Classroom</span></div>
       <div className="admin-account"><span>{user?.email}</span><button className="admin-icon-button" onClick={logout} aria-label="Sign out" title="Sign out"><LogOut size={19} /></button></div>
     </div></header>
-    <div className="admin-workspace"><aside className="admin-sidebar"><p>CLASSROOM MANAGEMENT</p><nav aria-label="Admin navigation"><button aria-current={view === 'overview' ? 'page' : undefined} onClick={() => setView('overview')}><Users size={19} />Learner overview</button><button aria-current={view === 'controls' ? 'page' : undefined} onClick={() => setView('controls')}><SlidersHorizontal size={19} />Classroom controls</button></nav><div className="admin-sidebar-note"><Trophy size={21} />Progress is always preserved.<small>Access settings never award or remove completed lessons.</small></div></aside><div className="admin-shell admin-content">
+    <div className="admin-workspace"><aside className="admin-sidebar"><p>CLASSROOM MANAGEMENT</p><nav aria-label="Admin navigation"><button aria-current={view === 'overview' ? 'page' : undefined} onClick={() => setView('overview')}><Users size={19} />Learner overview</button><button aria-current={view === 'controls' ? 'page' : undefined} onClick={() => setView('controls')}><SlidersHorizontal size={19} />Classroom controls</button></nav><div className="admin-sidebar-note"><Trophy size={21} />Earned rewards stay safe.<small>Access changes keep progress. Only a confirmed reset restarts selected stages.</small></div></aside><div className="admin-shell admin-content">
       <div className="admin-intro"><div><p className="admin-eyebrow">LEARN. PRACTICE. GROW.</p><h1>{view === 'overview' ? 'Your classroom' : 'Manage access'}</h1><p className="admin-muted">Every learner's journey, together in one place.</p></div>
         <div className="admin-today"><CalendarDays size={19} /><div>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}<small>{Intl.DateTimeFormat().resolvedOptions().timeZone.split('_').join(' ')}</small></div></div>
       </div>
@@ -109,7 +115,7 @@ export function AdminDashboard() {
           <table className="admin-table"><thead><tr><th>Learner</th><th>Stage progress</th><th>Completion</th><th>Access status</th><th>Latest activity</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>
             {filtered.slice((currentPage - 1) * 15, currentPage * 15).map(learner => {
               const completion = getCompletion(learner);
-              const stickers = stickerSummary(Object.fromEntries(learner.progress.map(s => [s.stageId, s.completedLevels])));
+              const stickers = stickerSummary(Object.fromEntries(learner.progress.map(s => [s.stageId, Math.max(s.completedLevels,learner.earnedProgress?.[s.stageId] ?? 0)])));
               return <Fragment key={learner.id}><tr className="admin-learner-row">
                 <td className="admin-identity"><div className="admin-person"><span className="admin-avatar">{learner.avatar || learner.name.slice(0, 1)}</span><div><strong>{learner.name}</strong><small>{learner.email}</small><span className="admin-grade">Grade {learner.grade}</span></div></div></td>
                 <td className="admin-stages"><div className="admin-stage-grid">{learner.progress.map(stage => <div key={stage.stageId} className={`admin-stage stage-${stage.stageId}`}><div><strong>{stageNames[stage.stageId - 1] || `Stage ${stage.stageId}`}</strong><span>{stage.completedLevels}/{stage.totalLevels}</span></div><div className="admin-track"><i style={{ width: `${stage.totalLevels ? Math.min(100, stage.completedLevels / stage.totalLevels * 100) : 0}%` }} /></div><small>{stage.completedLevels >= stage.totalLevels ? 'Complete' : `Next: level ${stage.completedLevels + 1}`}</small><span className="sr-only">Stage {stage.stageId}: {stage.completedLevels} / {stage.totalLevels}{stage.completedLevels < stage.totalLevels ? ` (next: ${stage.completedLevels + 1})` : ' - complete'}</span></div>)}</div></td>

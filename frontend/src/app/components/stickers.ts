@@ -38,9 +38,10 @@ export function isStickerEarned(sticker: Sticker, completedByStage: Record<numbe
   return (completedByStage[sticker.stageId] ?? 0) >= sticker.at;
 }
 
-// Returns the stickers first earned when a stage's count rises from `before` to `after`, or null if none.
+// Training stickers stay in the book; only challenge milestones trigger a popup.
 export function newStickerReward(stageId: number, before: number, after: number) {
-  const [sticker, ...bonuses] = STICKERS.filter((item) => item.stageId === stageId && item.at > before && item.at <= after);
+  const trainingEnd = stageId === 1 || stageId === 2 ? 5 : 0;
+  const [sticker, ...bonuses] = STICKERS.filter((item) => item.stageId === stageId && item.at > trainingEnd && item.at > before && item.at <= after);
   return sticker ? { sticker, bonuses } : null;
 }
 
