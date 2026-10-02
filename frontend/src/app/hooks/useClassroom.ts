@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 export interface ClassroomPolicy {
   mode: 'open' | 'stage' | 'stages' | 'paused' | 'survey';
   stages?: number[];
+  unlockThrough?: Record<number, number>;
+  soundLibrary?: boolean;
   stage: number | null;
   message: string;
   surveyUrl: string;
@@ -20,7 +22,7 @@ export function useClassroomActivity(stage: number, level: number, screen: strin
 }
 
 export function useClassroom(token: string | null, enabled: boolean, activity: Activity) {
-  const [state, setState] = useState<{token: string; policy: ClassroomPolicy} | null>(null);
+  const [state, setState] = useState<{token: string; policy: ClassroomPolicy; surveyAssigned:boolean} | null>(null);
   const [error, setError] = useState(false);
   const activityRef = useRef(activity);
   activityRef.current = activity;
@@ -39,7 +41,7 @@ export function useClassroom(token: string | null, enabled: boolean, activity: A
         const response = await fetch(`${CLASSROOM_API}/admin/classroom/me`, options);
         if (!response.ok) throw new Error('Unavailable');
         const data = await response.json();
-        if (active) { setState({ token, policy: data.policy }); setError(false); }
+        if (active) { setState({ token, policy: data.policy, surveyAssigned:data.surveyAssigned===true }); setError(false); }
         if (document.visibilityState === 'visible') {
           await fetch(`${CLASSROOM_API}/admin/classroom/presence`, {
             ...options, method: 'PUT', body: JSON.stringify(lessonActivity ?? activityRef.current),
@@ -55,5 +57,5 @@ export function useClassroom(token: string | null, enabled: boolean, activity: A
     document.addEventListener('visibilitychange', visible);
     return () => { active = false; controller?.abort(); clearInterval(timer); window.removeEventListener('online', visible); document.removeEventListener('visibilitychange', visible); };
   }, [token, enabled]);
-  return { policy: state?.token === token ? state.policy : null, error };
+  return { policy: state?.token === token ? state.policy : null, surveyAssigned:state?.token===token && state.surveyAssigned, error };
 }

@@ -20,6 +20,8 @@ interface StageDef {
 
 interface LevelMapProps {
   learnerId?: number | null;
+  unlockThrough?: number;
+  soundLibraryUnlocked?: boolean;
   stageId: number;
   completedCount?: number;
   initialView?: "dojo" | "valley" | "bridges";
@@ -194,7 +196,7 @@ function StandardLevelMap({
 }
 
 function StageTwoMap(props: LevelMapProps) {
-  return <BlendingWorkshop learnerId={props.learnerId} initialView={props.initialView === "bridges" ? "bridges" : "workshop"} onBack={props.onBack} onProgress={props.onProgress} onActivityChange={props.onActivityChange} />;
+  return <BlendingWorkshop unlockThrough={props.unlockThrough} soundLibraryUnlocked={props.soundLibraryUnlocked} learnerId={props.learnerId} initialView={props.initialView === "bridges" ? "bridges" : "workshop"} onBack={props.onBack} onProgress={props.onProgress} onActivityChange={props.onActivityChange} />;
 }
 
 export function LevelMap(props: LevelMapProps) {
@@ -203,7 +205,7 @@ export function LevelMap(props: LevelMapProps) {
   }
 
   if (props.stageId === 2) return <StageTwoMap key={props.learnerId} {...props} />;
-  if (props.stageId === 3) return <CvcKingdom key={props.learnerId} learnerId={props.learnerId} onBack={props.onBack} onProgress={props.onProgress} onActivityChange={props.onActivityChange} />;
+  if (props.stageId === 3) return <CvcKingdom unlockThrough={props.unlockThrough} key={props.learnerId} learnerId={props.learnerId} onBack={props.onBack} onProgress={props.onProgress} onActivityChange={props.onActivityChange} />;
 
   return <StandardLevelMap {...props} />;
 }

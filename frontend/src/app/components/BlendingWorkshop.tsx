@@ -15,7 +15,8 @@ import "./continuousLandscape.css";
 import { notifyJourneyChanged, JOURNEY_RESTORED } from "./journeySync";
 import { earnedProgress } from './progressReset';
 
-export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, onProgress, onActivityChange }: {
+export function BlendingWorkshop({ learnerId, unlockThrough = 0, soundLibraryUnlocked = false, initialView = "workshop", onBack, onProgress, onActivityChange }: {
+  unlockThrough?: number; soundLibraryUnlocked?: boolean;
   learnerId?: number | null; initialView?: "workshop" | "bridges"; onBack: () => void; onProgress?: (completed: number, journey: object) => void;
   onActivityChange?: (open: boolean) => void;
 }) {
@@ -36,6 +37,13 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, 
   const journeyLessons = useMemo(() => randomizedCrossingLessons(learnerId), [learnerId]);
   const next = journeyLessons.findIndex((_,i)=>!progress.crossings.includes(i+1));
   const nextTraining = WORKSHOP_LESSONS.findIndex((_,i)=>!progress.training.includes(i+1));
+  useEffect(() => {
+    if (!activity) return;
+    const index=Number(activity.id.split('-')[1]);
+    const allowed=activity.training ? progress.training.includes(index) || index===1 || progress.training.includes(index-1) || index<=unlockThrough
+      : progress.crossings.includes(index) || (trained&&(index===1||progress.crossings.includes(index-1))) || index+5<=unlockThrough;
+    if(!allowed) setActivity(null);
+  },[unlockThrough,activity,progress,trained]);
   function openLesson(lesson: BridgeLesson) { setActivity(lesson); }
   function complete() {
     if (!activity) return;
@@ -93,14 +101,14 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, 
           <button aria-pressed={!shelfOpen} onClick={()=>setShelfOpen(false)}><Hammer size={20}/>Training</button>
           <button aria-pressed={shelfOpen} onClick={()=>setShelfOpen(true)}><Volume2 size={20}/>Sound shelf</button>
         </div>
-        {shelfOpen ? <BridgeSoundShelf unlocked={trained} /> : <section className="sound-workshop" aria-label="Bridge Workshop training room">
+        {shelfOpen ? <BridgeSoundShelf unlocked={trained || soundLibraryUnlocked} /> : <section className="sound-workshop" aria-label="Bridge Workshop training room">
           <div className="sound-workshop__art"><WorkshopHouse interior /></div>
           <div className="sound-workshop__crest"><Hammer size={24}/><span>{progress.training.length} / 5 training stations</span></div>
           <div className="sound-workshop__milo"><CharacterCompanion size={145} state="idle" /></div>
           <div className="sound-workshop__stations">
             {WORKSHOP_LESSONS.map((lesson,i)=>{
               const done=progress.training.includes(i+1);
-              const locked=i>0&&!progress.training.includes(i)&&!done;
+              const locked=i>0&&!progress.training.includes(i)&&!done&&i+1>unlockThrough;
               return <button key={lesson.id} className="workshop-station" disabled={locked} data-done={done} data-next={i===nextTraining} onClick={()=>openLesson(lesson)} aria-label={`${lesson.title}, ${done?"practise again":locked?"locked":"start"}`}>
                 <span className="workshop-station__piece">{lesson.blend.toLowerCase()}<i>{done?<Check size={15}/>:locked?<Lock size={15}/>:<Mic size={15}/>}</i></span>
                 <strong>{lesson.title}</strong><small>{done?"Practise again":locked?"Coming next":"Let's build!"}</small>
@@ -111,14 +119,14 @@ export function BlendingWorkshop({ learnerId, initialView = "workshop", onBack, 
         </section>}
         {!shelfOpen && progress.training.length > 0 && <div className="sound-link-kit" aria-label="Milo's Bridge Kit"><span>Milo's Bridge Kit</span>{WORKSHOP_LESSONS.filter((_,i)=>progress.training.includes(i+1)).map(item=><strong key={item.id}><Link2 size={18}/>{item.blend.toLowerCase()}</strong>)}</div>}
       </> : <>
-        {!trained && <div className="journey-training-note"><Hammer size={20}/><span>Finish the five Workshop stations to begin repairing bridges.</span><button onClick={()=>setRoom(true)}>Back to training <ArrowRight size={18}/></button></div>}
+        {!trained && unlockThrough < 6 && <div className="journey-training-note"><Hammer size={20}/><span>Finish the five Workshop stations to begin repairing bridges.</span><button onClick={()=>setRoom(true)}>Back to training <ArrowRight size={18}/></button></div>}
         <section className="continuous-landscape" aria-label="Journey from brook to sky">
           <ContinuousBridgeLandscape completed={progress.crossings}/>
           <div className="sky-garden-title"><Star size={24}/><h2>Sky Garden</h2><p>{progress.crossings.length===15?"You made it bloom!":`${progress.crossings.length} / 15 bridges restored`}</p></div>
           <div className="kingdom-sign" data-ready={progress.crossings.length===15}><span>Next adventure</span><h3>CVC Kingdom</h3><p>{progress.crossings.length===15?"A new story awaits":<><Lock size={14}/> Restore all bridges</>}</p></div>
           {journeyLessons.map((lesson,i)=>{
             const index=i+1; const done=progress.crossings.includes(index);
-            const locked=!done&&(!trained||(index>1&&!progress.crossings.includes(index-1)));
+            const locked=!done&&index+5>unlockThrough&&(!trained||(index>1&&!progress.crossings.includes(index-1)));
             const {x,y}=CROSSING_SPOTS[i];
             return <div key={lesson.id} className="journey-stop landscape-stop" style={{left:`${x/10}%`,top:`${y/LANDSCAPE_HEIGHT*100}%`}} data-done={done}>
               {index===next+1&&trained&&<div className="journey-stop__milo"><CharacterCompanion state="idle" size={65}/></div>}

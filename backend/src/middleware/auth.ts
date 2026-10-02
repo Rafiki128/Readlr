@@ -18,7 +18,7 @@ export interface AuthenticatedRequest extends Request {
   userRole?: string;
 }
 
-export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
 
@@ -30,6 +30,10 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
     const token = authHeader.substring(7);
 
     const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const user = unwrap(await supabase.from('users').select('auth_version').eq('id',decoded.id).maybeSingle());
+    if (!user || user.auth_version !== (decoded.authVersion ?? 0)) {
+      res.status(401).json({success:false,message:'Your session ended. Please sign in again.'}); return;
+    }
     req.userId = decoded.id;
     req.userEmail = decoded.email;
     req.userRole = decoded.role;

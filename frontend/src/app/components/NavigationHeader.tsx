@@ -21,6 +21,7 @@ interface NavigationHeaderProps {
   currentScreen: string;
   onNavigate: (screen: string) => void;
   onLogout?: () => void;
+  surveyAssigned?: boolean;
 }
 
 export function NavigationHeader({
@@ -29,6 +30,7 @@ export function NavigationHeader({
   currentScreen,
   onNavigate,
   onLogout,
+  surveyAssigned = false,
 }: NavigationHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { equippedAssetKey } = useFrames();
@@ -38,6 +40,7 @@ export function NavigationHeader({
     { id: "dashboard", label: "Progress", icon: User },
     { id: "settings", label: "Settings", icon: Settings },
     { id: "help", label: "Help", icon: HelpCircle },
+    ...(surveyAssigned ? [{id:'survey',label:'Survey',icon:FileText}] : []),
   ];
 
   return (

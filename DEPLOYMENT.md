@@ -43,6 +43,16 @@ Start command: `npm -w backend run start`
 
 Run both SQL migrations in `backend/supabase/migrations` using the Supabase SQL Editor. Create the first team account, then promote it with the commented `update` command in `202609190001_add_admin_role.sql`.
 
+## Student Feedback Survey
+
+Apply `backend/supabase/migrations/202610020001_student_survey.sql` in the Supabase SQL editor, then install dependencies with `npm ci` and restart or redeploy the backend and frontend. The migration creates survey assignments, responses, and assignment audit records. It does not change learner progress or rewards. No new environment variables are required.
+
+The survey starts hidden. In **Classroom controls**, choose **Entire class** or a learner, then use **Student feedback survey > Survey access > Show survey in learner navigation > Save survey access**. Individual survey overrides take priority; they are independent of stage-access overrides. Learners receive assignment changes within about 15 seconds while connected. Assigned surveys remain reachable even when learning activities are paused.
+
+Admins can review submissions and download `.xlsx` files under **Student feedback**. Exports contain learner names and sections and must stay within the authorized research team. The workbook includes the original English/Cebuano question text and answer values. Skipped answers are blank, never zero. The questionnaire measures feedback, not pronunciation accuracy or learning gains.
+
+This version accepts one final response per learner. Retries do not overwrite or duplicate responses. Hiding or reassigning the survey does not erase responses or open another attempt. Learners can revise their answers before submitting, switch languages, skip any question, or leave. Unsubmitted drafts remain only in that browser tab's session storage, scoped to their account, and are cleared after a confirmed submission. The in-app privacy notice explicitly states that responses are linked to the learner's account rather than claiming anonymity.
+
 ## Security ownership
 
 - Clients can use the public app and its authenticated API endpoints.

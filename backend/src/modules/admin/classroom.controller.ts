@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { supabase, unwrap } from '../../database/db.js';
 import { classroomState, effectivePolicy } from './classroom.service.js';
 import { parsePolicy, stagePermitted } from './classroom.policy.js';
+import { surveyAssigned } from './survey.controller.js';
 
 export async function getClassroom(_req:Request,res:Response) {
   try { res.json(await classroomState()); }
@@ -26,7 +27,7 @@ export async function saveClassroom(req:Request,res:Response) {
   } catch { res.status(503).json({message:'Could not save classroom controls. No change was confirmed.'}); }
 }
 export async function getMyClassroom(req:Request,res:Response) {
-  try { res.json(await effectivePolicy((req as any).userId)); }
+  try { const state=await effectivePolicy((req as any).userId); res.json({...state,surveyAssigned:await surveyAssigned((req as any).userId).catch(()=>false)}); }
   catch { res.status(503).json({message:'Classroom controls are unavailable'}); }
 }
 export async function heartbeat(req:Request,res:Response) {

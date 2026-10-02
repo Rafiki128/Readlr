@@ -77,7 +77,7 @@ export class AuthController {
       const user = await this.authService.login(email.trim().toLowerCase(), password);
 
       // Generate token
-      const token = this.authService.generateToken(user.id, user.email, user.role);
+      const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
 
       const response: AuthResponse = {
         success: true,

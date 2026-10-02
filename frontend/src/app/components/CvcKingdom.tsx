@@ -13,8 +13,8 @@ import "./cvcCastleMap.css";
 import "./cvcFinalRealm.css";
 import { notifyJourneyChanged, JOURNEY_RESTORED } from "./journeySync";
 
-interface Props { learnerId?:number|null; onBack:()=>void; onProgress?:(completed:number,journey:object)=>void; onActivityChange?:(open:boolean)=>void }
-export function CvcKingdom({learnerId,onBack,onProgress,onActivityChange}:Props) {
+interface Props { learnerId?:number|null; unlockThrough?:number; onBack:()=>void; onProgress?:(completed:number,journey:object)=>void; onActivityChange?:(open:boolean)=>void }
+export function CvcKingdom({learnerId,unlockThrough=0,onBack,onProgress,onActivityChange}:Props) {
   const [journey,setJourney]=useState(()=>readCvcJourney(learnerId));
   const current=useRef(journey);
   useEffect(()=> {
@@ -23,6 +23,7 @@ export function CvcKingdom({learnerId,onBack,onProgress,onActivityChange}:Props)
     return()=>window.removeEventListener(JOURNEY_RESTORED,restore);
   },[learnerId]);
   const [activity,setActivity]=useState<{id:number;jewel:number}|null>(null);
+  useEffect(()=>{if(activity && activity.id>journey.completed+1 && activity.id>unlockThrough)setActivity(null);},[unlockThrough,activity,journey.completed]);
   const [view,setView]=useState<"map"|"book"|"crown">("map");
   const [saveError,setSaveError]=useState(false);
   const [name,setName]=useState("");
@@ -49,14 +50,14 @@ export function CvcKingdom({learnerId,onBack,onProgress,onActivityChange}:Props)
     onProgress?.(next.completed,next);
   }
   function open(id:number) {
-    if(id>current.current.completed+1) return;
+    if(id>current.current.completed+1 && id>unlockThrough) return;
     last.current=id;
     setActivity({id,jewel:id===20&&current.current.jewels<3?current.current.jewels:0});
   }
   function next() {
     if(activity?.id===20) {
       if(activity.jewel<2) setActivity({...activity,jewel:activity.jewel+1});
-      else { setActivity(null); setView("crown"); }
+      else { setActivity(null); setView(current.current.completed === 20 ? "crown" : "map"); }
     } else { setActivity(null); }
   }
   if(activity) return <CvcChallenge key={`${activity.id}-${activity.jewel}`} learnerId={learnerId} lesson={CVC_LESSONS.find(item=>item.id===activity.id)} jewel={activity.jewel}
@@ -78,7 +79,7 @@ export function CvcKingdom({learnerId,onBack,onProgress,onActivityChange}:Props)
           <span>{landmark.label}{journey.completed>=landmark.at&&<Check size={13}/>}</span>
         </div>)}
         {positions.map((position,i)=> {
-          const id=i+1, done=journey.completed>=id, locked=id>journey.completed+1;
+          const id=i+1, done=journey.completed>=id, locked=id>journey.completed+1&&id>unlockThrough;
           const lesson=CVC_LESSONS[i];
           return <button key={id} ref={id===Math.min(20,Math.max(last.current,journey.completed+1))?target:undefined} disabled={locked}
             className={`cvc-map-stop ${done?"is-done":""} ${locked?"is-locked":""} ${!done&&!locked?"is-current":""}`} style={{left:`${position.x}%`,top:position.y}} aria-current={!done&&!locked?"step":undefined}

@@ -49,8 +49,8 @@ function Landscape({ region }: { region: number }) {
   </svg>;
 }
 
-export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onSelectLevel, guided = false }: {
-  completedCount?: number; initialView?: "dojo" | "valley"; onBack: () => void; onSelectLevel: (id: number) => void; guided?: boolean;
+export function VowelAdventureMap({ completedCount = 0, unlockThrough = 0, initialView, onBack, onSelectLevel, guided = false }: {
+  completedCount?: number; unlockThrough?: number; initialView?: "dojo" | "valley"; onBack: () => void; onSelectLevel: (id: number) => void; guided?: boolean;
 }) {
   const completed = Math.max(0, Math.min(20, completedCount));
   const [room, setRoom] = useState(completed < 5 || initialView === "dojo" || (initialView !== "valley" && completed === 5));
@@ -97,7 +97,7 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
     <header className="adventure-topbar">
       <button onClick={onBack} aria-label="Back to stages"><ArrowLeft size={20} /><span>Stages</span></button>
       <span><Star size={17} />{room ? `${Math.min(5, completed)} / 5 powers` : `${Math.max(0, completed - 5)} / 15 trails`}</span>
-      <button onClick={() => { stopAudio(); setRoom(!room); }} disabled={!room ? false : completed < 5}><DoorOpen size={19} /><span>{room ? "Valley" : "Dojo"}</span></button>
+      <button onClick={() => { stopAudio(); setRoom(!room); }} disabled={room && completed < 5 && unlockThrough < 6}><DoorOpen size={19} /><span>{room ? "Valley" : "Dojo"}</span></button>
     </header>
     <div className="adventure-scroll" ref={scrollRef}>
       <div key={room ? "dojo-heading" : "valley-heading"} className="adventure-heading"><p>CHAPTER 1</p><h1>{room ? "Vowel Dojo" : "Valley of Vowels"}</h1><span>{room ? "Train your voice. Give Milo his powers." : "A little voice. A grand adventure."}</span></div>
@@ -106,14 +106,14 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
         <div className="dojo-stations">
           {POWERS.map((power, index) => {
             const done = completed > index;
-            const locked = index > completed;
+            const locked = index > completed && index + 1 > unlockThrough;
             return <button key={power.vowel} disabled={locked} onClick={() => { stopAudio(); onSelectLevel(index + 1); }} className="dojo-station" data-locked={locked} data-next={index === completed} style={{ "--station-color": power.color } as React.CSSProperties} aria-label={`${power.name}${locked ? ", locked" : done ? ", practice again" : ", start training"}`}>
               <div className="dojo-station__figure"><VowelPowerSymbol vowel={power.vowel} /><span className="dojo-station__badge">{locked ? <Lock size={15} /> : done ? <Check size={16} /> : <Play size={15} fill="currentColor" />}</span></div>
               <strong>{power.name}</strong><small>{locked ? "Coming soon" : done ? "Practice again" : "Let's train!"}</small>
             </button>;
           })}
         </div>
-        <div className="dojo-exit"><span>{completed >= 5 ? "Your powers are ready!" : "Five powers. One brave adventure."}</span><button disabled={completed < 5} onClick={() => { dismiss(); setRoom(false); }}>Into the valley <ArrowRight size={19} /></button></div>
+        <div className="dojo-exit"><span>{completed >= 5 ? "Your powers are ready!" : "Five powers. One brave adventure."}</span><button disabled={completed < 5 && unlockThrough < 6} onClick={() => { dismiss(); setRoom(false); }}>Into the valley <ArrowRight size={19} /></button></div>
       </div> : <div className="valley-world">
         {REGIONS.map((region, section) => {
           const start = 6 + section * 3;
@@ -141,7 +141,7 @@ export function VowelAdventureMap({ completedCount = 0, initialView, onBack, onS
             {points.map(([x, y], index) => {
               const id = start + index;
               const done = id <= completed;
-              const locked = id > completed + 1;
+              const locked = id > completed + 1 && id > unlockThrough;
               const current = id === next;
               return <button key={id} ref={current ? currentRef : undefined} className="valley-stop" data-next={current && !done} data-done={done} disabled={locked} style={{ left: `${x}%`, top: `${y}%` }} onClick={() => onSelectLevel(id)} aria-label={`Trail ${id - 5}${done ? ", completed, play again" : locked ? ", locked" : ", play next"}`}>
                 <span className="valley-stop__disc">{done ? <Check size={29} strokeWidth={3} /> : locked ? <Lock size={22} /> : <Play size={27} fill="currentColor" />}</span>

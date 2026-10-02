@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, LogOut, RefreshCw, Search, Users, Radio, Trophy, TrendingUp, SlidersHorizontal, ChevronDown, CalendarDays } from 'lucide-react';
+import { AlertCircle, LogOut, RefreshCw, Search, Users, Radio, Trophy, TrendingUp, SlidersHorizontal, ChevronDown, CalendarDays, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../modules/auth/auth.context.js';
 import { stickerSummary } from './stickers';
 import { AdminClassroomControls } from './AdminClassroomControls';
+import { AdminPasswordRequests } from './AdminPasswordRequests';
+import { AdminSurveyResponses } from './AdminSurvey';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import './adminDashboard.css';
 import { accessLabel, type ClassroomState } from './classroomAccess';
@@ -30,7 +32,8 @@ function DateStamp({ value }: { value: string | null }) {
 export function AdminDashboard() {
   const { token, user, logout } = useAuth();
   const [learners, setLearners] = useState<Learner[]>([]);
-  const [view, setView] = useState<'overview' | 'controls'>('overview');
+  const [view, setView] = useState<'overview' | 'controls' | 'passwords' | 'surveys'>('overview');
+  const [passwordCount,setPasswordCount]=useState(0);
   const [access, setAccess] = useState<ClassroomState | null>(null);
   const [accessError, setAccessError] = useState(false);
   const [page, setPage] = useState(1);
@@ -99,12 +102,14 @@ export function AdminDashboard() {
       <div className="admin-brand"><img src="/readlr-mark.svg" alt="" /><strong>Readlr</strong><span>Classroom</span></div>
       <div className="admin-account"><span>{user?.email}</span><button className="admin-icon-button" onClick={logout} aria-label="Sign out" title="Sign out"><LogOut size={19} /></button></div>
     </div></header>
-    <div className="admin-workspace"><aside className="admin-sidebar"><p>CLASSROOM MANAGEMENT</p><nav aria-label="Admin navigation"><button aria-current={view === 'overview' ? 'page' : undefined} onClick={() => setView('overview')}><Users size={19} />Learner overview</button><button aria-current={view === 'controls' ? 'page' : undefined} onClick={() => setView('controls')}><SlidersHorizontal size={19} />Classroom controls</button></nav><div className="admin-sidebar-note"><Trophy size={21} />Earned rewards stay safe.<small>Access changes keep progress. Only a confirmed reset restarts selected stages.</small></div></aside><div className="admin-shell admin-content">
-      <div className="admin-intro"><div><p className="admin-eyebrow">LEARN. PRACTICE. GROW.</p><h1>{view === 'overview' ? 'Your classroom' : 'Manage access'}</h1><p className="admin-muted">Every learner's journey, together in one place.</p></div>
+    <div className="admin-workspace"><aside className="admin-sidebar"><p>CLASSROOM MANAGEMENT</p><nav aria-label="Admin navigation"><button aria-current={view === 'overview' ? 'page' : undefined} onClick={() => setView('overview')}><Users size={19} />Learner overview</button><button aria-current={view === 'controls' ? 'page' : undefined} onClick={() => setView('controls')}><SlidersHorizontal size={19} />Classroom controls</button><button aria-current={view==='passwords'?'page':undefined} onClick={()=>setView('passwords')}><ShieldCheck size={19}/>Password requests <span aria-live="polite">{passwordCount || ''}</span></button><button aria-current={view==='surveys'?'page':undefined} onClick={()=>setView('surveys')}><TrendingUp size={19}/>Student feedback</button></nav><div className="admin-sidebar-note"><Trophy size={21} />Earned rewards stay safe.<small>Access changes keep progress. Only a confirmed reset restarts selected stages.</small></div></aside><div className="admin-shell admin-content">
+      <div className="admin-intro"><div><p className="admin-eyebrow">LEARN. PRACTICE. GROW.</p><h1>{view === 'surveys' ? 'Listen to your learners' : view === 'overview' ? 'Your classroom' : view === 'passwords' ? 'Account recovery' : 'Manage access'}</h1><p className="admin-muted">Every learner's journey, together in one place.</p></div>
         <div className="admin-today"><CalendarDays size={19} /><div>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}<small>{Intl.DateTimeFormat().resolvedOptions().timeZone.split('_').join(' ')}</small></div></div>
       </div>
       <section hidden={view !== 'overview'} className="admin-metrics" aria-label="Class summary">{metrics.map(({ label, value, icon: Icon, tone }) => <div key={label} className="admin-metric"><span className={`admin-metric-icon ${tone}`}><Icon size={22} /></span><div><strong>{isLoading ? '...' : error && !updated ? 'Unavailable' : value}</strong><span>{label}</span></div></div>)}</section>
       <div hidden={view !== 'controls'}>{token && <AdminClassroomControls token={token} learners={learners} target={target} onTargetChange={setTarget} onSaved={data => { setAccess(data); setAccessError(false); }} />}</div>
+      <div hidden={view !== 'passwords'}>{token&&<AdminPasswordRequests token={token} onCount={setPasswordCount}/>}</div>
+      {view==='surveys'&&token&&<AdminSurveyResponses token={token}/>}
       <section hidden={view !== 'overview'} className="admin-roster" aria-labelledby="roster-heading">
         <div className="admin-section-heading"><div><h2 id="roster-heading">Learner overview <span className="admin-count">{learners.length}</span></h2><p>Synced lesson completion, not pronunciation accuracy.</p></div><div className="admin-refresh"><small>{updated ? `Updated ${updated.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : 'Waiting for data'}</small><button className="admin-icon-button" onClick={() => setRefresh(n => n + 1)} aria-label="Refresh learners" title="Refresh learners"><RefreshCw size={18} /></button></div></div>
         <div className="admin-roster-tools"><div className="admin-filters" aria-label="Filter learners">{[['all', 'All learners'], ['connected', 'Connected'], ['complete', 'Completed']].map(([value, label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div>
