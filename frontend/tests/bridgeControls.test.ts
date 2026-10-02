@@ -25,7 +25,7 @@ test("the full Sound Shelf unlocks magical sound pairing after guided training",
   assert.ok(shelf.includes("async function glueSounds()"));
   assert.ok(shelf.includes("Glue ${blend.toLowerCase()} together"));
   assert.ok(shelf.includes("You can glue them together!"));
-  assert.ok(workshop.includes("<BridgeSoundShelf unlocked={trained} />"));
+  assert.ok(workshop.includes("<BridgeSoundShelf unlocked={trained || soundLibraryUnlocked} />"));
   assert.ok(!workshop.includes("freeBlend"));
   assert.ok(!shelf.includes("onPractice"));
 });

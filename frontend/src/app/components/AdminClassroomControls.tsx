@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Save, RefreshCw, ShieldCheck, RotateCcw, X, CheckCircle2, AlertCircle, Users, UserRound, Mountain, Link2, Crown, ArrowRight } from 'lucide-react';
+import { Save, RefreshCw, ShieldCheck, RotateCcw, X, CheckCircle2, AlertCircle, Users, UserRound, Mountain, Link2, Crown, ArrowRight, ClipboardList } from 'lucide-react';
 import { CLASSROOM_API, type ClassroomPolicy } from '../hooks/useClassroom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from './ui/alert-dialog';
 
 import { accessLabel, type ClassroomState as State } from './classroomAccess';
 import { AdminProgressReset } from './AdminProgressReset';
+import { AdminSurveyAssignment } from './AdminSurvey';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 const OPEN: ClassroomPolicy = { mode: 'open', stage: null, message: '', surveyUrl: '' };
 export function AdminClassroomControls({ token, learners, target, onTargetChange, onSaved }: { token: string; learners: { id: number; name: string; email: string }[]; target: string; onTargetChange: (value: string) => void; onSaved: (state: State) => void }) {
   const [targetSearch, setTargetSearch] = useState('');
@@ -17,6 +19,7 @@ export function AdminClassroomControls({ token, learners, target, onTargetChange
   const [notice, setNotice] = useState('');
   const [noticeError, setNoticeError] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [section, setSection] = useState('access');
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const load = async () => {
     setBusy(true); setNoticeError(false);
@@ -70,6 +73,13 @@ export function AdminClassroomControls({ token, learners, target, onTargetChange
       <div className="admin-controls-layout"><aside className="admin-targets"><h3>Choose who to manage</h3><input aria-label="Find a learner to manage" placeholder="Search name or email" value={targetSearch} onChange={e => setTargetSearch(e.target.value)} /><label className="admin-override-filter"><input type="checkbox" checked={overridesOnly} onChange={e => setOverridesOnly(e.target.checked)} />Individual overrides only</label><button className={target === 'class' ? 'selected' : ''} disabled={busy} aria-pressed={target === 'class'} onClick={() => onTargetChange('class')}><strong>Entire class</strong><small>{learners.length} registered learners</small></button><p className="admin-target-count" aria-live="polite">{visibleLearners.length} of {learners.length} learners</p><div className="admin-target-list" role="region" aria-label="Learners to manage" tabIndex={0}>{visibleLearners.map(l => <button key={l.id} className={target === String(l.id) ? 'selected' : ''} disabled={busy} aria-pressed={target === String(l.id)} onClick={() => onTargetChange(String(l.id))}><strong>{l.name}</strong><small>{l.email}</small><span>{state.overrides[String(l.id)] ? 'Individual override' : 'Class setting'}</span></button>)}{visibleLearners.length === 0 && <p className="admin-no-targets">No learners match your search.</p>}</div></aside><div className="admin-control-editor">
       <div className="admin-editor-toolbar"><div><p className="admin-editor-kicker">{target === 'class' ? 'CLASS DEFAULT' : 'LEARNER ACCESS'}</p><h3>{target === 'class' ? 'Class-wide access' : learners.find(l => String(l.id) === target)?.name}</h3><small>Currently: {accessLabel(target === 'class' ? state.policy : state.overrides[target] ?? state.policy)}</small></div>
       </div>
+      <Tabs value={section} onValueChange={setSection} className="admin-section-tabs">
+      <TabsList aria-label="Classroom control sections" className="admin-section-nav">
+        <TabsTrigger value="access"><ShieldCheck size={19}/><span>Learning access</span></TabsTrigger>
+        <TabsTrigger value="survey"><ClipboardList size={19}/><span>Survey</span></TabsTrigger>
+        <TabsTrigger value="restart"><RotateCcw size={19}/><span>Restart progress</span></TabsTrigger>
+      </TabsList>
+      <TabsContent value="access" forceMount className="admin-section-panel">
       <section className="admin-access-section" aria-labelledby="access-heading">
       <header className="admin-reset-heading"><span className="admin-access-icon"><ShieldCheck size={22} /></span><div><h3 id="access-heading">Learning access</h3><p>Choose which activities are available. Saved progress stays unchanged.</p></div></header>
       {notice && <div role="status" className={`admin-control-notice ${noticeError ? 'is-error' : ''}`}>{noticeError ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}<span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss notification" title="Dismiss notification"><X size={17} /></button></div>}
@@ -77,20 +87,32 @@ export function AdminClassroomControls({ token, learners, target, onTargetChange
       <p className="admin-editor-description">{target === 'class' ? 'Applies to learners using the class setting. Individual overrides are kept.' : 'Choose a personal access rule, or use the class setting to remove an override.'}</p>
       <div className="admin-control-summary"><span className="admin-policy-badge"><ShieldCheck size={15} />{state.policy.mode === 'stages' ? `Unlocked stages: ${state.policy.stages?.join(', ')}` : state.policy.mode === 'stage' ? `Stage ${state.policy.stage} only` : state.policy.mode === 'open' ? 'Normal progression' : state.policy.mode === 'paused' ? 'Activities paused' : 'Survey invitation'}</span><span>{Object.keys(state.overrides).length} individual overrides. <span className="sr-only">Revision {state.revision}.</span></span></div>
       <fieldset disabled={busy} className="admin-access-fields">
-        <div><label id="control-mode" className="mb-2 block text-sm font-medium">Access</label><Select value={inherit ? 'inherit' : draft.mode === 'stage' ? 'stages' : draft.mode} onValueChange={value => { setInherit(value === 'inherit'); if (value !== 'inherit') setDraft({ ...draft, mode: value as ClassroomPolicy['mode'], stage: draft.stage ?? 1, stages: draft.stages ?? [draft.stage ?? 1] }); }}><SelectTrigger aria-labelledby="control-mode" className={controlClass}><SelectValue /></SelectTrigger><SelectContent>{target !== 'class' && <SelectItem value="inherit">Use class setting</SelectItem>}<SelectItem value="open">Normal stage progression</SelectItem><SelectItem value="stages">Unlock selected stages</SelectItem><SelectItem value="paused">Pause activities</SelectItem><SelectItem value="survey">Survey invitation</SelectItem></SelectContent></Select></div>
+        <div><label id="control-mode" className="mb-2 block text-sm font-medium">Access</label><Select value={inherit ? 'inherit' : draft.mode === 'stage' ? 'stages' : draft.mode} onValueChange={value => { setInherit(value === 'inherit'); if (value !== 'inherit') setDraft({ ...draft, mode: value as ClassroomPolicy['mode'], stage: draft.stage ?? 1, stages: draft.stages ?? [draft.stage ?? 1] }); }}><SelectTrigger aria-labelledby="control-mode" className={controlClass}><SelectValue /></SelectTrigger><SelectContent>{target !== 'class' && <SelectItem value="inherit">Use class setting</SelectItem>}<SelectItem value="open">Normal stage progression</SelectItem><SelectItem value="stages">Unlock selected stages</SelectItem><SelectItem value="paused">Pause activities</SelectItem>{draft.mode==='survey'&&<SelectItem value="survey" disabled>Legacy external invitation - choose another access mode</SelectItem>}</SelectContent></Select></div>
         {!inherit && ['stage', 'stages'].includes(draft.mode) && <div className="admin-stage-options">
           <div className="admin-stage-options-heading"><strong>Stages learners can enter</strong><button type="button" onClick={() => setDraft({ ...draft, mode: 'stages', stage: null, stages: [1,2,3] })}>Unlock all stages</button></div>
           <div className="admin-reset-stage-list">{['Valley of Vowels', 'Blending Bridges', 'CVC Kingdom'].map((name, index) => { const id = index + 1; const Icon = [Mountain, Link2, Crown][index]; const selected = draft.mode === 'stage' ? [draft.stage!] : draft.stages ?? []; return <label key={id} className={`admin-reset-stage stage-${id}${selected.includes(id) ? ' is-selected' : ''}`}><input aria-label={`Stage ${id} ${name}`} type="checkbox" checked={selected.includes(id)} onChange={e => setDraft({ ...draft, mode: 'stages', stage: null, stages: e.target.checked ? [...selected, id].sort() : selected.filter(s => s !== id) })} /><span className="admin-reset-stage-icon"><Icon size={22} /></span><span className="admin-reset-stage-copy"><small>Stage {id}</small><strong>{name}</strong><span>{selected.includes(id) ? 'Available after applying' : 'Unavailable after applying'}</span></span></label>; })}</div>
           <p>Selected stages open immediately, even if earlier stages are unfinished. Progress and rewards are kept.</p>
           {draft.mode === 'stages' && !draft.stages?.length && <p className="text-red-700">Choose at least one stage.</p>}
         </div>}
+        {!inherit && !['paused','survey'].includes(draft.mode) && <section className="admin-level-access" aria-label="Lesson unlocks"><h4>Lesson access</h4><p>Open extra lessons for practice. Skipped lessons are not marked complete; completion and rewards still follow learning order.</p>{['Valley of Vowels','Blending Bridges','CVC Kingdom'].map((name,i) => {
+          const stage = i + 1;
+          const permitted = draft.mode === 'open' || (draft.mode === 'stage' ? draft.stage === stage : draft.stages?.includes(stage));
+          return <div className="admin-level-row" key={stage}><label id={`unlock-stage-${stage}`}>Stage {stage}: {name}<small>{stage === 1 ? '1-5: Vowel Dojo; 6-20: valley trails' : stage === 2 ? '1-5: Bridge Workshop; 6-20: bridge challenges' : '1-19: word challenges; 20: crown finale'}</small></label><Select disabled={!permitted} value={String(draft.unlockThrough?.[stage] ?? 0)} onValueChange={value => setDraft({...draft,unlockThrough:{...draft.unlockThrough,[stage]:Number(value)}})}><SelectTrigger aria-labelledby={`unlock-stage-${stage}`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">Follow saved progress</SelectItem>{Array.from({length:20},(_,n)=><SelectItem key={n+1} value={String(n+1)}>{n===19 ? 'Unlock all 20 levels' : n===4 && stage<3 ? `Unlock all ${stage===1 ? 'Dojo' : 'Workshop'} lessons` : `Unlock through level ${n+1}`}</SelectItem>)}</SelectContent></Select></div>;
+        })}<label className="admin-library-toggle"><input type="checkbox" checked={draft.soundLibrary ?? false} onChange={e=>setDraft({...draft,soundLibrary:e.target.checked})}/><span><strong>Unlock Sound Library</strong><small>All vowel, blend, and word sounds, plus the Workshop sound shelf. Does not complete lessons.</small></span></label></section>}
         {!inherit && <label className="admin-access-message">Message to learners (optional)<textarea rows={2} maxLength={240} value={draft.message} onChange={e => setDraft({ ...draft, message: e.target.value })} className={`${controlClass} mt-2`} /><span>{draft.message.length}/240</span></label>}
-        {!inherit && draft.mode === 'survey' && <label className="text-sm font-medium">Approved HTTPS survey link<input type="url" value={draft.surveyUrl} onChange={e => setDraft({ ...draft, surveyUrl: e.target.value })} className={`${controlClass} mt-2`} placeholder="https://..." /></label>}
+        {!inherit && draft.mode === 'survey' && <p className="text-sm">This saved rule uses an older external invitation. Choose normal progression or another learning access mode, then assign the in-app survey in the Survey tab.</p>}
       </fieldset>
       <section className="admin-access-preview" aria-label="Access preview"><h3><ArrowRight size={15} />After applying</h3><strong>{preview ? accessLabel(preview) : 'Loading'}</strong><p>{preview?.mode === 'open' ? 'Learners continue from saved progress. Later stages unlock as earlier stages are completed.' : preview?.mode === 'paused' ? 'Learning activities are paused. Learners see a waiting screen and your message.' : preview?.mode === 'survey' ? 'Learners see a survey invitation instead of activities.' : 'Selected stage entrances are unlocked. Other stages are unavailable; levels inside each stage still follow their learning order.'}</p></section>
       <footer className="admin-access-actions"><p><ShieldCheck size={17} /><span>Progress and rewards stay safe.<small>Connected learners receive changes within about 15 seconds.</small></span></p><div><button disabled={busy} onClick={resetDraft} className="admin-icon-button" aria-label="Discard edits" title="Discard edits"><RotateCcw size={18} /></button><button disabled={busy || (!inherit && draft.mode === 'stages' && !draft.stages?.length)} onClick={() => setConfirming(true)} className="admin-apply"><Save size={17} />{busy ? 'Saving...' : 'Apply controls'}</button></div></footer>
       </section>
+      </TabsContent>
+      <TabsContent value="survey" forceMount className="admin-section-panel admin-survey-panel">
+      <AdminSurveyAssignment key={`survey-${target}`} token={token} target={target} name={targetName}/>
+      </TabsContent>
+      <TabsContent value="restart" forceMount className="admin-section-panel">
       <AdminProgressReset key={target} token={token} target={target} name={target === 'class' ? 'Entire class' : learners.find(l => String(l.id) === target)?.name ?? 'Selected learner'} />
+      </TabsContent>
+      </Tabs>
       </div></div>
     </>}
     {!state && !notice && <p className="mt-4 text-sm">Loading controls...</p>}
@@ -102,7 +124,8 @@ export function AdminClassroomControls({ token, learners, target, onTargetChange
         <AlertDialogDescription>
           {target === 'class' ? 'Entire class' : learners.find(l => String(l.id) === target)?.name}: {inherit ? 'Use the class setting.' : draft.mode === 'stages' ? `Unlock stages ${draft.stages?.join(', ')}. Other stages will be unavailable.` : draft.mode === 'stage' ? `Unlock Stage ${draft.stage} only.` : draft.mode === 'open' ? 'Follow normal stage progression.' : draft.mode === 'paused' ? 'Pause learning activities.' : 'Show the survey invitation.'}
         </AlertDialogDescription>
-        <p className="admin-confirm-safe">Saved progress, completed lessons, and rewards stay unchanged. Unlocking a stage opens its entrance; lessons inside still follow their learning order.</p>
+        <p className="admin-confirm-safe">Saved progress, completed lessons, and rewards stay unchanged. Lesson overrides open extra practice without marking skipped lessons complete.</p>
+        <p className="admin-confirm-note">{[1,2,3].filter(s=>(preview?.unlockThrough?.[s] ?? 0)>0).map(s=>`Stage ${s}: practice through level ${preview?.unlockThrough?.[s]}`).join('. ') || 'Lessons follow saved progress.'} {preview?.soundLibrary ? 'Sound Library is fully unlocked.' : 'Sound Library follows saved progress.'}</p>
         {target === 'class' && <p className="admin-confirm-note">Individual learner overrides still take priority. Changes reach connected learners within about 15 seconds.</p>}
         <AlertDialogFooter><AlertDialogCancel>Keep current settings</AlertDialogCancel><AlertDialogAction className="admin-confirm-apply" onClick={() => void save()}>Confirm changes</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>

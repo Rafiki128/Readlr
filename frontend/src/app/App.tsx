@@ -11,6 +11,7 @@ import { newStickerReward, type StickerReward } from "./components/stickers";
 import { motion } from "motion/react";
 import { AuthProvider, useAuth, AuthScreen } from "../modules/auth/index";
 import { NavigationHeader } from "./components/NavigationHeader";
+import { StudentSurvey } from "./components/StudentSurvey";
 import { Landing } from "./components/Landing";
 import { LearnerProfile } from "./components/LearnerProfile";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -156,6 +157,7 @@ const CVC_MAP: Record<number, { word: string }> = {
 
 
 type Screen =
+  | "survey"
   | "landing"
   | "auth"
   | "learner-profile"
@@ -196,6 +198,7 @@ function parseAppPath(pathname: string): AppRouteState {
   if (path === "/stickers") return { screen: "sticker-book" };
   if (path === "/progress") return { screen: "dashboard" };
   if (path === "/sounds") return { screen: "phoneme-bank" };
+  if (path === "/survey") return { screen: "survey" };
   if (path === "/settings") return { screen: "settings" };
   if (path === "/achievements") return { screen: "achievements" };
   if (path === "/help") return { screen: "help" };
@@ -252,6 +255,8 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
       return "/progress";
     case "phoneme-bank":
       return "/sounds";
+    case "survey":
+      return "/survey";
     case "settings":
       return "/settings";
     case "achievements":
@@ -297,8 +302,8 @@ function AppContent() {
   }, [currentScreen]);
   // Links or history entries to a locked level go back to the map instead of skipping ahead.
   useEffect(() => {
-    if (currentScreen === "game" && selectedLevel > (completedByStage[selectedStage] ?? 0) + 1) setCurrentScreen("level-map");
-  }, [currentScreen, selectedStage, selectedLevel, completedByStage]);
+    if (currentScreen === "game" && selectedLevel > Math.max((completedByStage[selectedStage] ?? 0) + 1, classroom.policy?.unlockThrough?.[selectedStage] ?? 0)) setCurrentScreen("level-map");
+  }, [currentScreen, selectedStage, selectedLevel, completedByStage, classroom.policy]);
   const [learnerName, setLearnerName] = useState("");
   const [learnerAvatar, setLearnerAvatar] = useState("🦊");
   const [learnerId, setLearnerId] = useState<number | null>(null);
@@ -504,8 +509,8 @@ function AppContent() {
     if (selectedStage === 1 && completionHandledRef.current) return;
     completionHandledRef.current = true;
     const previous = completedByStage[selectedStage] ?? 0;
-    const completed = Math.max(previous, selectedLevel);
-    const reward = selectedStage === 1 && selectedLevel > 5
+    const completed = selectedLevel <= previous + 1 ? Math.max(previous, selectedLevel) : previous;
+    const reward = selectedStage === 1 && selectedLevel > 5 && selectedLevel <= previous + 1
       ? getTrailReward(selectedLevel, rewardProgress[1]) ?? newStickerReward(1, rewardProgress[1], completed)
       : null;
 
@@ -649,13 +654,14 @@ function AppContent() {
   }
 
   const classroomMessage = user?.role === 'learner' && !classroom.error ? <ClassroomMessage key={user.id} userId={user.id} policy={classroom.policy} /> : null;
+  if (currentScreen === 'survey' && token && user?.role === 'learner') return <><NavigationHeader userName={learnerName} userAvatar={learnerAvatar} currentScreen="survey" onNavigate={handleNavigate} onLogout={handleBackToRoleSelect} surveyAssigned={classroom.surveyAssigned}/><StudentSurvey key={user.id} token={token} userId={user.id} onBack={handleBackToStages}/></>;
   const allClassroomStagesUnlocked = classroom.policy?.mode === 'stages' &&
     [1, 2, 3].every(stage => classroom.policy?.stages?.includes(stage));
 
   if (user?.role === 'learner' && currentScreen !== 'learner-profile' &&
     (classroom.error || !classroom.policy || ['paused', 'survey'].includes(classroom.policy.mode) ||
-      (['stage', 'stages'].includes(classroom.policy.mode) && ((stageScreen && !(classroom.policy.mode === 'stage' ? [classroom.policy.stage] : classroom.policy.stages ?? []).includes(selectedStage)) || introductionOpen || (currentScreen === 'phoneme-bank' && !allClassroomStagesUnlocked))))) {
-    return <>{classroomMessage}<ClassroomNotice policy={classroom.policy} error={classroom.error} onLogout={logout} onStage={stage => {
+      (['stage', 'stages'].includes(classroom.policy.mode) && ((stageScreen && !(classroom.policy.mode === 'stage' ? [classroom.policy.stage] : classroom.policy.stages ?? []).includes(selectedStage)) || introductionOpen || (currentScreen === 'phoneme-bank' && !allClassroomStagesUnlocked && !classroom.policy.soundLibrary))))) {
+    return <>{classroomMessage}{classroom.surveyAssigned&&<button className="m-4 rounded-lg bg-teal-700 text-white p-4" onClick={()=>setCurrentScreen('survey')}>Open your feedback survey</button>}<ClassroomNotice policy={classroom.policy} error={classroom.error} onLogout={logout} onStage={stage => {
       setIntroductionOpen(false); setSelectedLevel(1); handleSelectStage(stage);
     }} /></>;
   }
@@ -672,6 +678,7 @@ function AppContent() {
       {classroomMessage}
       {showLearnerHeader && (
         <NavigationHeader
+          surveyAssigned={classroom.surveyAssigned}
           userName={learnerName}
           userAvatar={learnerAvatar}
           currentScreen={currentScreen}
@@ -691,6 +698,7 @@ function AppContent() {
 
         {currentScreen === "stage-selection" && (
           <StageSelection
+            unlockThrough={classroom.policy?.unlockThrough}
             allowedStage={classroom.policy?.mode === 'stage' ? classroom.policy.stage : null}
             allowedStages={classroom.policy?.mode === 'stages' ? classroom.policy.stages ?? [] : null}
             learnerId={learnerId}
@@ -747,6 +755,8 @@ function AppContent() {
 
         {currentScreen === "level-map" && (
           <LevelMap
+            unlockThrough={classroom.policy?.unlockThrough?.[selectedStage]}
+            soundLibraryUnlocked={classroom.policy?.soundLibrary}
             learnerId={learnerId}
             stageId={selectedStage}
             initialView={mapEntry}
@@ -809,7 +819,7 @@ function AppContent() {
         )}
 
         {currentScreen === "phoneme-bank" && (
-          <PhonemeBank key={learnerId ?? "guest"} learnerId={learnerId} onBack={handleBackToStages} completedByStage={completedByStage} />
+          <PhonemeBank key={learnerId ?? "guest"} learnerId={learnerId} unlocked={classroom.policy?.soundLibrary} onBack={handleBackToStages} completedByStage={completedByStage} />
         )}
 
         {currentScreen === "achievements" && (

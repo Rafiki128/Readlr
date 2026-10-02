@@ -16,7 +16,8 @@ const GROUPS = [
 ] as const;
 const POWERS = ["Armor", "Echo", "Insight", "Orb", "Uplift"];
 
-export function PhonemeBank({ onBack, completedByStage = {}, learnerId }: {
+export function PhonemeBank({ onBack, completedByStage = {}, learnerId, unlocked = false }: {
+  unlocked?: boolean;
   onBack: () => void; completedByStage?: Record<number, number>; learnerId?: number | null;
 }) {
   const [group, setGroup] = useState<SoundGroup>("vowels");
@@ -32,10 +33,10 @@ export function PhonemeBank({ onBack, completedByStage = {}, learnerId }: {
   const audio = useBridgeAudio();
   const recorder = useCvcRecorder();
   const category = GROUPS.find(item => item.id === group)!;
-  const open = libraryStageOpen(category.stage, completedByStage);
+  const open = unlocked || libraryStageOpen(category.stage, completedByStage);
   const sounds = group === "vowels" ? LIBRARY_VOWELS : group === "blends" ? LIBRARY_CONSONANTS.map(letter => letter + vowel) : CVC_LESSONS.map(lesson => lesson.word.toUpperCase());
   const recording = phase === "recording" || phase === "preparing";
-  const locked = !open || (group === "vowels" && LIBRARY_VOWELS.indexOf(sound) > (completedByStage[1] ?? 0)) || (group === "words" && sounds.indexOf(sound) > (completedByStage[3] ?? 0));
+  const locked = !unlocked && (!open || (group === "vowels" && LIBRARY_VOWELS.indexOf(sound) > (completedByStage[1] ?? 0)) || (group === "words" && sounds.indexOf(sound) > (completedByStage[3] ?? 0)));
 
   function replaceVoice(blob?: Blob) {
     if (voiceRef.current) URL.revokeObjectURL(voiceRef.current);
@@ -105,7 +106,7 @@ export function PhonemeBank({ onBack, completedByStage = {}, learnerId }: {
     <nav className="library-tabs" aria-label="Sound collections">
       {GROUPS.map(item => <button key={item.id} aria-pressed={group === item.id} onClick={() => selectGroup(item.id)}>
         <span className={`library-number number-${item.stage}`}>{item.stage}</span>{item.name}
-        {!libraryStageOpen(item.stage, completedByStage) && <Lock size={15} />}
+        {!unlocked && !libraryStageOpen(item.stage, completedByStage) && <Lock size={15} />}
       </button>)}
     </nav>
     <div className="library-layout">
@@ -115,7 +116,7 @@ export function PhonemeBank({ onBack, completedByStage = {}, learnerId }: {
         {!open && <p className="library-lock-note"><Lock size={16} />Finish Stage {category.stage - 1} to open this collection.</p>}
         <div className="library-shelf">
           {sounds.map((item, index) => {
-            const unavailable = !open || (group !== "blends" && index > (completedByStage[category.stage] ?? 0));
+            const unavailable = !unlocked && (!open || (group !== "blends" && index > (completedByStage[category.stage] ?? 0)));
             return <button className="library-tile" key={item} aria-pressed={sound === item} aria-label={`${item.toLowerCase()}${unavailable ? ", locked" : ""}`} onClick={() => { stop(); setSound(item); }}>
               {group === "vowels" ? <VowelPowerSymbol vowel={item} /> : group === "words" ? <WordObject word={item.toLowerCase()} /> : <span className="library-pair"><b>{item[0].toLowerCase()}</b><b>{item[1].toLowerCase()}</b></span>}
               <strong>{group === "vowels" ? `${item} ${POWERS[index]}` : item.toLowerCase()}</strong>

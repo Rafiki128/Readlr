@@ -35,11 +35,13 @@ interface StageSelectionProps {
   onViewPhonemeBank?: () => void;
   onViewAchievements?: () => void;
   completedByStage?: Record<number, number>;
+  unlockThrough?: Record<number, number>;
 }
 
 export function StageSelection({
   allowedStage,
   allowedStages,
+  unlockThrough,
   learnerId,
   onSelectStage,
   onViewProgress,
@@ -65,7 +67,7 @@ export function StageSelection({
     accentSoft: def.accentSoft,
     completed: def.id === 3 ? readCvcJourney(learnerId).completed : def.id === 2 ? bridgeCompleted : completedByStage[def.id] ?? 0,
     total: def.total,
-    locked: allowedStages ? !allowedStages.includes(def.id) : allowedStage ? def.id !== allowedStage : def.id === 3
+    locked: allowedStages ? !allowedStages.includes(def.id) : allowedStage ? def.id !== allowedStage : (unlockThrough?.[def.id] ?? 0) > 0 ? false : def.id === 3
       ? bridgeCompleted < 20 && (completedByStage[2] ?? 0) < 20 && readCvcJourney(learnerId).completed === 0
       : idx > 0 && (completedByStage[idx] ?? 0) < stageDefs[idx - 1].total,
   }));

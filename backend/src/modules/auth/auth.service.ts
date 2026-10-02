@@ -56,7 +56,7 @@ export class AuthService {
   /**
    * Login user
    */
-  async login(email: string, password: string): Promise<{ id: number; email: string; role: string; name: string }> {
+  async login(email: string, password: string): Promise<{ id: number; email: string; role: string; name: string; authVersion: number }> {
     const user = unwrap(await supabase.from('users').select('*').eq('email', email).maybeSingle());
 
     if (!user) {
@@ -83,18 +83,20 @@ export class AuthService {
       email: user.email,
       role: user.role,
       name,
+      authVersion: user.auth_version,
     };
   }
 
   /**
    * Generate JWT token
    */
-  generateToken(userId: number, email: string, role: string): string {
+  generateToken(userId: number, email: string, role: string, authVersion = 0): string {
     return jwt.sign(
       {
         id: userId,
         email,
         role,
+        authVersion,
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRY }

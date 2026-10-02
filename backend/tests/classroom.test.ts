@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { parsePolicy, stagePermitted, OPEN_POLICY } from '../src/modules/admin/classroom.policy.ts';
 import { registrationRole } from '../src/modules/auth/adminInvitation.ts';
 
+test('lesson and library grants are validated and never bypass a paused or excluded stage', () => {
+  const policy=parsePolicy({...OPEN_POLICY,unlockThrough:{1:5,2:20,3:9},soundLibrary:true});
+  assert.deepEqual(policy.unlockThrough,{1:5,2:20,3:9});
+  assert.equal(policy.soundLibrary,true);
+  assert.equal(stagePermitted({...policy,mode:'paused'},2),false);
+  assert.equal(stagePermitted({...policy,mode:'stages',stages:[1]},2),false);
+  for(const unlockThrough of [{1:21},{4:5},{1:-1},{1:1.5},{1:'5'},[],null]) assert.throws(()=>parsePolicy({...OPEN_POLICY,unlockThrough}));
+  assert.throws(()=>parsePolicy({...OPEN_POLICY,soundLibrary:'true'}));
+});
+
 test('admin email pattern requires approved email and a valid private invitation', () => {
   const before = { allowlist: process.env.ADMIN_EMAIL_ALLOWLIST, code: process.env.ADMIN_INVITATION_CODE };
   try {
