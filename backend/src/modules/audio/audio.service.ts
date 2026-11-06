@@ -107,3 +107,58 @@ export async function processAudio(
     durationMs,
   };
 }
+
+/**
+ * Evaluate a phrase or sentence word-by-word strictly in sequence using Whisper via Groq
+ */
+export async function recognizeSentenceAudio(file: Express.Multer.File, targetSentence: string) {
+  if (!openai) {
+    throw new AudioAssessmentUnavailableError();
+  }
+
+  const extension = file.mimetype.includes('mp4') ? 'mp4' 
+    : file.mimetype.includes('ogg') ? 'ogg' 
+    : file.mimetype.includes('wav') ? 'wav' 
+    : 'webm';
+
+  // 1. Transcribe the audio using Whisper on Groq
+  const response = await openai.audio.transcriptions.create({
+    file: new File([file.buffer], `recording.${extension}`, { type: file.mimetype }),
+    model: 'whisper-large-v3',
+    language: 'en',
+    response_format: 'verbose_json',
+    temperature: 0,
+    prompt: targetSentence, // Provide the target phrase/sentence as context
+  }, { timeout: 20000, maxRetries: 0 });
+
+  // 2. Clean punctuation and split into arrays
+  const transcription = normalizeAudioTranscript(response.text ?? '');
+  const cleanTarget = normalizeAudioTranscript(targetSentence);
+
+  const targetWords = cleanTarget.split(' ').filter(Boolean);
+  const spokenWords = transcription.split(' ').filter(Boolean);
+
+  console.log("Target array:", targetWords);
+  console.log("Whisper heard array:", spokenWords);
+
+  // 3. Compare word by word strictly in sequence
+  const wordScores: Record<number, 'correct' | 'missed'> = {};
+  let allCorrect = true;
+
+  targetWords.forEach((targetWord, index) => {
+    const spokenWord = spokenWords[index];
+
+    if (spokenWord && spokenWord === targetWord) {
+      wordScores[index] = 'correct';
+    } else {
+      wordScores[index] = 'missed';
+      allCorrect = false;
+    }
+  });
+
+  return {
+    status: allCorrect ? 'matched' : 'uncertain',
+    wordScores: wordScores,
+    transcript: transcription
+  };
+}
