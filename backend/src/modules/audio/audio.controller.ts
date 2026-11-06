@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AudioAssessmentUnavailableError, processAudio } from './audio.service.js';
+import { AudioAssessmentUnavailableError, processAudio, recognizeSentenceAudio } from './audio.service.js';
 import { recognizeCvcWord } from './audio.service.js';
 import { READING_TARGETS } from './cvcRecognition.js';
 
@@ -48,5 +48,28 @@ export async function handleAudioProcess(req: Request, res: Response) {
       });
     }
     res.status(500).json({ error: 'Failed to process audio' });
+  }
+}
+
+/**
+ * POST /api/audio/evaluate-sentence
+ * Process child's recorded audio and compare it word-by-word against a target sentence
+ */
+export async function handleSentenceRecognition(req: Request, res: Response) {
+  try {
+    const targetSentence = req.body.sentence;
+
+    if (!targetSentence || !req.file?.size) {
+      return res.status(400).json({ error: 'A target sentence and audio recording are required.' });
+    }
+
+    // Pass the audio file and target text to your Whisper evaluation service
+    const result = await recognizeSentenceAudio(req.file, targetSentence);
+
+    return res.json(result);
+
+  } catch (error) {
+    console.error('Sentence processing error:', error);
+    return res.status(500).json({ error: 'Failed to process sentence audio' });
   }
 }

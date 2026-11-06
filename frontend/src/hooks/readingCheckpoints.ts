@@ -2,12 +2,7 @@ import type { ClassroomPolicy } from '../app/hooks/useClassroom';
 import { ReadingServiceError } from './readingProgressError';
 import { READING_CHAPTERS } from '../app/components/aralCurriculum';
 import { readLocalReadingProgress, availableLocalReadingChapters } from './readingLocalProgress';
-<<<<<<< HEAD
-
-export interface ReadingProgress { completed:string[]; available:string[]; epoch:number; openChallenges?:number[] }
-=======
 export interface ReadingProgress { completed:string[]; available:string[]; epoch:number; openStops?:string[]; openChallenges?:number[] }
->>>>>>> main
 
 export async function loadDevelopmentReadingProgress(learnerId:number,signal?:AbortSignal):Promise<ReadingProgress> {
   if(!import.meta.env.DEV)throw new Error('Device practice is unavailable.');
