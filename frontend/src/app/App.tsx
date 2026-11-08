@@ -13,6 +13,7 @@ import { StageCompleteDialog, type UnlockedFrame } from "./components/StageCompl
 import { getTrailReward, type TrailReward } from "./components/trailRewards";
 import { newStickerReward, type StickerReward } from "./components/stickers";
 import { AuthProvider, useAuth, AuthScreen } from "../modules/auth/index";
+import { setBackgroundMusicLoggedIn } from "../hooks/backgroundMusic";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { StudentSurvey } from "./components/StudentSurvey";
 import { Landing } from "./components/Landing";
@@ -290,6 +291,7 @@ function AppContent() {
   useFrames();
   useDarkMode();
   useLearningSettings(token, user?.id);
+  useEffect(() => setBackgroundMusicLoggedIn(isAuthenticated), [isAuthenticated]);
   const initialRoute = parseAppPath(window.location.pathname);
   const [currentScreen, setCurrentScreen] = useState<Screen>(initialRoute.screen);
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialRoute.authMode ?? 'register');

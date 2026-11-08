@@ -7,6 +7,7 @@ import { getLearningSettings, learningVolume } from "./learningSettings";
 import { voiceCandidates, withVoiceFallback } from "./miloVoice";
 import { resolveStageOneAudioPath } from "../app/components/stageOneAudio";
 import { observeAudioActivity, startAudioPlayback } from "./audioPlayback";
+import { recordedLine } from "./recordedLines";
 
 export function useBridgeAudio(basePath = "/audio/stage2") {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -73,14 +74,22 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
       onLine?.(lines.find(line => { end += line.length; return position < end; }) ?? lines[lines.length-1]);
     };
     onLine?.(lines[0]);
+    const stopped = (error: unknown) => generation.current !== current || ["AbortError", "NotAllowedError"].includes((error as Error).name);
+    // A new-voice recording of the exact words comes first, then the line's own file.
     // Full recordings have no cue sheet yet; distribute captions by text length.
-    try { if (!entry.file) throw new Error("Use speech"); await play(`${basePath}/${entry.file}`, fraction=>showPosition(fraction*total)); return; }
-    catch (error) {
-      if (generation.current !== current || ["AbortError", "NotAllowedError"].includes((error as Error).name)) throw error;
+    for (const file of [recordedLine(entry.text), entry.file && (entry.file.startsWith("/") ? entry.file : `${basePath}/${entry.file}`)]) {
+      if (!file) continue;
+      try { await play(file,fraction=>showPosition(fraction*total)); return; }
+      catch (error) { if (stopped(error)) throw error; }
     }
     for (const line of lines) {
     if (generation.current !== current) throw new DOMException("Stopped", "AbortError");
     onLine?.(line);
+    const lineRecording = lines.length > 1 ? recordedLine(line) : undefined;
+    if (lineRecording) {
+      try { await play(lineRecording); continue; }
+      catch (error) { if (stopped(error)) throw error; }
+    }
     await new Promise<void>((resolve, reject) => {
       if (!window.speechSynthesis) { reject(new Error("Narration unavailable")); return; }
       const utterance = new SpeechSynthesisUtterance(line);

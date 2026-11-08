@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, Feather, Headphones, KeyRound, LockKeyhole, Mic, Puzzle, Sparkles, Volume2 } from 'lucide-react';
 import { CHRONICLES } from './chronicleContent';
 import { READING_CHAPTERS, type SoundCard } from './aralCurriculum';
+import { DEV_UNLOCK_ALL } from '../../hooks/learnerCurriculumState';
 import { AdventureBackdrop, LandmarkArt } from './AdventureArt';
 import { CharacterCompanion } from './CharacterCompanion';
 import { ReadingAnchorArt } from './ReadingAnchorArt';
@@ -35,7 +36,7 @@ export function ChronicleBookWorld({index,completed,practiceDone,available,revie
     {id:'check',title:index===1?'The lantern tower':index===2?'Market checkout':index===3?'The garden gate':index===4?'The castle gate':index===5?'The mirror door':index===6?'The keeper door':index===7?'The royal reading desk':index===8?'The star observatory':index===9?'The reading throne':'The final gate',hint:index===1?'Read all six words':index===2?'Read all six labels':index===3?'Read all six blooms':index===4?'Read all six planks':index===5?'Read all six runes':index===6?'Read all six word keys':index===7?'Read all six story words':index===8?'Read five vowel spells':index===9?'Read all eight words':'Read your words',word:'',action:onCheckpoint,done:completed}
   ];
   const lessons=lessonDraft.map((lesson,position,all)=>{
-    const locked=chronicleStopLocked(all,position,{available,completed,reviewMode,practiceDone,challengesOpen,openStops});
+    const locked=chronicleStopLocked(all,position,{available,completed,reviewMode:reviewMode||DEV_UNLOCK_ALL,practiceDone,challengesOpen,openStops});
     return {...lesson,locked};
   });
   const trailPages=Array.from({length:Math.ceil(lessons.length/3)},(_,page)=>{

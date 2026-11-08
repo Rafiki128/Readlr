@@ -17,11 +17,13 @@ export function ChronicleBlendLesson({learnerId,index,onBack,onComplete}:{learne
   const word=words[step];
   async function listen(){
     setMessage('');
-    const phonemes:Record<string,string>={m:'/audio/stage2/classic-milo/SoundShelf-M.wav',a:'/audio/stage1/classic-milo/A.wav',t:'/audio/stage2/classic-milo/SoundShelf-T.wav'};
+    const shortVowels:Record<string,string>={a:'/audio/stage1/classic-milo/A.wav',e:'/audio/stage1/classic-milo/E.wav',i:'/audio/stage1/classic-milo/I.wav',o:'/audio/stage1/classic-milo/O.wav',u:'/audio/stage1/classic-milo/U.wav'};
+    // Silent-e and vowel-team words such as cape and tree must not sound out short vowels.
+    const singleVowel=word.match(/[aeiou]/g)?.length===1;
     try{
       for(let i=0;i<word.length;i++){
         setActiveLetter(i);
-        const file=phonemes[word[i]];
+        const file=/[bcdfghj-np-tv-z]/.test(word[i])?`/audio/stage2/classic-milo/SoundShelf-${word[i].toUpperCase()}.wav`:singleVowel?shortVowels[word[i]]:undefined;
         if(file)await sound.play(file);else await sound.narrateText({file:'',text:word[i]});
         await sound.wait(140);
       }

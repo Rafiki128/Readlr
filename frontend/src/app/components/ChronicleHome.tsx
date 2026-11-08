@@ -9,7 +9,7 @@ import { loadReadingProgress, loadDevelopmentReadingProgress } from '../../hooks
 import { devicePracticeNotice } from '../../hooks/readingProgressError';
 import { useWorldExit } from './useWorldExit';
 import { consumeReadingBookUnlock, readReadingAccessSnapshot, readReadingCarouselFocus, saveReadingAccessSnapshot, saveReadingCarouselFocus, type ReadingBookUnlockTransition } from '../../hooks/readingLocalProgress';
-import { curriculumUnlocks, emptyLearnerCurriculumState, type LearnerCurriculumState } from '../../hooks/learnerCurriculumState';
+import { curriculumUnlocks, DEV_UNLOCK_ALL, emptyLearnerCurriculumState, type LearnerCurriculumState } from '../../hooks/learnerCurriculumState';
 import './chronicleWorld.css';
 import './campArrival.css';
 
@@ -98,7 +98,7 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
     return()=>{controller.abort();window.clearInterval(timer);};
   },[learnerId,reviewMode,retry]);
   const book=CHRONICLES[index],chapter=READING_CHAPTERS[index];
-  const unlocked=!blocked&&(reviewMode||(index===0?access.bookOne:true)&&available.includes(chapter.id));
+  const unlocked=!blocked&&(reviewMode||DEV_UNLOCK_ALL||(index===0?access.bookOne:true)&&available.includes(chapter.id));
   const openBook=()=>{if(unlocked&&!opening&&!transition.leaving){saveReadingCarouselFocus(learnerId,index);onFocusBook?.(index);setOpening(true);}};
   const places=[
     {kind:'camp',label:'Learning Camp',hint:access.camp?'Sounds & blending':'Finish your 3 guided practices',action:onOpenCamp,unlocked:true},
@@ -117,7 +117,7 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
         <div className="book-carousel-track">{CHRONICLES.map((entry,i)=>{
           const distance=i-index;
           if(Math.abs(distance)>2)return null;
-          const locked=blocked||!reviewMode&&(!available.includes(READING_CHAPTERS[i].id)||(i===0&&!access.bookOne));
+          const locked=blocked||!reviewMode&&!DEV_UNLOCK_ALL&&(!available.includes(READING_CHAPTERS[i].id)||(i===0&&!access.bookOne));
           return <button key={entry.emblem} tabIndex={distance===0?0:-1} className={`chronicle-book ${opening&&distance===0?'is-opening':''} ${distance===0?'is-current':''} ${locked?'is-locked':''} ${unlocking===i?'is-unlocking':''}`} style={{'--book-color':entry.color,'--book-light':entry.light,'--offset':distance,'--distance':Math.abs(distance),'--turn':`${distance===0?-7:distance<0?22:-22}deg`,zIndex:5-Math.abs(distance)} as CSSProperties} aria-label={`${i+1}. ${READING_CHAPTERS[i].title}${locked?', locked':''}`} onClick={()=>distance===0?openBook():focusBook(i)}>
             <span className="book-pages"/><span className="book-cover"><span className="book-corner book-corner--tl"/><span className="book-corner book-corner--br"/><span className="book-volume">CHRONICLE {String(i+1).padStart(2,'0')}</span><span className="book-cover-title">{READING_CHAPTERS[i].title}</span><span className="book-emblem"><LandmarkArt kind={entry.emblem}/></span><span className="book-cover-skill">{entry.skill}</span><span className="book-seal">{completed.includes(READING_CHAPTERS[i].id)?<Check/>:locked?<LockKeyhole/>:<BookOpen/>}</span></span>
           </button>;

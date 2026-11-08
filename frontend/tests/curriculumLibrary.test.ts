@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { curriculumLibraryItems, CAMP_BLEND_CONSONANTS, CAMP_BLEND_VOWELS, PHONEME_LIBRARY } from '../src/app/components/curriculumLibraryContent.ts';
+import { curriculumLibraryItems, CAMP_BLEND_CONSONANTS, CAMP_BLEND_VOWELS, PHONEME_LIBRARY, VOWEL_SOUND_TEXT } from '../src/app/components/curriculumLibraryContent.ts';
 import { READING_CHAPTERS } from '../src/app/components/aralCurriculum.ts';
 
 test('library contains every current chapter word exactly once',()=>{
@@ -11,9 +11,14 @@ test('library contains every current chapter word exactly once',()=>{
 test('library has 44 phoneme examples and distinguishes vowel shelves',()=>{
   assert.equal(PHONEME_LIBRARY.length,44);
   assert.equal(curriculumLibraryItems('short').length,5);
-  assert.equal(curriculumLibraryItems('long').length,13);
+  assert.deepEqual(curriculumLibraryItems('long').map(item=>item.word),['cape','tree','kite','hope','cube','moon']);
   assert.equal(curriculumLibraryItems('consonants').length,26);
-  assert.equal(curriculumLibraryItems('short').length+curriculumLibraryItems('long').length+curriculumLibraryItems('consonants').length,44);
+});
+test('every long vowel tile has a vowel sound button',()=>{
+  assert.deepEqual(curriculumLibraryItems('long').map(item=>item.word).filter(word=>!VOWEL_SOUND_TEXT[word]),[]);
+});
+test('consonants run a to z with c included, then the two-letter sounds',()=>{
+  assert.deepEqual(curriculumLibraryItems('consonants').map(item=>item.label.split(' · ')[0]),['b','c','d','f','g','h','j','k','l','m','n','p','qu','r','s','t','v','w','x','y','z','ch','ng','sh','th','zh']);
 });
 test('sound shelves reveal only examples reached in the current journey',()=>{
   assert.deepEqual(curriculumLibraryItems('short',0).map(item=>item.word),['apple']);
