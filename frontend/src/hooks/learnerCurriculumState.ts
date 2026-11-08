@@ -76,11 +76,13 @@ export function saveLearnerCurriculumState(learnerId:number,state:LearnerCurricu
 export function patchLearnerCurriculumState(learnerId:number,patch:Partial<LearnerCurriculumState>) {
   return saveLearnerCurriculumState(learnerId,{...readLearnerCurriculumState(learnerId),...patch});
 }
+// Dev server only: VITE_UNLOCK_ALL=true opens every book, stop and feature for manual testing.
+export const DEV_UNLOCK_ALL=Boolean(import.meta.env?.DEV&&import.meta.env?.VITE_UNLOCK_ALL==='true');
 export const curriculumUnlocks=(state:LearnerCurriculumState,completedBooks:string[])=>({
-  camp:state.campOrientationStep>=3,
-  bookOne:state.campOrientationStep>=3,
-  stickers:completedBookOneStarterStops(state)>=3,
-  sounds:completedBookOneStarterStops(state)>=3,
-  progress:completedBooks.includes('gate'),
-  achievements:completedBooks.includes('gate'),
+  camp:DEV_UNLOCK_ALL||state.campOrientationStep>=3,
+  bookOne:DEV_UNLOCK_ALL||state.campOrientationStep>=3,
+  stickers:DEV_UNLOCK_ALL||completedBookOneStarterStops(state)>=3,
+  sounds:DEV_UNLOCK_ALL||completedBookOneStarterStops(state)>=3,
+  progress:DEV_UNLOCK_ALL||completedBooks.includes('gate'),
+  achievements:DEV_UNLOCK_ALL||completedBooks.includes('gate'),
 });

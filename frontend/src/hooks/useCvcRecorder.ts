@@ -43,7 +43,7 @@ export function useCvcRecorder(telemetry?: { begin: () => void; finish: (outcome
         recorder.onerror=()=>finish(new Error("The microphone stopped. Let's try again."));
         recorder.onstop=()=> {
           const blob = new Blob(chunks,{type:recorder!.mimeType});
-          if (!cvcHasVoice(peak,frames,blob.size)) { finish(new Error("I could not hear your voice. Let's try again!"), undefined, true); }
+          if (!cvcHasVoice(peak,frames,blob.size)) { finish(Object.assign(new Error("I could not hear your voice. Let's try again!"),{name:"NoVoiceError"}), undefined, true); }
           else finish(undefined,blob);
         };
         void context.resume().then(async()=> {

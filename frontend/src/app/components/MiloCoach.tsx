@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Volume2, X } from 'lucide-react';
 import { getLearningSettings, learningVolume } from '../../hooks/learningSettings';
 import { getMiloGuidance, miloGuidanceSeenKey, type MiloGuidanceAction, type MiloGuidanceContext, type MiloGuidanceEvent } from '../../hooks/miloGuidance';
 import { CharacterCompanion } from './CharacterCompanion';
+import { recordedLine } from '../../hooks/recordedLines';
 import './miloCoach.css';
 
 interface MiloCoachProps {
@@ -33,17 +34,28 @@ export function MiloCoach({ learnerId, context, event, cueKey, engaged = false, 
     if (previewMode || learnerId <= 0) return;
     try { localStorage.setItem(miloGuidanceSeenKey(learnerId, context), 'seen'); } catch { /* Guidance remains available without storage. */ }
   }, [context, learnerId, previewMode]);
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
-  useEffect(() => { window.speechSynthesis?.cancel(); }, [cue]);
+  const recording = useRef<HTMLAudioElement | null>(null);
+  const silence = () => { window.speechSynthesis?.cancel(); recording.current?.pause(); recording.current = null; };
+  useEffect(() => silence, []);
+  useEffect(() => { silence(); }, [cue]);
   useEffect(() => {
-    if (engaged) window.speechSynthesis?.cancel();
+    if (engaged) silence();
   }, [engaged]);
 
   if (engaged || dismissedCue === cue) return null;
 
   const speak = () => {
-    if (!('speechSynthesis' in window) || getLearningSettings().sound_volume === 0) return;
-    window.speechSynthesis.cancel();
+    if (getLearningSettings().sound_volume === 0) return;
+    silence();
+    const file = recordedLine(line.text);
+    if (file) {
+      const audio = new Audio(file);
+      audio.volume = learningVolume();
+      recording.current = audio;
+      void audio.play().catch(() => {});
+      return;
+    }
+    if (!('speechSynthesis' in window)) return;
     const utterance = new SpeechSynthesisUtterance(line.text);
     utterance.volume = learningVolume();
     utterance.rate = 0.94;
@@ -61,7 +73,7 @@ export function MiloCoach({ learnerId, context, event, cueKey, engaged = false, 
           {line.action !== 'none' && onAction && <button className="milo-coach__action" onClick={() => { if(line.action !== 'none') onAction(line.action); }}>{line.actionLabel}</button>}
         </div>
       </div>
-      <button className="milo-coach__dismiss" onClick={() => { window.speechSynthesis?.cancel(); setDismissedCue(cue); }} aria-label="Dismiss Milo's explanation" title="Dismiss explanation"><X /></button>
+      <button className="milo-coach__dismiss" onClick={() => { silence(); setDismissedCue(cue); }} aria-label="Dismiss Milo's explanation" title="Dismiss explanation"><X /></button>
     </aside>
   );
 }

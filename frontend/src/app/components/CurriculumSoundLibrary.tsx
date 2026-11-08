@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Headphones, Mic, Search, Volume2, Square, LockKeyhole, Library, AudioLines, BookOpen, X } from 'lucide-react';
-import { SOUND_CARDS } from './aralCurriculum';
 import { ReadingAnchorArt } from './ReadingAnchorArt';
 import { useBridgeAudio } from '../../hooks/useBridgeAudio';
-import { curriculumLibraryItems, CAMP_BLEND_VOWELS, type LibraryCollection } from './curriculumLibraryContent';
+import { curriculumLibraryItems, CAMP_BLEND_VOWELS, VOWEL_SOUND_TEXT, type LibraryCollection } from './curriculumLibraryContent';
 import { useCvcRecorder } from '../../hooks/useCvcRecorder';
-import { patchLearnerCurriculumState, readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
+import { DEV_UNLOCK_ALL, patchLearnerCurriculumState, readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
 import './curriculumSoundLibrary.css';
 
 const collections: {id:LibraryCollection;label:string;symbol:string}[]=[{id:'short',label:'Short vowels',symbol:'a'},{id:'long',label:'Long vowels',symbol:'ee'},{id:'consonants',label:'Consonants',symbol:'m'},{id:'blends',label:'Sound teams',symbol:'am'},{id:'words',label:'Book words',symbol:'mat'}];
@@ -21,7 +20,7 @@ export function CurriculumSoundLibrary({onBack,learnerId,completedBooks=[]}:{onB
   const clipPlayer=useRef<HTMLAudioElement>(null),live=useRef(true);
   const recorder=useCvcRecorder();
   const audio=useBridgeAudio(group==='blends'?'/audio/stage2':'/audio/stage3');
-  const allowed=curriculumLibraryItems(group,completedBooks.length);
+  const allowed=curriculumLibraryItems(group,DEV_UNLOCK_ALL?10:completedBooks.length);
   const shelf=curriculumLibraryItems(group).filter(i=>group!=='blends'||isVowelFirst(i.word)===(order==='vc'));
   const available=shelf.filter(i=>allowed.some(a=>a.label===i.label));
   const item=available.find(i=>i.label===selected)??available[0];
@@ -33,11 +32,12 @@ export function CurriculumSoundLibrary({onBack,learnerId,completedBooks=[]}:{onB
   const stopPlayback=()=>{audio.stop();clipPlayer.current?.pause();setReplaying(false);setTeamMotion(false);};
   const reset=()=>{stopPlayback();setClip(null);setMessage('');};
   const choose=(next:LibraryCollection)=>{if(busy)return;reset();setGroup(next);setQuery('');setSelected('');};
-  async function hear(vowel=false){
+  async function hear(soundOnly=false){
     if(!item||busy)return;
     stopPlayback();setMessage('');
     try{
-      if(vowel){const card=SOUND_CARDS.find(c=>c.word===item.word);if(card)await audio.play(`/audio/stage1/${card.letter.toUpperCase()}.wav`);}
+      if(soundOnly&&vowelSound)await audio.narrateText({file:`VowelSound-${item.word.toUpperCase()}.wav`,text:vowelSound});
+      else if(soundOnly)await audio.play(soundFile);
       else await audio.narrateText({file:`Pronounce${item.word.toUpperCase()}.wav`,text:item.word});
     }catch(e){if((e as Error).name!=='AbortError')setMessage('That sound could not play. Please try again.');}
   }
@@ -54,7 +54,12 @@ export function CurriculumSoundLibrary({onBack,learnerId,completedBooks=[]}:{onB
     finally{if(live.current){setBusy(false);setRecording(false);}}
   }
   const sound=item?.label.split(' · ')[0]??'';
-  const highlight=item?.word.indexOf(sound)??-1;
+  // zh is spelled su in treasure.
+  const spelling=sound==='zh'?'su':sound;
+  const highlight=item?.word.indexOf(spelling)??-1;
+  // Pure sounds exist for the short vowels and single consonants; sh, ch, th, ng and zh are not recorded yet.
+  const vowelSound=group==='long'?VOWEL_SOUND_TEXT[item?.word??'']:undefined;
+  const soundFile=group==='short'?`/audio/stage1/${sound.toUpperCase()}.wav`:group==='consonants'&&/^([b-df-hj-np-tv-z]|qu)$/.test(sound)?`/audio/stage2/classic-milo/SoundShelf-${sound[0].toUpperCase()}.wav`:'';
   function wordArt(word:string){return group==='blends'?<span className="sl-team-art">{word.split('').map((letter,i)=><span key={i} data-vowel={CAMP_BLEND_VOWELS.some(v=>v===letter)}>{letter}</span>)}</span>:<ReadingAnchorArt word={word}/>;}
   return <main className="sound-archive">
     <header className="sl-header"><button className="sl-back" aria-label="Back to my world" title="Back to my world" onClick={()=>{stopPlayback();recorder.stop();onBack();}}><ArrowLeft/></button><div className="sl-heading"><p>The Reading World</p><h1>Sound Library</h1></div><span className="sl-library-mark" aria-hidden="true"><Library/></span></header>
@@ -72,8 +77,8 @@ export function CurriculumSoundLibrary({onBack,learnerId,completedBooks=[]}:{onB
         <div className="sl-player-label"><Headphones/><span>Listening desk</span><AudioLines aria-hidden="true"/></div>
         {item?<>
           <div className={`sl-feature-art ${group==='blends'&&teamMotion?'is-blending':''}`} aria-hidden="true">{group==='blends'?<div className="sl-blend-stage">{wordArt(item.word)}<span className="sl-team-result">{item.word}</span></div>:wordArt(item.word)}</div>
-          <div className="sl-word"><span>{group==='blends'?'Sound team':group==='words'?'From your books':`Sound ${sound}`}</span><h2>{group==='blends'?<>{item.word[0]}<span className="sl-join"> + </span>{item.word[1]}<ArrowRight/>{item.word}</>:highlight>=0&&group!=='words'?<>{item.word.slice(0,highlight)}<mark>{sound}</mark>{item.word.slice(highlight+sound.length)}</>:item.word}</h2><p>{item.cue}</p></div>
-          <div className="sl-listen-row"><button className="sl-listen" disabled={busy} onClick={()=>audio.isPlaying?stopPlayback():void hear()}>{audio.isPlaying?<Square/>:<Volume2/>}{audio.isPlaying?'Stop':'Listen to Milo'}</button>{group==='short'&&<button className="sl-sound-only" title="Hear the vowel sound" aria-label="Hear the vowel sound" disabled={busy} onClick={()=>void hear(true)}><AudioLines/></button>}</div>
+          <div className="sl-word"><span>{group==='blends'?'Sound team':group==='words'?'From your books':`Sound ${sound}`}</span><h2>{group==='blends'?<>{item.word[0]}<span className="sl-join"> + </span>{item.word[1]}<ArrowRight/>{item.word}</>:highlight>=0&&group!=='words'?<>{item.word.slice(0,highlight)}<mark>{spelling}</mark>{item.word.slice(highlight+spelling.length)}</>:item.word}</h2><p>{item.cue}</p></div>
+          <div className="sl-listen-row"><button className="sl-listen" disabled={busy} onClick={()=>audio.isPlaying?stopPlayback():void hear()}>{audio.isPlaying?<Square/>:<Volume2/>}{audio.isPlaying?'Stop':group==='blends'?'Hear the sound team':'Hear the word'}</button>{(soundFile||vowelSound)&&<button className="sl-sound-only" disabled={busy} onClick={()=>void hear(true)}><AudioLines/>{group==='consonants'?'Consonant':'Vowel'} sound: {sound}</button>}</div>
           <div className={`sl-voice-station ${recording?'is-recording':''}`}><span>Your turn</span><div><button className="sl-record" disabled={busy} onClick={()=>void record()}><Mic/>{recording?`Recording · ${seconds}`:busy?'Getting ready...':'Record'}</button><button className="sl-replay" disabled={!clip||busy} title="Hear my voice" aria-label={replaying?'Stop my voice':'Hear my voice'} onClick={()=>{if(replaying){clipPlayer.current?.pause();setReplaying(false);}else{audio.stop();void clipPlayer.current?.play().then(()=>setReplaying(true)).catch(()=>setMessage('Your recording could not play. Please try again.'));}}}>{replaying?<Square/>:<Headphones/>}My voice</button></div></div>
           {clip&&<audio ref={clipPlayer} src={clip} onEnded={()=>setReplaying(false)}/>}
           <p className="sl-status" role="status">{message||'Little sounds. Your own voice.'}</p>

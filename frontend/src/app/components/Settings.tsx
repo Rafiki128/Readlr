@@ -9,6 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from ".
 import "./settings.css";
 import { applyDarkMode } from "../hooks/useDarkMode";
 import { AvatarFrame } from "./AvatarFrame";
+import { BackgroundMusicToggle } from "./BackgroundMusicToggle";
 import { toast as notify } from "sonner";
 import { GrownUpConfirm } from "./GrownUpConfirm";
 
@@ -443,6 +444,9 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
                     className="w-full h-1.5 bg-[var(--paper-deep)] rounded-full appearance-none cursor-pointer accent-[#4F46E5]"
                   />
                 </div>
+                <Row title="Background music" description="Play music while using Readlr">
+                  <BackgroundMusicToggle />
+                </Row>
                 <Row title="Voice feedback" description="Hear Milo celebrate completed challenges">
                   <Toggle
                     label="Voice feedback"
