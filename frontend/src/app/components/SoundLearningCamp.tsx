@@ -32,19 +32,16 @@ export const BOOK_5_NODES: Record<string, { nodeId: string; targetSound: string;
   dog: { nodeId: 'd-dog', targetSound: 'd', phrase: 'a small dog' }
 };
 
-// Book 6: Sound Substitution / Word Shaper Curriculum
 export const BOOK_6_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
   rug: { nodeId: 'r-rug', targetSound: 'r to h', phrase: 'rug to hug' },
   cup: { nodeId: 'c-cup', targetSound: 'u to a', phrase: 'cup to cap' }
 };
 
-// Book 7: Cumulative Phrases Curriculum
 export const BOOK_7_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
   web: { nodeId: 'w-web', targetSound: 'w', phrase: 'A web hangs in the tree.' },
   kite: { nodeId: 'k-kite', targetSound: 'k', phrase: 'The kite dances in the sky.' }
 };
 
-// Book 8: The Royal Library (Reading for Meaning)
 export const BOOK_8_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
   van: { nodeId: 'v-van', targetSound: 'v', phrase: 'The van stops by the gate.' },
   yam: { nodeId: 'y-yam', targetSound: 'y', phrase: 'Milo puts a yam in the basket.' },
@@ -53,11 +50,10 @@ export const BOOK_8_NODES: Record<string, { nodeId: string; targetSound: string;
   zip: { nodeId: 'z-zip', targetSound: 'z', phrase: 'Milo pulls the zip.' }
 };
 
-// Book 9: The Vowel Tower (Magic E & Long Vowels)
 export const BOOK_9_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
   cape: { nodeId: 'long-a-cape', targetSound: 'long a', phrase: 'Milo wears a bright cape.' },
   tree: { nodeId: 'long-e-tree', targetSound: 'long e', phrase: 'A tree grows tall.' },
-  kite: { nodeId: 'long-i-kite', targetSound: 'long i', phrase: 'The kite dances in the sky.' }, // Overlaps with Book 7 contextually
+  kite: { nodeId: 'long-i-kite', targetSound: 'long i', phrase: 'The kite dances in the sky.' }, 
   hope: { nodeId: 'long-o-hope', targetSound: 'long o', phrase: 'Milo has hope for a sunny day.' },
   cube: { nodeId: 'long-u-cube', targetSound: 'long u', phrase: 'Milo builds with a cube.' }
 };
@@ -87,7 +83,10 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
   const openArea=(value:Area)=>{audio.stop();setArea(value);setMessage('');};
   const goBack=()=>{audio.stop();area?setArea(null):transition.exit(onBack);};
   if(!reviewMode&&learnerId&&readLearnerCurriculumState(learnerId).campOrientationStep<3)return <CampOrientation learnerId={learnerId} onReady={onBack}/>;
-  if(selected)return <CampSoundLesson key={`${selected.category}-${selected.word}`} card={selected} reviewMode={reviewMode} onBack={()=>setSelected(null)} onFinish={()=>{setVisited(items=>[...new Set([...items,selected.word])]);setSelected(null);}}/>;
+  
+  // NOTE: disableBuildStage={true} is passed here so the Learning Camp skips it!
+  if(selected)return <CampSoundLesson key={`${selected.category}-${selected.word}`} card={selected} reviewMode={reviewMode} onBack={()=>setSelected(null)} onFinish={()=>{setVisited(items=>[...new Set([...items,selected.word])]);setSelected(null);}} disableBuildStage={true} />;
+  
   return <main className={`camp-world ${area?'camp-world--inside':''} ${transition.leaving?'world-is-leaving':''}`}><div className="camp-world-content">
     <AdventureBackdrop theme={area==='blends'?'bridge':'garden'}/>
     <header className="camp-header"><button className="reading-icon activity-back-button" aria-label={area?'Back to Camp':'Back home'} title={area?'Back to Camp':'Back home'} onClick={goBack}><ArrowLeft/></button><div><p>Learning Camp</p><h1>{area==='vowels'?'The Vowel Dojo':area==='consonants'?'The Consonant Grove':area==='blends'?'The Blending Workshop':'A little wonder. A little practice.'}</h1></div><CharacterCompanion state={audio.isPlaying?'speaking':'idle'} gesture="wave" size={100}/></header>
@@ -110,7 +109,8 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
   </div></main>;
 }
 
-export function CampSoundLesson({card,reviewMode,onBack,onFinish}:{card:SoundCard;reviewMode:boolean;onBack:()=>void;onFinish:()=>void}) {
+// NOTE: We added disableBuildStage property here. The Book calls it without this prop (so it defaults to false and shows Build).
+export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildStage=false}:{card:SoundCard;reviewMode:boolean;onBack:()=>void;onFinish:()=>void;disableBuildStage?:boolean}) {
   const [phase,setPhase]=useState<'listen'|'find'|'build-up'|'say'|'finish'>('listen');
   const [message,setMessage]=useState(card.cue);
   const [busy,setBusy]=useState(false),[recording,setRecording]=useState(false),[seconds,setSeconds]=useState(4);
@@ -129,9 +129,9 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish}:{card:SoundCar
   
   const parts=highlightedWord(card.word,card.letter);
   
-  const isSentenceMode = SENTENCE_MODE_WORDS.includes(card.word);
+  // NOTE: This now checks if we are NOT in the Learning Camp before enabling Sentence Mode.
+  const isSentenceMode = !disableBuildStage && SENTENCE_MODE_WORDS.includes(card.word);
   
-  // Safe resolution chain for dynamic phrases based on curriculum node
   const sentence = BOOK_9_NODES[card.word]?.phrase 
     || BOOK_8_NODES[card.word]?.phrase 
     || BOOK_7_NODES[card.word]?.phrase 
