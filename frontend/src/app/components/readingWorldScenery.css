@@ -21,7 +21,7 @@
 .loading-turning-page{position:absolute;left:50%;top:0;bottom:0;width:50%;transform-origin:left center;background:#fff9df;backface-visibility:hidden;animation:welcome-loading-leaf 1.45s ease-in-out both}
 .adventure-loading h2{font-size:26px;font-weight:500;margin:8px 0}.adventure-loading p{font-size:15px;margin:8px 0 22px;color:#3b6b60}
 .adventure-loading-track{width:min(280px,80%);height:14px;padding:2px;border:2px solid white;background:#b6ddcd;border-radius:8px;overflow:hidden}
-.adventure-loading-track span{display:block;height:100%;background:#168e7d;transform-origin:left;animation:camp-progress-fill 1.8s linear both}
+.adventure-loading-track span{display:block;height:100%;background:#168e7d;transform-origin:left;animation:camp-progress-fill var(--loading-ms,1.8s) linear both}
 @keyframes welcome-loading-leaf{0%,15%{transform:rotateY(0)}85%,100%{transform:rotateY(-180deg)}}
 @media(max-width:700px){.welcome-story-entry .welcome-invitation{padding:24px 22px}.welcome-brand>span{font-size:40px}.loading-storybook{height:200px}.loading-book-page.page-left span{font-size:28px;padding:5px 9px}}
 @media(prefers-reduced-motion:reduce){.loading-turning-page,.adventure-loading,.adventure-loading-track span{animation:none}}

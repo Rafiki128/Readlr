@@ -26,7 +26,8 @@ test("all supplied Stage 3 recordings are covered by the audio map",()=>{
     recording(cvcModelAudio(word));
   }
   for(const file of files) recording(file);
-  assert.deepEqual([...files].sort(),readdirSync(directory).filter(file=>file.endsWith(".wav")).sort());
+  // The folder also holds whole-word models for the Reading World books and Camp, and the long vowel sounds.
+  assert.deepEqual([...files].sort(),readdirSync(directory).filter(file=>file.endsWith(".wav")&&(files.has(file)||!/^(Pronounce|VowelSound-)[A-Z]+\.wav$/.test(file))).sort());
 });
 test("crown vowel and blend reuse the earlier stages without requiring duplicate recordings",()=>{
   assert.equal(cvcModelAudio("A"),"../stage1/A.wav");

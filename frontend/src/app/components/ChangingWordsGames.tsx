@@ -3,7 +3,8 @@ import { ArrowRight, Check, Sparkles, WandSparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { CHANGING_WORDS, WORD_TRANSFORMATIONS, changedLetterIndex, changingTileFits, readChangingHallStep, saveChangingHallStep } from './changingWordsLogic';
-import './changingWordsGames.css';
+import './changingWordsGames.css';
+import { MiloSays } from './MiloSays';
 
 export function ChangingWordMirrors({learnerId,onComplete}:{learnerId:number;onComplete:()=>void}) {
   const reduced=useReducedMotion();
@@ -38,7 +39,7 @@ export function ChangingWordMirrors({learnerId,onComplete}:{learnerId:number;onC
   }
 
   return <section className={`changing-mirror-game ${finished?'is-transformed':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Hall of Changing Words</span><h2>{finished?`${fromWord} became ${word}!`:'Change one sound'}</h2><p aria-live="polite">{message}</p></div><b>Mirror {wordIndex+1} of {CHANGING_WORDS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Hall of Changing Words</span><h2>{finished?`${fromWord} became ${word}!`:'Change one sound'}</h2><MiloSays text={message}/></div><b>Mirror {wordIndex+1} of {CHANGING_WORDS.length}</b></header>
     <div className="changing-mirror-scene">
       <div className="hall-pillars" aria-hidden="true"><i/><i/><i/><i/></div>
       <div className="changing-word-stage">

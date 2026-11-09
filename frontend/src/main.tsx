@@ -7,6 +7,9 @@ import "./app/components/chroniclePages.css";
 import "./app/components/learnerWorldConsistency.css";
 import "./app/components/activityImmersion.css";
 import { Toaster } from "./app/components/ui/sonner";
+import { startBackgroundMusic } from "./hooks/backgroundMusic";
+
+startBackgroundMusic();
 
 createRoot(document.getElementById("root")!).render(
   <>

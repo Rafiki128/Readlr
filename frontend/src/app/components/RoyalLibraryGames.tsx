@@ -4,7 +4,8 @@ import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { ReadingAnchorArt } from './ReadingAnchorArt';
 import { LIBRARY_STORIES, LIBRARY_WORDS, readRoyalLibraryStep, saveRoyalLibraryStep, storyWordFits } from './royalLibraryLogic';
-import './royalLibraryGames.css';
+import './royalLibraryGames.css';
+import { MiloSays } from './MiloSays';
 
 export function RoyalStoryRepair({learnerId,onComplete}:{learnerId:number;onComplete:()=>void}) {
   const reduced=useReducedMotion();
@@ -29,7 +30,7 @@ export function RoyalStoryRepair({learnerId,onComplete}:{learnerId:number;onComp
   }
 
   return <section className={`royal-story-game ${finished?'is-restored':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Royal Library</span><h2>{finished?'The story is whole!':'Mend the little story'}</h2><p aria-live="polite">{message}</p></div><b>Story {wordIndex+1} of {LIBRARY_WORDS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Royal Library</span><h2>{finished?'The story is whole!':'Mend the little story'}</h2><MiloSays text={message}/></div><b>Story {wordIndex+1} of {LIBRARY_WORDS.length}</b></header>
     <div className="royal-library-scene">
       <div className="library-shelves" aria-hidden="true"><i/><i/><i/><i/></div>
       <div className="royal-open-book">

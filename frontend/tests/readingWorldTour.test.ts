@@ -49,7 +49,8 @@ test('tour uses a clear spotlight and replays Camp without lowering saved progre
   const camp=readFileSync(new URL('../src/app/components/CampOrientation.tsx',import.meta.url),'utf8');
   assert.match(camp,/Math.max\(saved,progress\)/);
   assert.match(camp,/recorder.capture/);
-  assert.match(camp,/Practise without a microphone/);
+  assert.match(camp,/Continue without a microphone/);
+  for(const id of ['005','006','007','008','009','010','011'])assert.match(camp,new RegExp(`MIC-${id}`));
   assert.match(camp,/URL.revokeObjectURL/);
   assert.match(camp,/<Dialog open=\{micOpen\}/);
   assert.match(camp,/Skip orientation and open Book 1/);
