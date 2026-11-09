@@ -5,7 +5,8 @@ import { useBridgeAudio } from '../../hooks/useBridgeAudio';
 import { curriculumLibraryItems, CAMP_BLEND_VOWELS, VOWEL_SOUND_TEXT, type LibraryCollection } from './curriculumLibraryContent';
 import { useCvcRecorder } from '../../hooks/useCvcRecorder';
 import { DEV_UNLOCK_ALL, patchLearnerCurriculumState, readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
-import './curriculumSoundLibrary.css';
+import './curriculumSoundLibrary.css';
+import { MiloSays } from './MiloSays';
 
 const collections: {id:LibraryCollection;label:string;symbol:string}[]=[{id:'short',label:'Short vowels',symbol:'a'},{id:'long',label:'Long vowels',symbol:'ee'},{id:'consonants',label:'Consonants',symbol:'m'},{id:'blends',label:'Sound teams',symbol:'am'},{id:'words',label:'Book words',symbol:'mat'}];
 const isVowelFirst=(word:string)=>CAMP_BLEND_VOWELS.some(v=>word.startsWith(v));
@@ -57,9 +58,9 @@ export function CurriculumSoundLibrary({onBack,learnerId,completedBooks=[]}:{onB
   // zh is spelled su in treasure.
   const spelling=sound==='zh'?'su':sound;
   const highlight=item?.word.indexOf(spelling)??-1;
-  // Pure sounds exist for the short vowels and single consonants; sh, ch, th, ng and zh are not recorded yet.
+  // Pure sounds exist for the short vowels and every consonant tile; qu uses the q recording.
   const vowelSound=group==='long'?VOWEL_SOUND_TEXT[item?.word??'']:undefined;
-  const soundFile=group==='short'?`/audio/stage1/${sound.toUpperCase()}.wav`:group==='consonants'&&/^([b-df-hj-np-tv-z]|qu)$/.test(sound)?`/audio/stage2/classic-milo/SoundShelf-${sound[0].toUpperCase()}.wav`:'';
+  const soundFile=group==='short'?`/audio/stage1/${sound.toUpperCase()}.wav`:group==='consonants'&&/^([b-df-hj-np-tv-z]|qu|sh|ch|th|ng|zh)$/.test(sound)?`/audio/stage2/classic-milo/SoundShelf-${(sound==='qu'?'q':sound).toUpperCase()}.wav`:'';
   function wordArt(word:string){return group==='blends'?<span className="sl-team-art">{word.split('').map((letter,i)=><span key={i} data-vowel={CAMP_BLEND_VOWELS.some(v=>v===letter)}>{letter}</span>)}</span>:<ReadingAnchorArt word={word}/>;}
   return <main className="sound-archive">
     <header className="sl-header"><button className="sl-back" aria-label="Back to my world" title="Back to my world" onClick={()=>{stopPlayback();recorder.stop();onBack();}}><ArrowLeft/></button><div className="sl-heading"><p>The Reading World</p><h1>Sound Library</h1></div><span className="sl-library-mark" aria-hidden="true"><Library/></span></header>
@@ -81,7 +82,7 @@ export function CurriculumSoundLibrary({onBack,learnerId,completedBooks=[]}:{onB
           <div className="sl-listen-row"><button className="sl-listen" disabled={busy} onClick={()=>audio.isPlaying?stopPlayback():void hear()}>{audio.isPlaying?<Square/>:<Volume2/>}{audio.isPlaying?'Stop':group==='blends'?'Hear the sound team':'Hear the word'}</button>{(soundFile||vowelSound)&&<button className="sl-sound-only" disabled={busy} onClick={()=>void hear(true)}><AudioLines/>{group==='consonants'?'Consonant':'Vowel'} sound: {sound}</button>}</div>
           <div className={`sl-voice-station ${recording?'is-recording':''}`}><span>Your turn</span><div><button className="sl-record" disabled={busy} onClick={()=>void record()}><Mic/>{recording?`Recording · ${seconds}`:busy?'Getting ready...':'Record'}</button><button className="sl-replay" disabled={!clip||busy} title="Hear my voice" aria-label={replaying?'Stop my voice':'Hear my voice'} onClick={()=>{if(replaying){clipPlayer.current?.pause();setReplaying(false);}else{audio.stop();void clipPlayer.current?.play().then(()=>setReplaying(true)).catch(()=>setMessage('Your recording could not play. Please try again.'));}}}>{replaying?<Square/>:<Headphones/>}My voice</button></div></div>
           {clip&&<audio ref={clipPlayer} src={clip} onEnded={()=>setReplaying(false)}/>}
-          <p className="sl-status" role="status">{message||'Little sounds. Your own voice.'}</p>
+          <MiloSays className="sl-status" role="status" text={message||'Little sounds. Your own voice.'} speak={message||'Choose a sound, a sound team, or a word from your books. Listen to Milo, then try it in your own voice.'}/>
         </>:<div className="sl-empty-player"><div className="sl-waiting-books" aria-hidden="true"><span>a</span><span>ee</span><span>oo</span></div><h2>A shelf of new discoveries</h2><p>Keep exploring your books to bring these sounds into your library.</p><button className="sl-listen" onClick={()=>choose('short')}><Volume2/>Hear sounds I know</button></div>}
       </aside>
     </div>

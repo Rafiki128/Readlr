@@ -3,7 +3,8 @@ import { ArrowRight, Check, Flower2, Sprout } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { GARDEN_WORDS, gardenSeedFits, gardenVowel, readGardenSeedStep, saveGardenSeedStep } from './secretGardenLogic';
-import './secretGardenGames.css';
+import './secretGardenGames.css';
+import { MiloSays } from './MiloSays';
 
 export function GardenVowelBeds({learnerId,onComplete}:{learnerId:number;onComplete:()=>void}) {
   const reduced=useReducedMotion();
@@ -34,7 +35,7 @@ export function GardenVowelBeds({learnerId,onComplete}:{learnerId:number;onCompl
   }
 
   return <section className={`garden-seed-game ${finished?'is-blooming':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Secret Garden</span><h2>{finished?`${word} is blooming!`:'Complete the garden word'}</h2><p aria-live="polite">{message}</p></div><b>Bed {wordIndex+1} of {GARDEN_WORDS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Secret Garden</span><h2>{finished?`${word} is blooming!`:'Complete the garden word'}</h2><MiloSays text={message}/></div><b>Bed {wordIndex+1} of {GARDEN_WORDS.length}</b></header>
     <div className="garden-seed-scene">
       <div className="garden-sky" aria-hidden="true"><i/><i/><i/></div>
       <div className="garden-word-bed">

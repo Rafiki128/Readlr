@@ -1,4 +1,5 @@
 import { learningVolume } from "./learningSettings";
+import { stopMiloInstruction } from "./miloInstructionState";
 
 // Recording-script ID -> approved Milo recording. Lines without an entry fall back to speech.
 export const MILO_SCRIPT_FILES: Readonly<Record<string, string>> = {
@@ -55,6 +56,7 @@ export function waitForMiloScript(): Promise<void> {
 /** Resolves with the line's length in seconds once it starts, or 0 if it cannot play. */
 export function playMiloScript(id: string): Promise<number> {
   stopMiloScript();
+  stopMiloInstruction();
   const file = MILO_SCRIPT_FILES[id];
   if (!file || learningVolume() === 0) return Promise.resolve(0);
   const audio = new Audio(file);

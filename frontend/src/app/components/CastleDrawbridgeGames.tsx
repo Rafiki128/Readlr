@@ -3,7 +3,8 @@ import { ArrowRight, Check, Hammer, Shield } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { DRAWBRIDGE_WORDS, drawbridgePlankFits, readDrawbridgePlankStep, saveDrawbridgePlankStep } from './castleDrawbridgeLogic';
-import './castleDrawbridgeGames.css';
+import './castleDrawbridgeGames.css';
+import { MiloSays } from './MiloSays';
 
 export function DrawbridgePlankBuilder({learnerId,onComplete}:{learnerId:number;onComplete:()=>void}) {
   const reduced=useReducedMotion();
@@ -32,7 +33,7 @@ export function DrawbridgePlankBuilder({learnerId,onComplete}:{learnerId:number;
   }
 
   return <section className={`drawbridge-builder ${finished?'is-fitted':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Castle Drawbridge</span><h2>{finished?`${word} joined the crossing!`:'Repair the next word plank'}</h2><p aria-live="polite">{message}</p></div><b>Plank {wordIndex+1} of {DRAWBRIDGE_WORDS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Castle Drawbridge</span><h2>{finished?`${word} joined the crossing!`:'Repair the next word plank'}</h2><MiloSays text={message}/></div><b>Plank {wordIndex+1} of {DRAWBRIDGE_WORDS.length}</b></header>
     <div className="drawbridge-builder-scene">
       <div className="drawbridge-castle" aria-hidden="true"><i/><i/><span><Shield/></span></div>
       <div className="drawbridge-river" aria-hidden="true"/>

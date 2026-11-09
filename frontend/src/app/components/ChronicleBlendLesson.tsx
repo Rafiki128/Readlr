@@ -5,7 +5,8 @@ import { ReadingAnchorArt } from './ReadingAnchorArt';
 import { chronicleBlendWords } from './chronicleLessons';
 import { useBridgeAudio } from '../../hooks/useBridgeAudio';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import { clearGuidedBlendStep, readGuidedBlendStep, saveGuidedBlendStep } from '../../hooks/readingLocalProgress';
+import { clearGuidedBlendStep, readGuidedBlendStep, saveGuidedBlendStep } from '../../hooks/readingLocalProgress';
+import { MiloSays } from './MiloSays';
 
 export function ChronicleBlendLesson({learnerId,index,onBack,onComplete}:{learnerId:number;index:number;onBack:()=>void;onComplete:()=>void}) {
   const words=chronicleBlendWords(index);
@@ -15,15 +16,19 @@ export function ChronicleBlendLesson({learnerId,index,onBack,onComplete}:{learne
   const finished=useRef(false);
   const sound=useBridgeAudio('/audio/stage3');
   const word=words[step];
+  const blendTip=index===0?'Keep /m/ humming, use short /a/, and make /t/ quick.':index===1?'Listen for the middle light: short /a/, /e/, or /i/.':'Listen to the word. Notice how its letters work together.';
   async function listen(){
     setMessage('');
     const shortVowels:Record<string,string>={a:'/audio/stage1/classic-milo/A.wav',e:'/audio/stage1/classic-milo/E.wav',i:'/audio/stage1/classic-milo/I.wav',o:'/audio/stage1/classic-milo/O.wav',u:'/audio/stage1/classic-milo/U.wav'};
     // Silent-e and vowel-team words such as cape and tree must not sound out short vowels.
     const singleVowel=word.match(/[aeiou]/g)?.length===1;
+    // In a silent-e word such as cape, the vowel plays its long sound and the final e stays silent.
+    const silentE=/^[^aeiou]*[aeiou][^aeiou]e$/.test(word);
     try{
       for(let i=0;i<word.length;i++){
         setActiveLetter(i);
-        const file=/[bcdfghj-np-tv-z]/.test(word[i])?`/audio/stage2/classic-milo/SoundShelf-${word[i].toUpperCase()}.wav`:singleVowel?shortVowels[word[i]]:undefined;
+        if(silentE&&i===word.length-1){await sound.wait(500);continue;}
+        const file=/[bcdfghj-np-tv-z]/.test(word[i])?`/audio/stage2/classic-milo/SoundShelf-${word[i].toUpperCase()}.wav`:singleVowel?shortVowels[word[i]]:silentE?`/audio/stage3/classic-milo/VowelSound-${word.toUpperCase()}.wav`:undefined;
         if(file)await sound.play(file);else await sound.narrateText({file:'',text:word[i]});
         await sound.wait(140);
       }
@@ -68,7 +73,7 @@ export function ChronicleBlendLesson({learnerId,index,onBack,onComplete}:{learne
     <header className="book-blend-toolbar"><button className="reading-icon activity-back-button" title="Back to book" aria-label="Back to book" onClick={()=>{sound.stop();onBack();}}><ArrowLeft/></button><span>Word {step+1} of {words.length}</span></header>
     <div className="book-blend-scene"><CharacterCompanion state={sound.isPlaying?'speaking':joined?'celebrating':'idle'} size={150}/><ReadingAnchorArt word={word}/></div>
     <h2>{joined?'The sounds made a word!':!heard?'Listen to the word':joining?'The sounds are joining...':'Bring the sounds together'}</h2>
-    <p>{index===0?'Keep /m/ humming, use short /a/, and make /t/ quick.':index===1?'Listen for the middle light: short /a/, /e/, or /i/.':'Listen to the word. Notice how its letters work together.'}</p>
+    <MiloSays text={blendTip} speak={`${blendTip.replace(/\//g,'')} Tap the big button to listen. Then drag each letter into its dotted space.`}/>
     <LayoutGroup id={`blend-${word}`}><div className="book-blend-board">
       <div className={`blend-word-dock ${heard?'is-ready':''} ${joined?'is-filled':''}`} aria-label={joined?`Blended word: ${word}`:'Dotted letter spaces'}>
         {joined?<motion.strong layoutId={`whole-${word}`} className="blend-docked-word">{word}</motion.strong>:[...word].map((letter,i)=><i data-blend-slot={i} className={pulled.includes(i)?'has-letter':''} key={i}>{pulled.includes(i)&&<motion.span layoutId={`blend-${word}-${i}`} transition={{duration:reduced?0:.38,ease:[.22,.7,.2,1]}} className={`${/[aeiou]/i.test(letter)?'blend-vowel':'blend-consonant'} ${activeLetter===i?'is-sounding':''}`}><span className="blend-letter-glyph">{letter}</span></motion.span>}</i>)}
@@ -83,6 +88,6 @@ export function ChronicleBlendLesson({learnerId,index,onBack,onComplete}:{learne
         :<button className="world-primary" disabled={sound.isPlaying} onClick={nextWord}>{step===words.length-1?'Return to my trail':'Next word'}<ArrowRight/></button>}
     </div>}
     {heard&&!joining&&<details key={word} className="book-practice-help"><summary>Practice again</summary><button className="reading-icon" title="Listen again" aria-label="Listen again" disabled={sound.isPlaying} onClick={()=>void listen()}><Volume2/></button>{joined&&<button className="reading-icon" title="Separate the letters" aria-label="Separate the letters" disabled={sound.isPlaying} onClick={()=>{setJoined(false);setPulled([]);}}><RotateCcw/></button>}</details>}
-    <p role="status">{message}</p>
+    <MiloSays text={message} role="status"/>
   </div>;
 }

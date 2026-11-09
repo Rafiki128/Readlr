@@ -29,6 +29,11 @@ function sync() {
 
 export const backgroundMusicEnabled = () => enabled;
 
+export function microphoneOpen() {
+  micTracks.forEach(track => { if (track.readyState === "ended") micTracks.delete(track); });
+  return micTracks.size > 0;
+}
+
 // Each login starts the track from the beginning.
 export function setBackgroundMusicLoggedIn(value: boolean) {
   if (loggedIn === value) return;

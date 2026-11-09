@@ -40,7 +40,8 @@ import { addRestoredStory, LIBRARY_WORDS } from './royalLibraryLogic';
 import { VowelLift, VowelTowerVoiceTrail } from './VowelTowerGames';
 import { addAwakenedVowelWord, VOWEL_TOWER_WORDS } from './vowelTowerLogic';
 import { CrownChamberVoiceTrail, CrownJewelForge } from './CrownChamberGames';
-import { addRestoredCrownWord, CROWN_CHAMBER_WORDS } from './crownChamberLogic';
+import { addRestoredCrownWord, CROWN_CHAMBER_WORDS } from './crownChamberLogic';
+import { MiloSays } from './MiloSays';
 
 interface Props { learnerId:number; previewMode?:boolean; reviewMode?:boolean; onBack:()=>void; initialTab?:'camp'|'kingdom'; initialChapter?:number }
 export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onBack,initialTab='kingdom',initialChapter=0}:Props) {
@@ -385,6 +386,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
   const pass=checkpoint&&(reviewMode||localMode||checkpointFallback?(chapter.id==='gate'?successes===originalTaskCount:successes/originalTaskCount>=.8)&&unassessed===0:issued?.passed===true);
   const firstBook=chapter.id==='gate';
   const nextAction=bookOneAction(heard,done,checkpoint,active.kind);
+  const roundPrompt=firstBook&&nextAction==='listen'?'Listen to the word first.':chapter.id==='gate'&&active.kind==='build'?'Build the word train.':chapter.id==='gate'&&!checkpoint&&active.kind==='read'?'Read your word to move the train.':taskPrompt(active);
   function restartRound() {
     if(resumablePractice)clearGuidedRoundStep(learnerId,chapter.id);
     setOrchardDone(false);
@@ -410,7 +412,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
     <header ref={heading} className="reading-heading"><button className="reading-icon activity-back-button" onClick={leaveRound} aria-label="Back to journey" title="Back to journey"><ArrowLeft/></button><div><p className="reading-eyebrow">{checkpoint?'Word checkpoint':'Practice adventure'}</p><h1>{chapter.title}</h1></div><span>{complete?tasks.length:index+1} / {tasks.length}</span></header>
     <div className={`reading-round-progress ${remediation?'is-returning':''}`} role="progressbar" aria-label={remediation?'Practice-again progress':'Challenge progress'} aria-valuemin={0} aria-valuemax={tasks.length} aria-valuenow={complete?tasks.length:index+(done?1:0)}><span style={{width:`${Math.max(4,((complete?tasks.length:index+(done?1:0))/tasks.length)*100)}%`}}/></div>
     {complete?<ReadingCompletion chapter={chapter} checkpoint={checkpoint} pass={Boolean(pass)} reviewMode={Boolean(reviewMode)} successes={successes} originalTaskCount={originalTaskCount} correctedCount={correctedCount} unassessed={unassessed} spokenStations={spokenStations} words={[...new Set(tasks.filter(task=>task.kind==='read').map(task=>task.word))]} onPractice={onPractice} onRestart={restartRound} onReturn={()=>onComplete(Boolean(pass),checkpointFallback)}/>:<>
-      <div className="reading-narration"><CharacterCompanion state={recording?'listening':sound.isPlaying?'speaking':answerState==='correct'?'celebrating':answerState==='incorrect'?'encouraging':'idle'} size={90}/><div><span>{remediation?'Milo brought this one back':'Milo says'}</span><h2>{firstBook&&nextAction==='listen'?'Listen to the word first.':chapter.id==='gate'&&active.kind==='build'?'Build the word train.':chapter.id==='gate'&&!checkpoint&&active.kind==='read'?'Read your word to move the train.':taskPrompt(active)}</h2><p aria-live="polite">{message||'Take your time. There is no timer to beat.'}</p></div></div>
+      <div className="reading-narration"><CharacterCompanion state={recording?'listening':sound.isPlaying?'speaking':answerState==='correct'?'celebrating':answerState==='incorrect'?'encouraging':'idle'} size={90}/><div><span>{remediation?'Milo brought this one back':'Milo says'}</span><h2>{roundPrompt}</h2><MiloSays text={message||'Take your time. There is no timer to beat.'} speak={message?message:`${roundPrompt} Take your time. There is no timer to beat.`}/></div></div>
       <section className={`reading-play reading-play--${active.kind} ${done?'reading-play--solved':''}`}>
         <ActivityScene/>
         {chapter.id==='gate'&&!checkpoint&&active.kind==='read'&&<VoiceRail word={active.word} spoken={spokenStations}/>}
