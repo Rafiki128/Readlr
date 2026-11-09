@@ -154,21 +154,11 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish}:{card:SoundCar
     return()=>window.clearTimeout(timer);
   },[phase]);
 
-  const speakText = (text: string): Promise<void> => {
-    return new Promise((resolve) => {
-      if (!window.speechSynthesis) {
-        window.setTimeout(resolve, 400);
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.8;
-      utterance.pitch = 1.1;
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
-      window.speechSynthesis.speak(utterance);
-      window.setTimeout(resolve, 1200);
-    });
+  // A word plays its Pronounce recording and a phrase its narration recording; anything not recorded uses the computer voice.
+  const speakText = async (text: string): Promise<void> => {
+    const word = text.toLowerCase().replace(/[^a-z]/g, '');
+    try { await sound.narrateText({ file: text.trim().includes(' ') || !word ? '' : `Pronounce${word.toUpperCase()}.wav`, text }); }
+    catch { /* Stopped, or no voice available: the sequence carries on. */ }
   };
 
   const playBuildSequence = async () => {
