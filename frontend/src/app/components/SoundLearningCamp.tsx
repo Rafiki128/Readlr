@@ -199,7 +199,8 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish}:{card:SoundCar
 
   async function narrate(wholePhrase=false){
     sound.stop();
-    const textToSpeak = wholePhrase ? message : card.word;
+    // Before any other message, Milo introduces the card with its picture sentence, as recorded.
+    const textToSpeak = wholePhrase ? (message===card.cue&&phrases[card.word] ? `${phrases[card.word]} ${card.cue}` : message) : card.word;
     try {
       await sound.narrateText({
         file: wholePhrase ? '' : `Pronounce${card.word.toUpperCase()}.wav`,

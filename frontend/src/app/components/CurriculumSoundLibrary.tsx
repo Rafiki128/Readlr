@@ -57,9 +57,9 @@ export function CurriculumSoundLibrary({onBack,learnerId,completedBooks=[]}:{onB
   // zh is spelled su in treasure.
   const spelling=sound==='zh'?'su':sound;
   const highlight=item?.word.indexOf(spelling)??-1;
-  // Pure sounds exist for the short vowels and single consonants; sh, ch, th, ng and zh are not recorded yet.
+  // Pure sounds exist for the short vowels and every consonant tile; qu uses the q recording.
   const vowelSound=group==='long'?VOWEL_SOUND_TEXT[item?.word??'']:undefined;
-  const soundFile=group==='short'?`/audio/stage1/${sound.toUpperCase()}.wav`:group==='consonants'&&/^([b-df-hj-np-tv-z]|qu)$/.test(sound)?`/audio/stage2/classic-milo/SoundShelf-${sound[0].toUpperCase()}.wav`:'';
+  const soundFile=group==='short'?`/audio/stage1/${sound.toUpperCase()}.wav`:group==='consonants'&&/^([b-df-hj-np-tv-z]|qu|sh|ch|th|ng|zh)$/.test(sound)?`/audio/stage2/classic-milo/SoundShelf-${(sound==='qu'?'q':sound).toUpperCase()}.wav`:'';
   function wordArt(word:string){return group==='blends'?<span className="sl-team-art">{word.split('').map((letter,i)=><span key={i} data-vowel={CAMP_BLEND_VOWELS.some(v=>v===letter)}>{letter}</span>)}</span>:<ReadingAnchorArt word={word}/>;}
   return <main className="sound-archive">
     <header className="sl-header"><button className="sl-back" aria-label="Back to my world" title="Back to my world" onClick={()=>{stopPlayback();recorder.stop();onBack();}}><ArrowLeft/></button><div className="sl-heading"><p>The Reading World</p><h1>Sound Library</h1></div><span className="sl-library-mark" aria-hidden="true"><Library/></span></header>
