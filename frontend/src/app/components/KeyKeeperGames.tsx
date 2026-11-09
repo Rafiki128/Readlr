@@ -3,7 +3,8 @@ import { ArrowRight, Check, KeyRound, LockKeyhole, Sparkles, UnlockKeyhole } fro
 import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { KEY_LOCKS, KEY_WORDS, keyFitsLock, readKeyKeeperStep, saveKeyKeeperStep } from './keyKeeperLogic';
-import './keyKeeperGames.css';
+import './keyKeeperGames.css';
+import { MiloSays } from './MiloSays';
 
 export function KeyKeeperLocks({learnerId,onComplete}:{learnerId:number;onComplete:()=>void}) {
   const reduced=useReducedMotion();
@@ -33,7 +34,7 @@ export function KeyKeeperLocks({learnerId,onComplete}:{learnerId:number;onComple
   }
 
   return <section className={`key-keeper-game ${finished?'is-unlocked':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Key Keeper</span><h2>{finished?`${word} is unlocked!`:'Find the sound key'}</h2><p aria-live="polite">{message}</p></div><b>Lock {wordIndex+1} of {KEY_WORDS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Key Keeper</span><h2>{finished?`${word} is unlocked!`:'Find the sound key'}</h2><MiloSays text={message}/></div><b>Lock {wordIndex+1} of {KEY_WORDS.length}</b></header>
     <div className="key-keeper-scene">
       <div className="key-hall-arches" aria-hidden="true"><i/><i/><i/></div>
       <div className="word-lock-stage">

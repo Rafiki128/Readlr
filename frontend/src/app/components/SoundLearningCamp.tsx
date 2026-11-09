@@ -16,7 +16,8 @@ import './chronicleWorld.css';
 import './soundLearningCamp.css';
 import { ActivityScene } from './ActivityScene';
 import { CampOrientation } from './CampOrientation';
-import { readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
+import { readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
+import { HearMiloButton, useMiloInstruction } from './MiloSays';
 
 type Area='vowels'|'consonants'|'blends';
 
@@ -83,6 +84,9 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
   const [joined,setJoined]=useState(false);
   const [message,setMessage]=useState('');
   const audio=useBridgeAudio('/audio/stage2');
+  const placePrompt=!area?'Welcome to Learning Camp! Pick a place. Let us discover what sounds can do.':area==='blends'?'Choose two sounds. Slide them together!':area==='vowels'?'Choose a shield. Discover its sound in a word.':'Every letter has a sound to discover. Choose one!';
+  const needsOrientation=!reviewMode&&!!learnerId&&readLearnerCurriculumState(learnerId).campOrientationStep<3;
+  const sayPlace=useMiloInstruction(selected||needsOrientation?undefined:placePrompt);
   const cards=SOUND_CARDS.filter(c=>area==='vowels'?c.category===vowelMode:c.category==='consonants');
   const openArea=(value:Area)=>{audio.stop();setArea(value);setMessage('');};
   const goBack=()=>{audio.stop();area?setArea(null):transition.exit(onBack);};
@@ -97,13 +101,13 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
         {([{id:'vowels',title:'Vowel Dojo',sub:'Short & long vowel magic',kind:'dojo',letters:'a e i o u'},{id:'consonants',title:'Consonant Grove',sub:'Meet a sound. Find a word.',kind:'garden',letters:'m s t p n'},{id:'blends',title:'Blending Workshop',sub:'Bring the sounds together',kind:'bridge',letters:'m + a = ma'}] as const).map(place=><button key={place.id} className={`camp-destination camp-destination--${place.id}`} onClick={()=>openArea(place.id)}><div className="camp-destination-art"><LandmarkArt kind={place.kind}/><span>{place.letters}</span></div><h2>{place.title}</h2><p>{place.sub}</p><span className="camp-enter">Explore <ArrowRight size={18}/></span></button>)}
       </section><div className="camp-keepsake"><Shield size={20}/><span>{visited.length?'Your practice garden is growing!':'Every visit is a chance to grow.'}</span>{visited.length>0&&<span>{visited.length} sounds explored today</span>}</div>
     </> : area==='blends'?<section className="blend-studio">
-      <div className="camp-welcome"><span>Milo says</span><p>Choose two sounds. Slide them together!</p></div>
+      <div className="camp-welcome"><span>Milo says</span><p>Choose two sounds. Slide them together!</p><HearMiloButton onClick={sayPlace}/></div>
       <div className={`blend-scene ${joined?'is-joined':''}`}><LandmarkArt kind="bridge"/><div className="blend-pieces"><span>{consonant}</span><span>{vowel}</span></div>{joined&&<span className="blend-result">{consonant}{vowel}</span>}</div>
       <div className="blend-choices"><div role="group" aria-label="Choose a consonant">{CAMP_BLEND_CONSONANTS.map(c=><button key={c} aria-pressed={consonant===c} onClick={()=>{audio.stop();setConsonant(c);setJoined(false);}}>{c}</button>)}</div><span>+</span><div role="group" aria-label="Choose a vowel">{CAMP_BLEND_VOWELS.map(v=><button key={v} aria-pressed={vowel===v} onClick={()=>{audio.stop();setVowel(v);setJoined(false);}}>{v}</button>)}</div></div>
       <button className="world-primary" disabled={audio.isPlaying} onClick={()=>{setJoined(true);void audio.narrateText({file:`Pronounce${(consonant+vowel).toUpperCase()}.wav`,text:consonant+vowel}).catch(()=>setMessage('Tap again to hear the sound team.'));}}><Volume2/>Blend the sounds</button>
       {joined&&<button className="blend-word-link" onClick={()=>setSelected({letter:consonant+vowel,word:blendExamples[consonant+vowel],category:'consonants',cue:`Listen for ${consonant+vowel} at the start of ${blendExamples[consonant+vowel]}.`})}>Find it in <strong>{blendExamples[consonant+vowel]}</strong><ArrowRight size={18}/></button>}
     </section>:<>
-      <div className="camp-shelf-heading"><p>{area==='vowels'?'Choose a shield. Discover its sound in a word.':'Every letter has a sound to discover. Choose one!'}</p>{area==='vowels'&&<div className="camp-segment" role="group" aria-label="Vowel sounds"><button aria-pressed={vowelMode==='short'} onClick={()=>setVowelMode('short')}>Short vowels</button><button aria-pressed={vowelMode==='long'} onClick={()=>setVowelMode('long')}>Long vowels</button></div>}</div>
+      <div className="camp-shelf-heading"><p>{area==='vowels'?'Choose a shield. Discover its sound in a word.':'Every letter has a sound to discover. Choose one!'}<HearMiloButton onClick={sayPlace}/></p>{area==='vowels'&&<div className="camp-segment" role="group" aria-label="Vowel sounds"><button aria-pressed={vowelMode==='short'} onClick={()=>setVowelMode('short')}>Short vowels</button><button aria-pressed={vowelMode==='long'} onClick={()=>setVowelMode('long')}>Long vowels</button></div>}</div>
       <section className={`camp-sound-shelf camp-illustrated-shelf ${area==='vowels'?'camp-sound-shelf--shields':''}`} aria-label="Choose a letter">{cards.map(card=><button key={card.word} className="camp-sound-token" onClick={()=>setSelected(card)}><span className="camp-token-letter">{area==='vowels'&&<CampSoundShield/>}<span>{card.letter}</span></span><span className="camp-token-art"><ReadingAnchorArt word={card.word}/></span><span className="camp-token-word">{card.word}</span>{visited.includes(card.word)&&<Check className="camp-visited" aria-label="Practiced today"/>}</button>)}</section>
       {area==='consonants'&&<p className="camp-bottom-note">Some sounds stretch, like m and s. Others are quick, like p and t.</p>}
     </>}{message&&<p role="status" className="camp-feedback">{message}</p>}
@@ -142,6 +146,8 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish}:{card:SoundCar
   
   const sentenceArray = sentence.split(' ');
   const isFind=phase==='find';
+  // Milo reads each new lesson message aloud; short status lines while recording stay silent.
+  useMiloInstruction(['Getting your microphone ready...','Milo is checking...'].includes(message)?undefined:message===card.cue&&phrases[card.word]?`${phrases[card.word]} ${card.cue}`:message);
 
   useEffect(()=>{live.current=true;return()=>{live.current=false;request.current?.abort();recorder.stop();sound.stop();if(window.speechSynthesis)window.speechSynthesis.cancel();};},[]);
   useEffect(()=>()=>{if(clip)URL.revokeObjectURL(clip);},[clip]);

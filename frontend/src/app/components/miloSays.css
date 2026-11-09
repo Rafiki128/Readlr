@@ -1,0 +1,5 @@
+/* A small speaker button that sits at the end of an instruction line. */
+.milo-says-replay{display:inline-grid;place-items:center;width:30px;height:30px;margin-left:8px;vertical-align:middle;border-radius:999px;border:1px solid #c4b5fd;background:#ede9fe;color:#6d28d9;cursor:pointer;flex-shrink:0}
+.milo-says-replay svg{width:16px;height:16px}
+.milo-says-replay:hover{background:#ddd6fe}
+.milo-says-replay:focus-visible{outline:2px solid #6d28d9;outline-offset:2px}

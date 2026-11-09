@@ -7,7 +7,8 @@ import { chronicleSounds } from './chronicleLessons';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog';
 import './curriculumAchievements.css';
 import { AwardSculpture } from './AwardSculpture';
-import { BOOK_STICKER_DESIGNS, type RewardStickerDesign } from './RewardStickerArt';
+import { BOOK_STICKER_DESIGNS, type RewardStickerDesign } from './RewardStickerArt';
+import { HearMiloButton, useMiloInstruction } from './MiloSays';
 const cosmeticRewards:Record<string,string>={camp:'Frog and Turtle avatars, plus the Purple Heart border.',recordings:'Record five different words to earn Bee and Dolphin avatars and the Ice Crystal border.',gate:'Lion avatar and Purple Star border.',lanterns:'Penguin avatar.',market:'Tiger avatar.',garden:'Butterfly avatar.',bridge:'Whale avatar and Fire and Water border.',keys:'Octopus avatar.',library:'Dinosaur avatar and Red Ring border.',crown:'Unicorn avatar and Purple Dragon border.'};
 
 export function CurriculumAchievements({onBack,state,completedBooks}:{onBack:()=>void;state:LearnerCurriculumState;completedBooks:string[]}) {
@@ -30,8 +31,9 @@ export function CurriculumAchievements({onBack,state,completedBooks}:{onBack:()=
   achievements.forEach(award=>{if(cosmeticRewards[award.id])award.detail+=` Collection reward: ${cosmeticRewards[award.id]} Choose your rewards in My Profile.`;});
   const active=achievements.find(item=>item.id===selected);
   const awardDesign=(id:string):RewardStickerDesign=>id==='camp'?'planks':id==='treasures'?'chest':id==='recordings'?'firefly':BOOK_STICKER_DESIGNS[Math.max(0,READING_CHAPTERS.findIndex(chapter=>chapter.id===id))][1];
+  const sayAwards=useMiloInstruction('You are making progress. Choose an award to see what comes next.');
   return <main className="award-room"><div className="award-room-inner">
-    <header className="award-heading"><button onClick={onBack} aria-label="Back to my world" title="Back to my world"><ArrowLeft/></button><div><p>The Reading World</p><h1>My Achievements</h1></div><Trophy aria-hidden="true"/></header>
+    <header className="award-heading"><button onClick={onBack} aria-label="Back to my world" title="Back to my world"><ArrowLeft/></button><div><p>The Reading World</p><h1>My Achievements<HearMiloButton onClick={sayAwards}/></h1></div><Trophy aria-hidden="true"/></header>
     <section className="award-overview" aria-label="Overall achievement progress"><div><strong>{earned} of {achievements.length} awards earned</strong><span>{Math.round(earned/achievements.length*100)}%</span></div><progress aria-label="Awards earned" value={earned} max={achievements.length}/></section>
     <section className="award-shelves" aria-label="My award shelf">{achievements.map(({id,title,earned:unlocked,current,total,unit},index)=><button key={id} className={`shelf-award ${unlocked?'is-earned':'is-growing'} trophy-style-${index%4}`} onClick={()=>setSelected(id)} aria-label={`${title}, ${current} of ${total} ${unit}. View award details`}>
       <span className="award-display" aria-hidden="true"><AwardSculpture design={awardDesign(id)} variant={index}/>{unlocked&&<Check className="award-earned-check"/>}</span>

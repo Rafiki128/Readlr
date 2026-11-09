@@ -7,7 +7,8 @@ import { BOOK_STICKER_DESIGNS, RewardStickerArt } from './RewardStickerArt';
 import { StickerAlbum, type AlbumSticker } from './StickerAlbum';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog';
 import './rewardsCollection.css';
-import './stickerCover.css';
+import './stickerCover.css';
+import { HearMiloButton, useMiloInstruction } from './MiloSays';
 
 interface StickerBookProps {
   onBack:()=>void;
@@ -66,8 +67,9 @@ function CurrentStickerAlbum({onBack,learnerName,completedBooks,state}:{onBack:(
   ]);
   const stickers=[...starter,...bookStickers];
   const earned=stickers.filter(sticker=>sticker.earned).length;
+  const sayStickers=useMiloInstruction('Turn the pages and tap a sticker to remember how you earned it!');
   return <section className="rewards-page sticker-collection is-album-open"><div className="rewards-inner">
-    <header><button className="reading-icon activity-back-button" onClick={onBack} aria-label="Back to my world"><ArrowLeft/></button><div><p>{learnerName}'s collection</p><h1>My Sticker Book</h1><span>{earned} of {stickers.length} reading treasures found</span></div><Sparkles/></header>
+    <header><button className="reading-icon activity-back-button" onClick={onBack} aria-label="Back to my world"><ArrowLeft/></button><div><p>{learnerName}'s collection</p><h1>My Sticker Book<HearMiloButton onClick={sayStickers}/></h1><span>{earned} of {stickers.length} reading treasures found</span></div><Sparkles/></header>
     <StickerAlbum stickers={stickers} title="The Reading Chronicles" onSelect={setSelected} cover={<><BookOpen/><h2>Little sounds.<br/>Wonderful stories.</h2><p>Collected by {learnerName}</p><small>Every sticker remembers something you practiced.</small></>}/>
     </div>
     <Dialog open={selected!==null} onOpenChange={open=>{if(!open)setSelected(null);}}><DialogContent className="sticker-detail curriculum-sticker-detail">{selected&&<>

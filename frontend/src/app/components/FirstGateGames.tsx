@@ -5,7 +5,8 @@ import { ReadingAnchorArt } from './ReadingAnchorArt';
 import { ActivityScene } from './ActivityScene';
 import { shuffleReading } from './aralCurriculum';
 import './firstGateGames.css';
-import { FIRST_GATE_WORDS, ORCHARD_ANCHORS, orchardMatch, placeTrainTile } from './firstGateLogic';
+import { FIRST_GATE_WORDS, ORCHARD_ANCHORS, orchardMatch, placeTrainTile } from './firstGateLogic';
+import { MiloSays } from './MiloSays';
 
 function Piece({id,children,selected,disabled,onSelect,onPlace}:{id:string;children:ReactNode;selected:boolean;disabled?:boolean;onSelect:()=>void;onPlace:(target:string)=>void}) {
   const dragging=useRef(false);
@@ -37,7 +38,7 @@ export function SoundOrchard({onComplete,onHear,onAttempt}:{onComplete:()=>void;
     setMatched(previous=>[...previous,word]);setSelected(null);setMessage(`${word} starts with ${letter}.`);
   }
   return <LayoutGroup id="sound-orchard"><section className="gate-orchard" aria-label="Sound orchard"><ActivityScene/>
-    <h2>The sound orchard</h2><p role="status">{message}</p>
+    <h2>The sound orchard</h2><MiloSays text={message} role="status"/>
     <div className="gate-pictures">{pictures.filter(word=>!matched.includes(word)).map(word=><motion.div layout key={word}>
       <Piece id={word} selected={selected===word} onSelect={()=>setSelected(word)} onPlace={letter=>place(word,letter)}><Token id={word}><ReadingAnchorArt word={word}/><span>{word}</span></Token></Piece>
       <button className="reading-icon" aria-label={`Hear ${word}`} title={`Hear ${word}`} onClick={()=>onHear(word)}><Volume2/></button>

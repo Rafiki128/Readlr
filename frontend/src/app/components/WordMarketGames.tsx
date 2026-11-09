@@ -4,7 +4,8 @@ import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { ReadingAnchorArt } from './ReadingAnchorArt';
 import { MARKET_WORDS, marketLetterFits, readMarketBuilderStep, saveMarketBuilderStep } from './wordMarketLogic';
-import './wordMarketGames.css';
+import './wordMarketGames.css';
+import { MiloSays } from './MiloSays';
 
 type LetterTile={id:number;letter:string};
 
@@ -42,7 +43,7 @@ export function WordMarketBuilder({learnerId,onComplete}:{learnerId:number;onCom
     setWordIndex(next);setPlaced({});setMessage('A new stall needs a word label.');
   }
   return <section className={`market-builder ${finished?'is-complete':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Word Market</span><h2>{finished?`${word} is stocked!`:'Build the stall label'}</h2><p aria-live="polite">{message}</p></div><b>Stall {wordIndex+1} of {MARKET_WORDS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>Word Market</span><h2>{finished?`${word} is stocked!`:'Build the stall label'}</h2><MiloSays text={message}/></div><b>Stall {wordIndex+1} of {MARKET_WORDS.length}</b></header>
     <div className="market-builder-scene">
       <div className="market-stall-object"><span className="market-awning"/><ReadingAnchorArt word={word}/><strong>{finished?word:'?'}</strong></div>
       <div className="market-workbench">

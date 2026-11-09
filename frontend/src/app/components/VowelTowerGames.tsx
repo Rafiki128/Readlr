@@ -3,7 +3,8 @@ import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { VOWEL_TOWER_STEPS, VOWEL_TOWER_WORDS, readVowelTowerStep, saveVowelTowerStep, vowelTileFits } from './vowelTowerLogic';
-import './vowelTowerGames.css';
+import './vowelTowerGames.css';
+import { MiloSays } from './MiloSays';
 
 export function VowelLift({learnerId,onComplete}:{learnerId:number;onComplete:()=>void}) {
   const reduced=useReducedMotion();
@@ -27,7 +28,7 @@ export function VowelLift({learnerId,onComplete}:{learnerId:number;onComplete:()
   }
 
   return <section className={`vowel-lift-game ${finished?'is-awake':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Vowel Tower</span><h2>{finished?'A window is shining!':'Ride the vowel lift'}</h2><p aria-live="polite">{message}</p></div><b>Window {stepIndex+1} of {VOWEL_TOWER_STEPS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Vowel Tower</span><h2>{finished?'A window is shining!':'Ride the vowel lift'}</h2><MiloSays text={message}/></div><b>Window {stepIndex+1} of {VOWEL_TOWER_STEPS.length}</b></header>
     <div className="vowel-tower-scene">
       <div className="tower-stars" aria-hidden="true">{[0,1,2,3,4,5].map(star=><i key={star}/>)}</div>
       <div className="tower-building" aria-hidden="true">

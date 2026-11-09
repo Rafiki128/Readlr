@@ -3,7 +3,8 @@ import { ArrowRight, Check, Crown, Gem, Sparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { CROWN_CHAMBER_STEPS, CROWN_CHAMBER_WORDS, crownJewelFits, readCrownChamberStep, saveCrownChamberStep } from './crownChamberLogic';
-import './crownChamberGames.css';
+import './crownChamberGames.css';
+import { MiloSays } from './MiloSays';
 
 export function CrownJewelForge({learnerId,onComplete}:{learnerId:number;onComplete:()=>void}) {
   const reduced=useReducedMotion();
@@ -26,7 +27,7 @@ export function CrownJewelForge({learnerId,onComplete}:{learnerId:number;onCompl
   }
 
   return <section className={`crown-forge-game ${finished?'is-restored':''}`}>
-    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Crown Chamber</span><h2>{finished?'The jewel is shining!':'Restore a word jewel'}</h2><p aria-live="polite">{message}</p></div><b>Jewel {stepIndex+1} of {CROWN_CHAMBER_STEPS.length}</b></header>
+    <header><CharacterCompanion state={finished?'celebrating':'idle'} gesture="point" size={76}/><div><span>The Crown Chamber</span><h2>{finished?'The jewel is shining!':'Restore a word jewel'}</h2><MiloSays text={message}/></div><b>Jewel {stepIndex+1} of {CROWN_CHAMBER_STEPS.length}</b></header>
     <div className="crown-forge-scene">
       <div className="crown-window" aria-hidden="true"><i/><i/><i/></div>
       <div className="crown-forge-display">

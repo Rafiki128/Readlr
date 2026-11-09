@@ -8,8 +8,9 @@ import { voiceCandidates, withVoiceFallback } from "./miloVoice";
 import { resolveStageOneAudioPath } from "../app/components/stageOneAudio";
 import { observeAudioActivity, startAudioPlayback } from "./audioPlayback";
 import { recordedLine } from "./recordedLines";
+import { claimMiloAudio } from "./miloInstructionState";
 
-export function useBridgeAudio(basePath = "/audio/stage2") {
+export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false } = {}) {
   const [isPlaying, setIsPlaying] = useState(false);
   const mounted = useRef(true);
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -47,7 +48,10 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
     });
   }
 
+  const claim = () => claimMiloAudio(instruction, stop);
+
   function play(path: string, onProgress?: (fraction: number) => void) {
+    const release = claim();
     const paths = voiceCandidates(path, getLearningSettings().milo_voice)
       .map(candidate => resolveStageTwoAudioPath(resolveStageOneAudioPath(candidate)));
     const player = withVoiceFallback(new Audio(), paths);
@@ -59,6 +63,7 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
     const playback = startAudioPlayback(player, onProgress);
     cancelPending.current = playback.cancel;
     return playback.done.finally(() => {
+      release();
       unobserve();
       if (cancelPending.current === playback.cancel) cancelPending.current = null;
       if (audio.current === player) { audio.current = null; if (mounted.current) setIsPlaying(false); }
@@ -66,6 +71,11 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
   }
 
   async function narrateText(entry: { file: string; text: string }, onLine?: (line: string) => void) {
+    const release = claim();
+    try { await narrateLines(entry, onLine); } finally { release(); }
+  }
+
+  async function narrateLines(entry: { file: string; text: string }, onLine?: (line: string) => void) {
     const current = generation.current;
     const lines = narrationLines(entry.text);
     const total = lines.reduce((sum,line)=>sum+line.length,0);
@@ -127,7 +137,7 @@ export function useBridgeAudio(basePath = "/audio/stage2") {
 
   useEffect(() => {
     mounted.current = true;
-    stopAllGlobalAudio();
+    if (!instruction) stopAllGlobalAudio();
     return () => { mounted.current = false; stop(); };
   }, []);
   return { play, narrate: (line: BridgeLine) => narrateText(BRIDGE_LINES[line]), narrateText, wait, stop, isPlaying };
