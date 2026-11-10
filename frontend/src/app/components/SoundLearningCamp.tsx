@@ -103,7 +103,7 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
   const openArea=(value:Area)=>{audio.stop();setArea(value);setMessage('');};
   const goBack=()=>{audio.stop();area?setArea(null):transition.exit(onBack);};
   if(!reviewMode&&learnerId&&readLearnerCurriculumState(learnerId).campOrientationStep<3)return <CampOrientation learnerId={learnerId} onReady={onBack}/>;
-  if(selected)return <CampSoundLesson key={`${selected.category}-${selected.word}`} card={selected} reviewMode={reviewMode} onBack={()=>setSelected(null)} onFinish={()=>{setVisited(items=>[...new Set([...items,selected.word])]);setSelected(null);}}/>;
+  if(selected)return <CampSoundLesson key={`${selected.category}-${selected.word}`} card={selected} reviewMode={reviewMode} onBack={()=>setSelected(null)} onFinish={()=>{setVisited(items=>[...new Set([...items,selected.word])]);setSelected(null);}} disableBuildStage={true}/>;
   return <main className={`camp-world ${area?'camp-world--inside':''} ${transition.leaving?'world-is-leaving':''}`}><div className="camp-world-content">
     <AdventureBackdrop theme={area==='blends'?'bridge':'garden'}/>
     <header className="camp-header"><button className="reading-icon activity-back-button" aria-label={area?'Back to Camp':'Back home'} title={area?'Back to Camp':'Back home'} onClick={goBack}><ArrowLeft/></button><div><p>Learning Camp</p><h1>{area==='vowels'?'The Vowel Dojo':area==='consonants'?'The Consonant Grove':area==='blends'?'The Blending Workshop':'A little wonder. A little practice.'}</h1></div><CharacterCompanion state={audio.isPlaying?'speaking':'idle'} gesture="wave" size={100}/></header>
@@ -125,7 +125,8 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
   </div></main>;
 }
 
-export function CampSoundLesson({card,reviewMode,onBack,onFinish}:{card:SoundCard;reviewMode:boolean;onBack:()=>void;onFinish:()=>void}) {
+// Learning Camp passes disableBuildStage so it skips the phrase-building step; the books leave it off and keep it.
+export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildStage=false}:{card:SoundCard;reviewMode:boolean;onBack:()=>void;onFinish:()=>void;disableBuildStage?:boolean}) {
   const [phase,setPhase]=useState<'listen'|'find'|'build-up'|'say'|'finish'>('listen');
   const [message,setMessage]=useState(card.cue);
   const [busy,setBusy]=useState(false),[recording,setRecording]=useState(false),[seconds,setSeconds]=useState(4);
@@ -144,7 +145,8 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish}:{card:SoundCar
   
   const parts=highlightedWord(card.word,card.letter);
   
-  const isSentenceMode = SENTENCE_MODE_WORDS.includes(card.word);
+  // Sentence mode (the build stage) only runs outside Learning Camp.
+  const isSentenceMode = !disableBuildStage && SENTENCE_MODE_WORDS.includes(card.word);
   
   // Safe resolution chain for dynamic phrases based on curriculum node
   const sentence = BOOK_9_NODES[card.word]?.phrase 
