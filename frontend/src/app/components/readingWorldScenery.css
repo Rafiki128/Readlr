@@ -43,3 +43,13 @@
 .welcome-small-print{display:block;margin-top:18px;font-size:13px;color:#306050}
 @media(max-width:700px){.reading-world-welcome .welcome-invitation h1{font-size:29px}.reading-world-welcome .welcome-invitation p{font-size:16px;max-width:310px}.welcome-readlr-sign{font-size:22px}.reading-world-welcome .welcome-meadow{height:560px;width:125%}.reading-world-welcome .welcome-invitation{padding-top:0}.reading-world-welcome .welcome-invitation .world-primary{max-width:100%}}
 @media(prefers-reduced-motion:reduce){.scenery-clouds,.scenery-current,.scenery-canopy,.scenery-flower-head,.scenery-bunting{animation:none}}
+/* Home scenery: butterflies drift over the meadow and birds cross the sky. */
+.scenery-butterfly--a{transform:translate(330px,530px);animation:butterfly-a 16s ease-in-out infinite}
+.scenery-butterfly--b{transform:translate(1060px,500px);animation:butterfly-b 19s ease-in-out infinite}
+.scenery-wings{transform-box:fill-box;transform-origin:center;animation:butterfly-wings .32s ease-in-out infinite alternate}
+@keyframes butterfly-a{0%,100%{transform:translate(220px,600px)}25%{transform:translate(330px,530px)}50%{transform:translate(440px,610px)}75%{transform:translate(300px,665px)}}
+@keyframes butterfly-b{0%,100%{transform:translate(960px,565px)}30%{transform:translate(1060px,500px)}60%{transform:translate(1095px,615px)}80%{transform:translate(990px,650px)}}
+@keyframes butterfly-wings{to{transform:scaleX(.35)}}
+.scenery-birds{transform:translate(-200px,140px);animation:scenery-birds 28s linear infinite 3s}
+@keyframes scenery-birds{0%{transform:translate(-200px,150px)}55%{transform:translate(1600px,105px)}100%{transform:translate(1600px,105px)}}
+@media(prefers-reduced-motion:reduce){.scenery-butterfly--a,.scenery-butterfly--b,.scenery-wings{animation:none}.scenery-birds{display:none}}

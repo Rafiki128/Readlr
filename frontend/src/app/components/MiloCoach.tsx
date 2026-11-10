@@ -4,6 +4,7 @@ import { getLearningSettings, learningVolume } from '../../hooks/learningSetting
 import { getMiloGuidance, miloGuidanceSeenKey, type MiloGuidanceAction, type MiloGuidanceContext, type MiloGuidanceEvent } from '../../hooks/miloGuidance';
 import { CharacterCompanion } from './CharacterCompanion';
 import { recordedLine } from '../../hooks/recordedLines';
+import { trackMouth } from '../../hooks/miloMouth';
 import './miloCoach.css';
 
 interface MiloCoachProps {
@@ -51,6 +52,7 @@ export function MiloCoach({ learnerId, context, event, cueKey, engaged = false, 
     if (file) {
       const audio = new Audio(file);
       audio.volume = learningVolume();
+      trackMouth(audio);
       recording.current = audio;
       void audio.play().catch(() => {});
       return;

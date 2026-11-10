@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import type { CharacterState, MiloGesture, MiloLook } from "./miloBehavior";
+import { useMiloMouth, type MouthShape } from "../../hooks/miloMouth";
 
 export type { CharacterState } from "./miloBehavior";
 
@@ -14,6 +15,23 @@ interface CharacterCompanionProps {
   reducedMotion?: boolean;
 }
 
+const LIP = "#785365", INSIDE = "#59334f", TONGUE = "#f592b4", TEETH = "#fffaf3";
+const closedLips = (d: string) => <path d={d} fill="none" stroke={LIP} strokeWidth="3.5" strokeLinecap="round"/>;
+/** Milo's mouth for each Rhubarb Lip Sync shape, centred where his speaking mouth sits. */
+function MouthShapeArt({ shape }: { shape: MouthShape }) {
+  switch (shape) {
+    case "A": return closedLips("M139 158 Q150 160 161 158");                       // m, b, p: lips pressed
+    case "B": return <g><ellipse cx="150" cy="158" rx="14" ry="5" fill={INSIDE}/><rect x="139" y="153.5" width="22" height="3" rx="1.5" fill={TEETH}/></g>;
+    case "C": return <g><ellipse cx="150" cy="159" rx="15" ry="9" fill={INSIDE}/><ellipse cx="150" cy="163" rx="8" ry="3" fill={TONGUE}/></g>;
+    case "D": return <g><ellipse cx="150" cy="160" rx="17" ry="13" fill={INSIDE}/><ellipse cx="150" cy="166" rx="9.5" ry="4" fill={TONGUE}/></g>;
+    case "E": return <g><ellipse cx="150" cy="160" rx="11" ry="11" fill={INSIDE}/><ellipse cx="150" cy="165" rx="6" ry="3" fill={TONGUE}/></g>;
+    case "F": return <g><ellipse cx="150" cy="159" rx="7.5" ry="7" fill={INSIDE} stroke={LIP} strokeWidth="2.5"/></g>;
+    case "G": return <g><ellipse cx="150" cy="159" rx="13" ry="6" fill={INSIDE}/><rect x="141" y="154" width="18" height="4.5" rx="1.5" fill={TEETH}/></g>;
+    case "H": return <g><ellipse cx="150" cy="159" rx="15" ry="10" fill={INSIDE}/><ellipse cx="150" cy="154.5" rx="7" ry="3" fill={TONGUE}/></g>;
+    default: return closedLips("M139 156 Q150 163 161 156");                       // resting between words
+  }
+}
+
 // Expressive cues, not an anatomical demonstration of mouth positioning.
 const mouths: Record<string, [number, number]> = {
   A: [15, 15], E: [18, 8], I: [19, 6], O: [12, 14], U: [10, 12],
@@ -25,6 +43,8 @@ export function CharacterCompanion({ state, phoneme, size = 320, gesture = "rest
   const reduced = prefersReduced || reducedMotion;
   const portrait = size <= 96;
   const speaking = state === "speaking";
+  // While a recording with a cue file plays, the mouth follows its timed shapes.
+  const lipShape = useMiloMouth();
   const happy = state === "celebrating";
   const listening = state === "listening";
   const thinking = state === "thinking";
@@ -66,8 +86,11 @@ export function CharacterCompanion({ state, phoneme, size = 320, gesture = "rest
         <motion.g animate={{ rotate: listening ? -7 : thinking ? 7 : reduced ? 0 : encouraging ? [0, 4, 0] : lookAt === "right" || lookAt === "down-right" ? 4 : speaking ? [0, -2, 0] : 0, y: joining ? 2 : 0, scale: 1.06 }} style={{ transformOrigin: "150px 169px" }} transition={{ duration: reduced ? 0 : encouraging ? .8 : .5, repeat: encouraging && !reduced ? 1 : 0 }}>
           <ellipse cx="91" cy="64" rx="26" ry="29" fill={fill("fur")} transform="rotate(-20 91 64)"/>
           <ellipse cx="91" cy="64" rx="15" ry="18" fill="#ffa4d3" transform="rotate(-20 91 64)"/>
-          <ellipse cx="209" cy="64" rx="26" ry="29" fill={fill("fur")} transform="rotate(20 209 64)"/>
-          <ellipse cx="209" cy="64" rx="15" ry="18" fill="#ffa4d3" transform="rotate(20 209 64)"/>
+          {/* Now and then one ear gives a little twitch, so Milo looks alive while he waits. */}
+          <motion.g animate={reduced ? { rotate: 0 } : { rotate: [0, 0, -12, 5, 0] }} transition={{ duration: reduced ? 0 : 6.5, times: [0, .82, .87, .92, 1], repeat: reduced ? 0 : Infinity, ease: "easeInOut" }} style={{ transformOrigin: "196px 88px" }}>
+            <ellipse cx="209" cy="64" rx="26" ry="29" fill={fill("fur")} transform="rotate(20 209 64)"/>
+            <ellipse cx="209" cy="64" rx="15" ry="18" fill="#ffa4d3" transform="rotate(20 209 64)"/>
+          </motion.g>
           <path d="M62 121 C61 64 101 48 150 48 C199 48 239 64 238 121 C240 172 205 192 150 192 C95 192 60 172 62 121Z" fill={fill("fur")}/>
           <path d="M91 117 C93 96 118 91 150 100 C182 91 207 96 209 117 C227 151 202 178 150 180 C98 178 73 151 91 117Z" fill={fill("face")}/>
           <path d="M126 57 Q139 45 157 56 Q153 45 166 51" stroke="#dbc9f5" strokeWidth="6" fill="none" strokeLinecap="round"/>
@@ -89,7 +112,8 @@ export function CharacterCompanion({ state, phoneme, size = 320, gesture = "rest
             </>}
           </motion.g>
           <path d="M143 140 Q150 136 157 140 Q156 147 150 148 Q144 147 143 140" fill="#786084"/>
-          {speaking ? <motion.g animate={{ scaleY: reduced ? 1 : [1, .35, .85, .5, 1, .25, 1] }} transition={{ duration: reduced ? 0 : 1.1, repeat: reduced ? 0 : Infinity }} style={{ transformOrigin: "150px 153px" }}>
+          {lipShape ? <MouthShapeArt shape={lipShape}/>
+            : speaking ? <motion.g animate={{ scaleY: reduced ? 1 : [1, .35, .85, .5, 1, .25, 1] }} transition={{ duration: reduced ? 0 : 1.1, repeat: reduced ? 0 : Infinity }} style={{ transformOrigin: "150px 153px" }}>
               <ellipse cx="150" cy="159" rx={mouthX} ry={mouthY} fill="#59334f"/>
               <ellipse cx="150" cy={159 + mouthY * .48} rx={mouthX * .55} ry={mouthY * .27} fill="#f592b4"/>
             </motion.g>

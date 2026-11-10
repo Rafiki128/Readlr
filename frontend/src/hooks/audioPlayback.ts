@@ -1,3 +1,5 @@
+import { trackMouth } from "./miloMouth.ts";
+
 export function playbackTimeout(duration: number) {
   // MediaRecorder WebM blobs can report Infinity until playback finishes.
   return Number.isFinite(duration) && duration > 0
@@ -19,6 +21,7 @@ export function observeAudioActivity(player: EventTarget, onChange: (active: boo
 
 export function startAudioPlayback(player: HTMLAudioElement, onProgress?: (fraction: number) => void) {
   let cancel = () => {};
+  const untrackMouth = trackMouth(player);
   const done = new Promise<void>((resolve, reject) => {
     let settled = false;
     let watchdog: ReturnType<typeof setTimeout>;
@@ -26,6 +29,7 @@ export function startAudioPlayback(player: HTMLAudioElement, onProgress?: (fract
       if (settled) return;
       settled = true;
       clearTimeout(watchdog);
+      untrackMouth();
       player.onended = null;
       player.onerror = null;
       player.ontimeupdate = null;

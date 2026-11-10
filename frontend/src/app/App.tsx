@@ -741,6 +741,8 @@ function AppContent() {
           onLogout={handleBackToRoleSelect}
           learningCampEnabled
           featureAccess={featureAccess}
+          learnerId={learnerId}
+          rewardState={{ state: curriculumState.state, completedBooks }}
         />
       )}
 

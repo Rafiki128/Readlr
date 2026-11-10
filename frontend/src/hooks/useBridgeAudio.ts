@@ -7,7 +7,7 @@ import { getLearningSettings, learningVolume } from "./learningSettings";
 import { voiceCandidates, withVoiceFallback } from "./miloVoice";
 import { resolveStageOneAudioPath } from "../app/components/stageOneAudio";
 import { observeAudioActivity, startAudioPlayback } from "./audioPlayback";
-import { recordedLine } from "./recordedLines";
+import { recordedLine, recordingChunks } from "./recordedLines";
 import { claimMiloAudio } from "./miloInstructionState";
 
 export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false } = {}) {
@@ -92,12 +92,13 @@ export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false
       try { await play(file,fraction=>showPosition(fraction*total)); return; }
       catch (error) { if (stopped(error)) throw error; }
     }
-    for (const line of lines) {
+    // Recorded runs of sentences play as recordings; any sentence without one uses the computer voice.
+    for (const chunk of lines.length > 1 ? recordingChunks(lines) : [{ text: lines[0] } as { text: string; file?: string }]) {
     if (generation.current !== current) throw new DOMException("Stopped", "AbortError");
+    const line = chunk.text;
     onLine?.(line);
-    const lineRecording = lines.length > 1 ? recordedLine(line) : undefined;
-    if (lineRecording) {
-      try { await play(lineRecording); continue; }
+    if (chunk.file) {
+      try { await play(chunk.file); continue; }
       catch (error) { if (stopped(error)) throw error; }
     }
     await new Promise<void>((resolve, reject) => {

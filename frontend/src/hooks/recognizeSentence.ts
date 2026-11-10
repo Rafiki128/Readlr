@@ -25,7 +25,8 @@ export async function recognizeSentence(
     });
 
     if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
+      // A friendly message: this text can be shown and read aloud to the learner.
+      throw new Error("We could not check that recording. Please try again.");
     }
 
     // 3. Parse the evaluation returned by your backend
