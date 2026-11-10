@@ -1,5 +1,6 @@
 import { learningVolume } from "./learningSettings";
 import { stopMiloInstruction } from "./miloInstructionState";
+import { trackMouth } from "./miloMouth";
 
 // Recording-script ID -> approved Milo recording. Lines without an entry fall back to speech.
 export const MILO_SCRIPT_FILES: Readonly<Record<string, string>> = {
@@ -61,6 +62,7 @@ export function playMiloScript(id: string): Promise<number> {
   if (!file || learningVolume() === 0) return Promise.resolve(0);
   const audio = new Audio(file);
   audio.volume = learningVolume();
+  trackMouth(audio);
   oneShot = audio;
   return audio.play()
     .then(() => Number.isFinite(audio.duration) ? audio.duration : 0)

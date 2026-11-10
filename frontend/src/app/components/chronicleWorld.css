@@ -44,3 +44,109 @@
 @keyframes chronicle-seal-unlock{0%{opacity:.3;transform:scale(.35) rotate(-25deg)}60%{opacity:1;transform:scale(1.25) rotate(7deg)}100%{transform:none}}
 @keyframes book-unlock-message{from{opacity:0;transform:translateY(8px) scale(.9)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.chronicle-book.is-unlocking,.chronicle-book.is-unlocking .book-cover,.chronicle-book.is-unlocking .book-seal,.book-unlock-message{animation:none}.book-world.is-closing-book .chronicle-volume,.book-world.is-closing-book .book-world-header{animation:none}}
+/* Home: one book with Milo as its guide, a small pager under it, and the reading trail at the bottom. Sized to fit one screen. */
+main.chronicle-home>.chronicle-home-scene{height:auto;min-height:100%;display:flex;flex-direction:column;padding-top:14px}
+main.chronicle-home .chronicle-heading>span{display:none}
+main.chronicle-home .chronicle-heading h2{margin-top:0}
+.home-stage{position:relative;z-index:3;flex:1 0 auto;display:flex;align-items:center;justify-content:center;padding-inline:16px}
+.home-stage>.chronicle-carousel{flex:none;width:min(560px,100%);margin:0}
+/* Pager: the arrows sit either side of the open button, so the sides of the book stay clear for Milo. */
+main.chronicle-home .home-stage .book-carousel-footer{margin-top:20px;gap:12px}
+/* Milo stands at the lower left corner of the book, pointing at it like a guide. */
+.home-guide{position:absolute;z-index:8;left:calc(50% - 109px - 132px);top:176px;pointer-events:none}
+.home-guide>.milo-companion{filter:drop-shadow(0 6px 4px #1f3d3426)}
+.home-guide .home-guide-hear{position:absolute;left:-10px;bottom:30px;pointer-events:auto}
+.world-is-opening .home-guide{animation:milo-walk-in .62s ease-in forwards}
+@media(min-width:1500px){.home-guide{top:190px}}
+@media(max-width:680px){.home-guide{left:calc(50% - 99px - 78px);top:218px}.home-guide>.milo-companion{width:96px!important;height:96px!important}.home-guide .home-guide-hear{left:-14px;bottom:8px}}
+/* Reading trail: one slim card along the bottom. */
+.book-trail{position:relative;z-index:3;flex-shrink:0;width:calc(100% - 32px);max-width:760px;margin:12px auto 16px;padding:8px 18px 4px;border:3px solid #fff;border-radius:24px;background:linear-gradient(180deg,#fffdf4f0,#fff3d6f0);box-shadow:0 5px 0 #88b79f,0 14px 28px #1f3d3420}
+.book-trail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#31594d}
+.book-trail-head span{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600}
+.book-trail-head span svg{width:20px;height:20px;color:#e8564f}
+.book-trail-head strong{padding:2px 10px;border-radius:999px;background:#e3f2ea;color:#2f7d5b;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.book-trail-track{position:relative;height:84px}
+.book-trail-line{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.book-trail-road{fill:none;stroke:#f1d38a;stroke-width:16;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.book-trail-dash{fill:none;stroke:#fffaf0;stroke-width:3;stroke-dasharray:3 12;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.book-trail ol{position:absolute;inset:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));margin:0;padding:0;list-style:none}
+.book-trail li{position:relative;display:grid;place-items:center;transform:translateY(calc(var(--dy) * 17px))}
+.book-trail-stone{display:grid;place-items:center;width:40px;height:40px;padding:0;border:3px solid var(--book-color,#88b79f);border-radius:50%;background:#fff;color:var(--book-color,#31594d);font-size:16px;font-weight:700;line-height:1;box-shadow:0 3px 0 #1f3d3426;cursor:pointer;transition:transform .2s;font-variant-numeric:tabular-nums}
+.book-trail-stone svg{width:19px;height:19px}
+.book-trail-stone.is-done{background:var(--book-color,#88b79f);color:#fff}
+.book-trail-stone.is-done svg{fill:#fff6c2;stroke:#fff6c2}
+.book-trail-stone.is-locked{border-color:#d4cde0;background:#f0edf4;color:#9a90ad;box-shadow:0 2px 0 #1f3d3418}
+.book-trail-stone.is-here{position:relative;z-index:2;width:50px;height:50px;font-size:19px;box-shadow:0 0 0 4px #ffd76a,0 4px 0 #1f3d3426;animation:trail-here 2.4s ease-in-out infinite}
+.book-trail-stone:hover:not(:disabled){transform:translateY(-3px) scale(1.08)}
+.book-trail-stone:focus-visible{outline:4px solid #f0a83a;outline-offset:3px}
+.book-trail-flag{position:absolute;left:50%;top:calc(50% - 50px);color:#e8564f;pointer-events:none;animation:trail-flag 1.8s ease-in-out infinite}
+.book-trail-flag svg{width:22px;height:22px;fill:#ff7a6e}
+@keyframes trail-here{0%,100%{box-shadow:0 0 0 4px #ffd76a,0 4px 0 #1f3d3426}50%{box-shadow:0 0 0 8px #ffd76a66,0 4px 0 #1f3d3426}}
+@keyframes trail-flag{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@media(max-width:640px){
+  .book-trail{padding:8px 8px 4px;border-radius:20px}
+  .book-trail-head span{font-size:14px}
+  .book-trail-track{height:72px}
+  .book-trail li{transform:translateY(calc(var(--dy) * 12px))}
+  .book-trail-stone{width:28px;height:28px;border-width:2px;font-size:12px}
+  .book-trail-stone svg{width:14px;height:14px}
+  .book-trail-stone.is-here{width:36px;height:36px;font-size:14px}
+  .book-trail-flag{top:calc(50% - 38px)}
+  .book-trail-flag svg{width:18px;height:18px}
+}
+@media(prefers-reduced-motion:reduce){.book-trail-stone{transition:none}.book-trail-stone.is-here,.book-trail-flag{animation:none}}
+/* The book and Milo fill the first screen; the reading trail waits below on the meadow, one scroll down. */
+main.chronicle-home>.chronicle-home-scene{background:#64c78e}
+main.chronicle-home .reading-world-scenery{height:var(--home-h,100vh)!important;min-height:0!important;bottom:auto}
+main.chronicle-home .home-stage{min-height:calc(var(--home-h,100vh) - 14px);padding-bottom:56px}
+main.chronicle-home .book-trail{margin:28px auto 44px}
+.home-trail-hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border:2px solid #fff;border-radius:999px;background:#fffdf2e6;color:#31594d;font-size:14px;font-weight:600;box-shadow:0 3px 0 #88b79f;cursor:pointer;animation:trail-hint 2.2s ease-in-out infinite}
+.home-trail-hint svg{width:18px;height:18px}
+.home-trail-hint svg:first-child{color:#e8564f}
+.home-trail-hint:focus-visible{outline:3px solid #f0a83a;outline-offset:2px}
+@keyframes trail-hint{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,4px)}}
+/* Bigger book and Milo: --book-s comes from the measured home height (1 = normal size, up to 1.7). */
+@media(min-width:700px){
+  main.chronicle-home .home-stage .book-carousel-stage{height:calc(20px + 304px * var(--book-s,1))}
+  main.chronicle-home .home-stage .chronicle-book{scale:var(--book-s,1);top:calc(10px + 152px * (var(--book-s,1) - 1))}
+  main.chronicle-home .home-guide{left:calc(50% - 109px * var(--book-s,1) - 175px * var(--book-s,1));top:calc(22px + 304px * var(--book-s,1) - 188px * var(--book-s,1))}
+  main.chronicle-home .home-guide>.milo-companion{width:calc(188px * var(--book-s,1))!important;height:calc(188px * var(--book-s,1))!important}
+}
+@media(prefers-reduced-motion:reduce){.home-trail-hint{animation:none}}
+/* Soft fade where the scenery meets the meadow below it, so there is no seam. */
+main.chronicle-home>.chronicle-home-scene::after{content:"";position:absolute;left:0;right:0;top:calc(var(--home-h,100vh) - 110px);height:110px;background:linear-gradient(#64c78e00,#64c78e);z-index:-1;pointer-events:none}
+/* Turning to another book: the new book swings in from the side the learner is heading toward. */
+.chronicle-book.is-turn-next{animation:book-turn-next .5s cubic-bezier(.2,.8,.3,1)}
+.chronicle-book.is-turn-prev{animation:book-turn-prev .5s cubic-bezier(.2,.8,.3,1)}
+@keyframes book-turn-next{from{opacity:0;transform:translateX(110px) rotateY(-55deg)}to{opacity:1;transform:translateX(0) rotateY(-7deg)}}
+@keyframes book-turn-prev{from{opacity:0;transform:translateX(-110px) rotateY(40deg)}to{opacity:1;transform:translateX(0) rotateY(-7deg)}}
+@media(prefers-reduced-motion:reduce){.chronicle-book.is-turn-next,.chronicle-book.is-turn-prev{animation:none}}
+/* One row under the book: previous arrow, open button, next arrow. */
+.home-pager{display:flex;align-items:center;justify-content:center;gap:18px;max-width:100%}
+main.chronicle-home .home-pager .carousel-arrow{position:static;flex:none;width:52px;height:52px;border-width:3px}
+main.chronicle-home .home-pager .carousel-arrow svg{width:28px;height:28px}
+.home-pager .world-primary{min-width:0}
+@media(max-width:520px){.home-pager{gap:8px}main.chronicle-home .home-pager .carousel-arrow{width:44px;height:44px}.home-pager .world-primary{white-space:normal;text-align:center;line-height:1.2}}
+/* Opening a book: Milo hops along toward the book and the book opens around him. */
+@keyframes milo-walk-in{0%{transform:none;opacity:1}20%{transform:translate(18%,-6%)}40%{transform:translate(36%,0)}60%{transform:translate(54%,-6%) scale(.92)}80%{transform:translate(72%,0) scale(.84);opacity:.9}100%{transform:translate(92%,-4%) scale(.7);opacity:0}}
+/* Book states at a glance: misty when locked, glowing and sparkling when ready, gold with a ribbon when finished. */
+.book-mist{position:absolute;inset:0;z-index:2;border-radius:inherit;pointer-events:none;background:radial-gradient(circle at 30% 30%,#ffffffa6 0 18%,transparent 40%),radial-gradient(circle at 75% 70%,#ffffff8c 0 16%,transparent 38%),#ffffff33;animation:book-mist 7s ease-in-out infinite alternate}
+@keyframes book-mist{from{background-position:0 0,0 0}to{background-position:18px -10px,-14px 8px}}
+.chronicle-book.is-current.is-ready{filter:drop-shadow(0 0 16px #ffe27acc) drop-shadow(8px 17px 10px #335e5a30)}
+.chronicle-book.is-complete .book-cover{border:3px solid #f5c84c;box-shadow:inset 12px 0 0 #00000018,0 0 0 2px #fff3c4}
+.book-ribbon{position:absolute;z-index:5;top:-6px;right:20px;display:grid;justify-items:center;width:34px;height:54px;padding-top:9px;background:#e8564f;clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%);filter:drop-shadow(0 2px 0 #9f2f2a)}
+.book-ribbon svg{width:18px;height:18px;fill:#ffe27a;stroke:#ffe27a}
+.book-sparkles{position:absolute;inset:-22px;z-index:6;pointer-events:none}
+.book-sparkles i{position:absolute;width:14px;height:14px;background:#ffe27a;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);opacity:0;animation:book-sparkle 2.8s ease-in-out infinite}
+.book-sparkles i:nth-child(1){left:4%;top:12%}
+.book-sparkles i:nth-child(2){right:2%;top:26%;animation-delay:.6s;width:18px;height:18px}
+.book-sparkles i:nth-child(3){right:8%;bottom:14%;animation-delay:1.2s}
+.book-sparkles i:nth-child(4){left:10%;bottom:30%;animation-delay:1.8s;width:10px;height:10px}
+.book-sparkles i:nth-child(5){left:46%;top:-2%;animation-delay:2.3s;width:12px;height:12px}
+@keyframes book-sparkle{0%,100%{opacity:0;transform:scale(.3) rotate(0)}40%{opacity:1;transform:scale(1) rotate(45deg)}70%{opacity:0;transform:scale(.4) rotate(90deg)}}
+/* Each book softly tints the scenery with its own colour, cross-fading as the book turns. */
+.home-tint{position:absolute;left:0;right:0;top:0;height:var(--home-h,100vh);z-index:-1;pointer-events:none;background-color:var(--tint);mix-blend-mode:soft-light;opacity:.55;transition:background-color .7s ease}
+@media(prefers-reduced-motion:reduce){.world-is-opening .home-guide{animation:none;opacity:0}.book-mist,.book-sparkles i{animation:none}.book-sparkles i{opacity:.8}.home-tint{transition:none}}
+/* A locked book's button: readable dark text on solid cream, so "Finish Book 7 to unlock" can be read at a glance. */
+main.chronicle-home .home-pager .world-primary:disabled{opacity:1;background:#fffaf0;color:#4a4060!important;border:2px dashed #b9add0;box-shadow:0 4px 0 #d8cfe6;text-shadow:none;cursor:not-allowed;filter:none}
+main.chronicle-home .home-pager .world-primary:disabled svg{color:#7b5cc9!important}

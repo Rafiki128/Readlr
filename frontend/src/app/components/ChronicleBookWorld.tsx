@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Check, Feather, Headphones, KeyRound, LockKeyhole, Mic, Puzzle, Sparkles, Volume2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Check, Feather, Flag, Headphones, KeyRound, LockKeyhole, Mic, Puzzle, Sparkles, Star, Volume2 } from 'lucide-react';
 import { CHRONICLES } from './chronicleContent';
 import { READING_CHAPTERS, type SoundCard } from './aralCurriculum';
 import { DEV_UNLOCK_ALL } from '../../hooks/learnerCurriculumState';
@@ -10,7 +10,8 @@ import { useBridgeAudio } from '../../hooks/useBridgeAudio';
 import { useWorldExit } from './useWorldExit';
 import { ChroniclePages } from './ChroniclePages';
 import { ChronicleTrailArt } from './ChronicleTrailArt';
-import { chronicleSounds } from './chronicleLessons';
+import { chronicleBlendWords, chronicleSounds } from './chronicleLessons';
+import { BookStoryScene, StoryWordTiles } from './BookStoryScene';
 import { chronicleStopLocked, trailLayout, trailPageSegments } from './chronicleRoute';
 import './chronicleWorld.css';
 import './chronicleBook.css';
@@ -102,10 +103,10 @@ export function ChronicleBookWorld({index,completed,practiceDone,available,revie
       </div><footer><BookOpen size={18}/><span>{theme.skill} · {page*3+1}–{Math.min(page*3+3,lessons.length)} of {lessons.length} stops</span></footer></div>;
     });
   const pages=[
-    <div className="chronicle-story-spread" key="story"><div className="chronicle-story-picture"><LandmarkArt kind={theme.emblem}/><CharacterCompanion state={sound.isPlaying?'speaking':'idle'} gesture="point" size={150}/></div><div><p>CHRONICLE {index+1}<HearMiloButton onClick={sayPage}/></p><h2>{chapter.title}</h2><p className="storybook-story">{theme.story[0]}</p><p>{theme.story[1]}</p><button className="reading-secondary" disabled={sound.isPlaying} onClick={()=>void sound.narrateText({file:'',text:theme.story.join(' ')}).catch(()=>{})}><Volume2/>Read with Milo</button><p className="book-page-hint">Turn the page to explore your trail.</p></div></div>,
+    <div className="chronicle-story-spread has-story-scene" key="story" style={{'--story-color':theme.color,'--story-light':theme.light} as CSSProperties}><div className="chronicle-story-picture has-scene"><BookStoryScene emblem={theme.emblem}/><StoryWordTiles words={chronicleBlendWords(index)}/><div className="story-hero"><LandmarkArt kind={theme.emblem}/></div><CharacterCompanion state={sound.isPlaying?'speaking':'idle'} gesture="point" lookAt="right" size={190}/></div><div className="story-text"><p className="story-chronicle-tag">CHRONICLE {index+1}<HearMiloButton onClick={sayPage}/></p><h2>{chapter.title}</h2><p className="storybook-story">{theme.story[0]}</p><p>{theme.story[1]}</p><div className="story-mission"><span className="story-mission-icon" aria-hidden="true"><Flag/></span><div><small>Your mission</small><strong>{theme.mission}</strong></div></div><div className="story-chips"><span><Sparkles aria-hidden="true"/>{theme.skill}</span><span><Star aria-hidden="true"/>Sticker: {theme.prize}</span></div><button className="reading-secondary story-read" disabled={sound.isPlaying} onClick={()=>void sound.narrateText({file:'',text:theme.story.join(' ')}).catch(()=>{})}><Volume2/>Read with Milo</button><p className="book-page-hint">Turn the page to explore your trail.</p></div></div>,
     ...trailPages,
     ...(completed?[<div className={`chronicle-story-spread chronicle-closing-spread ${index===9?'chronicle-series-finale':''}`} key="closing">
-      <div className="chronicle-story-picture chronicle-closing-picture">
+      <div className="chronicle-story-picture chronicle-closing-picture has-scene" style={{'--story-color':theme.color,'--story-light':theme.light} as CSSProperties}><BookStoryScene emblem={theme.emblem} celebrate/>
         <div className="chronicle-sticker-award" aria-label={`${theme.prize} sticker earned`}><Sparkles/><span><LandmarkArt kind={theme.emblem}/></span><strong>{theme.prize}</strong><small>Book {index+1} sticker</small></div>
         {index===9&&<div className="chronicle-ten-books" aria-label="All ten chronicles complete"><strong>10</strong><span>chronicles complete</span></div>}
         <CharacterCompanion state="celebrating" gesture="reveal" size={155}/>

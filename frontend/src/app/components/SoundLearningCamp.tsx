@@ -22,7 +22,6 @@ import { HearMiloButton, useMiloInstruction } from './MiloSays';
 type Area='vowels'|'consonants'|'blends';
 
 const phrases:Record<string,string>={mango:'Milo picks a mango.',apple:'An apple grows on the tree.',egg:'An egg is in the nest.',insect:'A little insect rests on a leaf.',octopus:'The octopus waves hello.',umbrella:'An umbrella keeps Milo dry.',cape:'Milo wears a bright cape.',tree:'A tree grows tall.',kite:'The kite dances in the sky.',hope:'Milo has hope for a sunny day.',cube:'Milo builds with a cube.',sun:'The sun warms the garden.',top:'Milo spins a top.',tin:'Milo opens a tin.',pen:'Milo draws with a pen.',net:'Milo carries a net.',hat:'Milo puts on a hat.',bag:'A book is in the bag.',dog:'The dog sits by Milo.',goat:'The goat climbs a hill.',log:'Milo sits on a log.',rug:'rug to hug',fan:'Milo opens a colorful fan.',cup:'cup to cap',web:'A web hangs in the tree.',jet:'A jet flies high.',box:'Milo opens the box.',van:'The van stops by the gate.',yam:'Milo puts a yam in the basket.',zip:'Milo pulls the zip.',quilt:'A warm quilt covers the bed.'};
-const blendExamples:Record<string,string>={ma:'mat',me:'met',mi:'mix',mo:'mop',mu:'mud',sa:'sat',se:'set',si:'sit',so:'sob',su:'sun',pa:'pan',pe:'pen',pi:'pin',po:'pot',pu:'pup',ta:'tap',te:'ten',ti:'tin',to:'top',tu:'tub'};
 
 // Target words that trigger sentence/phrase mode for Books 5, 6, 7, 8, and 9
 const SENTENCE_MODE_WORDS = ['umbrella', 'goat', 'dog', 'rug', 'cup', 'web', 'kite', 'van', 'yam', 'box', 'jet', 'zip', 'cape', 'tree', 'hope', 'cube'];
@@ -84,6 +83,19 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
   const [joined,setJoined]=useState(false);
   const [message,setMessage]=useState('');
   const audio=useBridgeAudio('/audio/stage2');
+  const [blending,setBlending]=useState(false),[activePiece,setActivePiece]=useState(-1);
+  // Sound it out: the consonant, then its short vowel, then the joined blend.
+  async function blendSounds(){
+    if(blending)return;
+    audio.stop();setMessage('');setJoined(false);setBlending(true);
+    try{
+      setActivePiece(0);await audio.play(`/audio/stage2/classic-milo/SoundShelf-${consonant.toUpperCase()}.wav`);await audio.wait(250);
+      setActivePiece(1);await audio.play(`/audio/stage1/${vowel.toUpperCase()}.wav`);await audio.wait(250);
+      setActivePiece(-1);setJoined(true);await audio.wait(650);
+      await audio.narrateText({file:`Pronounce${(consonant+vowel).toUpperCase()}.wav`,text:consonant+vowel});
+    }catch(error){if((error as Error).name!=='AbortError')setMessage('Tap again to hear the sound team.');}
+    finally{setBlending(false);setActivePiece(-1);}
+  }
   const placePrompt=!area?'Welcome to Learning Camp! Pick a place. Let us discover what sounds can do.':area==='blends'?'Choose two sounds. Slide them together!':area==='vowels'?'Choose a shield. Discover its sound in a word.':'Every letter has a sound to discover. Choose one!';
   const needsOrientation=!reviewMode&&!!learnerId&&readLearnerCurriculumState(learnerId).campOrientationStep<3;
   const sayPlace=useMiloInstruction(selected||needsOrientation?undefined:placePrompt);
@@ -102,10 +114,9 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
       </section><div className="camp-keepsake"><Shield size={20}/><span>{visited.length?'Your practice garden is growing!':'Every visit is a chance to grow.'}</span>{visited.length>0&&<span>{visited.length} sounds explored today</span>}</div>
     </> : area==='blends'?<section className="blend-studio">
       <div className="camp-welcome"><span>Milo says</span><p>Choose two sounds. Slide them together!</p><HearMiloButton onClick={sayPlace}/></div>
-      <div className={`blend-scene ${joined?'is-joined':''}`}><LandmarkArt kind="bridge"/><div className="blend-pieces"><span>{consonant}</span><span>{vowel}</span></div>{joined&&<span className="blend-result">{consonant}{vowel}</span>}</div>
+      <div className={`blend-scene ${joined?'is-joined':''}`}><LandmarkArt kind="bridge"/><div className="blend-pieces"><span data-active={activePiece===0}>{consonant}</span><span data-active={activePiece===1}>{vowel}</span></div>{joined&&<span className="blend-result">{consonant}{vowel}</span>}</div>
       <div className="blend-choices"><div role="group" aria-label="Choose a consonant">{CAMP_BLEND_CONSONANTS.map(c=><button key={c} aria-pressed={consonant===c} onClick={()=>{audio.stop();setConsonant(c);setJoined(false);}}>{c}</button>)}</div><span>+</span><div role="group" aria-label="Choose a vowel">{CAMP_BLEND_VOWELS.map(v=><button key={v} aria-pressed={vowel===v} onClick={()=>{audio.stop();setVowel(v);setJoined(false);}}>{v}</button>)}</div></div>
-      <button className="world-primary" disabled={audio.isPlaying} onClick={()=>{setJoined(true);void audio.narrateText({file:`Pronounce${(consonant+vowel).toUpperCase()}.wav`,text:consonant+vowel}).catch(()=>setMessage('Tap again to hear the sound team.'));}}><Volume2/>Blend the sounds</button>
-      {joined&&<button className="blend-word-link" onClick={()=>setSelected({letter:consonant+vowel,word:blendExamples[consonant+vowel],category:'consonants',cue:`Listen for ${consonant+vowel} at the start of ${blendExamples[consonant+vowel]}.`})}>Find it in <strong>{blendExamples[consonant+vowel]}</strong><ArrowRight size={18}/></button>}
+      <button className="world-primary" disabled={blending} onClick={()=>void blendSounds()}><Volume2/>Blend the sounds</button>
     </section>:<>
       <div className="camp-shelf-heading"><p>{area==='vowels'?'Choose a shield. Discover its sound in a word.':'Every letter has a sound to discover. Choose one!'}<HearMiloButton onClick={sayPlace}/></p>{area==='vowels'&&<div className="camp-segment" role="group" aria-label="Vowel sounds"><button aria-pressed={vowelMode==='short'} onClick={()=>setVowelMode('short')}>Short vowels</button><button aria-pressed={vowelMode==='long'} onClick={()=>setVowelMode('long')}>Long vowels</button></div>}</div>
       <section className={`camp-sound-shelf camp-illustrated-shelf ${area==='vowels'?'camp-sound-shelf--shields':''}`} aria-label="Choose a letter">{cards.map(card=><button key={card.word} className="camp-sound-token" onClick={()=>setSelected(card)}><span className="camp-token-letter">{area==='vowels'&&<CampSoundShield/>}<span>{card.letter}</span></span><span className="camp-token-art"><ReadingAnchorArt word={card.word}/></span><span className="camp-token-word">{card.word}</span>{visited.includes(card.word)&&<Check className="camp-visited" aria-label="Practiced today"/>}</button>)}</section>

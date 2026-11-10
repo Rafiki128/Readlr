@@ -3,6 +3,7 @@ import { resolveStageOneAudioPath } from '../app/components/stageOneAudio';
 import { resolveStageTwoAudioPath } from '../app/components/stageTwoAudio';
 import { getLearningSettings, learningVolume } from './learningSettings';
 import { voiceCandidates, withVoiceFallback } from './miloVoice';
+import { trackMouth } from './miloMouth';
 
 // Global audio manager to prevent overlapping audio across the entire app
 let globalAudioRef: HTMLAudioElement | null = null;
@@ -64,6 +65,7 @@ export function useAudioManager() {
         .map(path => resolveStageTwoAudioPath(resolveStageOneAudioPath(path)));
       const audio = withVoiceFallback(new Audio(), paths);
       audio.volume = learningVolume();
+      trackMouth(audio);
       
       globalAudioRef = audio;
       currentAudioRef.current = audio;

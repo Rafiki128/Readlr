@@ -1,0 +1,60 @@
+/* Inside a book: an illustrated scene on the left page and a storybook text page on the right. */
+.chronicle-story-picture.has-scene{overflow:hidden;background:none;isolation:isolate}
+.book-story-scene{position:absolute;inset:0;z-index:0;width:100%;height:100%}
+.chronicle-story-picture.has-scene>.milo-companion{z-index:3;filter:drop-shadow(0 6px 4px #1f3d3430)}
+/* The book's emblem stands on a soft round stage in the middle of the scene. */
+.story-hero{position:relative;z-index:2;width:min(52%,320px);aspect-ratio:220/190;margin-top:10%;animation:story-hero-float 4.5s ease-in-out infinite}
+.story-hero>svg{position:static!important;display:block;width:100%!important;height:100%!important;max-height:none!important}
+.story-hero::after{content:"";position:absolute;z-index:-1;left:4%;right:4%;bottom:-6%;height:16%;border-radius:50%;background:#fffaf0a6;box-shadow:0 6px 0 #00000018}
+@keyframes story-hero-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+/* Practice words from the book float around as letter tiles. */
+.story-word-tiles{position:absolute;inset:0;z-index:2;pointer-events:none}
+.story-word-tile{position:absolute;display:flex;gap:3px;animation:story-tile-float 5s ease-in-out infinite}
+.story-word-tile--0{left:8%;top:12%;rotate:-6deg}
+.story-word-tile--1{right:8%;top:16%;rotate:5deg;animation-delay:1.2s}
+.story-word-tile--2{right:6%;top:52%;rotate:-3deg;animation-delay:2.4s}
+.story-word-tile b{display:grid;place-items:center;width:30px;height:34px;border-radius:8px;background:#fffaf0;color:var(--story-color,#31594d);font-size:20px;font-weight:700;box-shadow:0 3px 0 #c98b4f,0 6px 10px #00000022}
+@keyframes story-tile-float{0%,100%{translate:0 0}50%{translate:0 -8px}}
+/* Scene details that move: twinkling stars, fireflies, swaying lanterns and keys, flickering flames, a butterfly, confetti. */
+.story-twinkle{transform-box:fill-box;transform-origin:center;animation:story-twinkle 2.4s ease-in-out infinite}
+@keyframes story-twinkle{0%,100%{opacity:.35;transform:scale(.7)}50%{opacity:1;transform:scale(1.1)}}
+.story-firefly{animation:story-firefly 3.2s ease-in-out infinite}
+@keyframes story-firefly{0%,100%{opacity:.25;transform:translate(0,0)}50%{opacity:1;transform:translate(6px,-8px)}}
+.story-lantern,.story-key{animation:story-sway 3s ease-in-out infinite}
+@keyframes story-sway{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+.story-flame{transform-box:fill-box;transform-origin:50% 100%;animation:story-flame .9s ease-in-out infinite alternate}
+@keyframes story-flame{to{transform:scaleY(1.18) scaleX(.9)}}
+.story-window{animation:story-window 4s ease-in-out infinite}
+@keyframes story-window{0%,100%{opacity:1}50%{opacity:.55}}
+.story-float{animation:story-float 4s ease-in-out infinite}
+@keyframes story-float{0%,100%{translate:0 0}50%{translate:0 -10px}}
+.story-butterfly{transform:translate(440px,270px);animation:story-butterfly 12s ease-in-out infinite}
+.story-butterfly>path{transform-box:fill-box;transform-origin:center;animation:story-wings .3s ease-in-out infinite alternate}
+@keyframes story-butterfly{0%,100%{transform:translate(440px,270px)}33%{transform:translate(520px,210px)}66%{transform:translate(470px,330px)}}
+@keyframes story-wings{to{transform:scaleX(.35)}}
+.story-confetti rect{animation:story-confetti 3.6s linear infinite}
+@keyframes story-confetti{from{translate:0 0}to{translate:0 560px}}
+/* The text page: book-coloured ribbon, title, decorated first letter, mission card and chips. */
+.chronicle-story-spread.has-story-scene>.story-text{background:radial-gradient(circle at 85% 12%,#fff 0,transparent 45%),linear-gradient(#fffdf6,#fff7e6)}
+.story-chronicle-tag{display:inline-flex;align-items:center;gap:10px;margin:0 0 4px;padding:5px 8px 5px 14px;border-radius:999px;background:var(--story-color);color:#fff;font-size:13px;font-weight:600;letter-spacing:.08em}
+.chronicle-story-spread.has-story-scene h2{margin:10px 0 14px;color:var(--story-color);font-size:clamp(28px,3vw,40px);font-weight:700;line-height:1.1}
+.chronicle-story-spread.has-story-scene .storybook-story::first-letter{float:left;margin:4px 8px 0 0;color:var(--story-color);font-size:3.1em;font-weight:700;line-height:.85}
+.story-mission{display:flex;align-items:center;gap:12px;margin-top:14px;padding:10px 16px 10px 10px;border:2px dashed color-mix(in srgb,var(--story-color) 55%,transparent);border-radius:16px;background:color-mix(in srgb,var(--story-light) 45%,#fff)}
+.story-mission-icon{display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:12px;background:var(--story-color);color:#fff}
+.story-mission-icon svg{width:22px;height:22px}
+.story-mission small{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#5a6f6a}
+.story-mission strong{font-size:17px;color:#24433b}
+.story-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.story-chips span{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#fff;border:1px solid #e6dcc4;color:#3d5650;font-size:13px}
+.story-chips svg{width:16px;height:16px;color:var(--story-color)}
+.chronicle-story-spread.has-story-scene .reading-secondary.story-read{border:0;background:var(--story-color);color:#fff;padding:12px 22px;border-radius:999px;font-weight:600;box-shadow:0 4px 0 color-mix(in srgb,var(--story-color) 60%,#000)}
+.chronicle-story-spread.has-story-scene .reading-secondary.story-read:disabled{opacity:.7}
+/* The finished-book page: the sticker award sits in front of the celebrating scene. */
+.chronicle-closing-picture.has-scene>:not(.book-story-scene){z-index:2}
+@media(max-width:700px){.story-word-tile b{width:24px;height:28px;font-size:16px}.story-hero{margin-top:4%}}
+@media(prefers-reduced-motion:reduce){.story-hero,.story-word-tile,.story-twinkle,.story-firefly,.story-lantern,.story-key,.story-flame,.story-window,.story-float,.story-butterfly,.story-butterfly>path,.story-confetti rect{animation:none}.story-confetti{display:none}}
+/* Trail page heading: the text sits on the left page beside the speaker, clear of the centre fold; Milo stays on the right. */
+.chronicle-volume .book-trail-page>header{justify-content:flex-start;gap:14px}
+.chronicle-volume .book-trail-page>header>div:not(.milo-companion){flex:0 1 auto;max-width:min(44%,560px);text-align:left}
+.chronicle-volume .book-trail-page>header>.milo-companion{margin-left:auto}
+@media(max-width:700px){.chronicle-volume .book-trail-page>header>div:not(.milo-companion){max-width:none;flex:1}}
