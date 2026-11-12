@@ -5,7 +5,7 @@ import { ReadingAnchorArt } from './ReadingAnchorArt';
 import { chronicleBlendWords } from './chronicleLessons';
 import { useBridgeAudio } from '../../hooks/useBridgeAudio';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import { clearGuidedBlendStep, readGuidedBlendStep, saveGuidedBlendStep } from '../../hooks/readingLocalProgress';
+import { clearGuidedBlendStep, readGuidedBlendStep, saveGuidedBlendStep } from '../../hooks/readingLocalProgress';
 import { MiloSays } from './MiloSays';
 
 export function ChronicleBlendLesson({learnerId,index,onBack,onComplete}:{learnerId:number;index:number;onBack:()=>void;onComplete:()=>void}) {
@@ -16,7 +16,8 @@ export function ChronicleBlendLesson({learnerId,index,onBack,onComplete}:{learne
   const finished=useRef(false);
   const sound=useBridgeAudio('/audio/stage3');
   const word=words[step];
-  const blendTip=index===0?'Keep /m/ humming, use short /a/, and make /t/ quick.':index===1?'Listen for the middle light: short /a/, /e/, or /i/.':'Listen to the word. Notice how its letters work together.';
+  // Book 1 blends am, at, and mat; each tip must describe the word on screen. Both tips match existing Milo recordings.
+  const blendTip=index===0?(word==='mat'?'Keep /m/ humming, use short /a/, and make /t/ quick.':'Short /a/ opens wide in apple. Some sounds stretch, like /m/ and /s/. Others are quick, like /p/ and /t/.'):index===1?'Listen for the middle light: short /a/, /e/, or /i/.':'Listen to the word. Notice how its letters work together.';
   async function listen(){
     setMessage('');
     const shortVowels:Record<string,string>={a:'/audio/stage1/classic-milo/A.wav',e:'/audio/stage1/classic-milo/E.wav',i:'/audio/stage1/classic-milo/I.wav',o:'/audio/stage1/classic-milo/O.wav',u:'/audio/stage1/classic-milo/U.wav'};

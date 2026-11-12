@@ -32,9 +32,12 @@ async function readPages<T>(page: (start: number, end: number) => PromiseLike<{ 
 }
 
 export async function getLearnersForAdmin(): Promise<AdminLearner[]> {
-  const users = await readPages((start, end) => supabase.from('users').select('id,email,created_at')
-    .eq('role','learner').order('id').range(start,end));
-  const stages = unwrap(await supabase.from('stages').select('id,stage_number')) ?? [];
+  const [users, stagesResult] = await Promise.all([
+    readPages((start, end) => supabase.from('users').select('id,email,created_at')
+      .eq('role','learner').order('id').range(start,end)),
+    supabase.from('stages').select('id,stage_number'),
+  ]);
+  const stages = unwrap(stagesResult) ?? [];
   const stageIds = new Map<number,number>(stages.map(stage => [stage.stage_number,stage.id]));
   if ([1,2,3].some(stage => !stageIds.has(stage))) throw new Error('Stage definitions are missing. Run stage setup.');
   const learners: AdminLearner[] = [];
@@ -54,29 +57,33 @@ async function getLearnerBatch(users: Array<{id:number;email:string;created_at:s
   if (users.length === 0) return [];
 
   const userIds = users.map((user) => user.id);
-  const profiles = unwrap(await supabase
-    .from('learner_profiles')
-    .select('id, user_id, name, avatar, grade, study_participant')
-    .in('user_id', userIds)) as Array<{ id: number; user_id: number; name: string; avatar: string; grade: number; study_participant: boolean }>;
+  // Each Supabase round trip can take ~1s, so independent queries run in parallel
+  // to keep the roster well under the dashboard's request timeout.
+  const [profilesResult, presenceResult] = await Promise.all([
+    supabase.from('learner_profiles').select('id, user_id, name, avatar, grade, study_participant').in('user_id', userIds),
+    supabase.from('learner_presence').select('user_id,stage,level,screen,last_seen').in('user_id',userIds),
+  ]);
+  const profiles = unwrap(profilesResult) as Array<{ id: number; user_id: number; name: string; avatar: string; grade: number; study_participant: boolean }>;
+  const presenceRows = unwrap(presenceResult) as Array<{user_id:number;stage:number|null;level:number|null;screen:string;last_seen:string}>;
   const profileIds = profiles.map((profile) => profile.id);
-  const curriculum=profileIds.length?await supabase.from('learner_curriculum_state').select('learner_id,camp_orientation_step,guided_activities,guided_stops,sound_recordings,updated_at').in('learner_id',profileIds):{data:[],error:null};
-  const reading = profileIds.length ? await supabase.rpc('reading_checkpoint_overview',{p_learners:profileIds}) : {data:[],error:null};
-  const readingByLearner = new Map<number,number>((reading.data ?? []).map((row:{learner_id:number;chapters:number})=>[row.learner_id,Number(row.chapters)]));
-  const rewardRows = profileIds.length ? unwrap(await supabase.from('learner_stage_state').select('learner_id,stage_number,earned_completed').in('learner_id',profileIds)) as Array<{learner_id:number;stage_number:number;earned_completed:number}> : [];
-  const presenceRows = unwrap(await supabase.from('learner_presence').select('user_id,stage,level,screen,last_seen').in('user_id',userIds)) as Array<{user_id:number;stage:number|null;level:number|null;screen:string;last_seen:string}>;
-  const journeyRows = profileIds.length ? unwrap(await supabase.from('reading_journeys').select('learner_id,stage_number,completed,updated_at').in('learner_id',profileIds)) as Array<{learner_id:number;stage_number:number;completed:number;updated_at:string}> : [];
-  const [progressRows, sessions] = profileIds.length === 0
-    ? [[], []]
+  const empty = { data: [], error: null };
+  const [curriculum, reading, rewardResult, journeyResult, progressResult, sessions] = profileIds.length === 0
+    ? [empty, empty, empty, empty, empty, []] as const
     : await Promise.all([
-      unwrap(await supabase
-        .from('progress')
-        .select('learner_id, stage_id, completed_levels, total_levels, completion_percentage, last_updated')
-        .in('learner_id', profileIds)) as Array<{ learner_id: number; stage_id: number; completed_levels: number; total_levels: number; completion_percentage: number; last_updated: string }>,
+      supabase.from('learner_curriculum_state').select('learner_id,camp_orientation_step,guided_activities,guided_stops,sound_recordings,updated_at').in('learner_id',profileIds),
+      supabase.rpc('reading_checkpoint_overview',{p_learners:profileIds}),
+      supabase.from('learner_stage_state').select('learner_id,stage_number,earned_completed').in('learner_id',profileIds),
+      supabase.from('reading_journeys').select('learner_id,stage_number,completed,updated_at').in('learner_id',profileIds),
+      supabase.from('progress').select('learner_id, stage_id, completed_levels, total_levels, completion_percentage, last_updated').in('learner_id', profileIds),
       readPages((start,end) => supabase
         .from('sessions')
         .select('learner_id, started_at, completed_at')
         .in('learner_id', profileIds).order('id').range(start,end)) as Promise<Array<{ learner_id: number; started_at: string; completed_at: string | null }>>,
     ]);
+  const readingByLearner = new Map<number,number>(((reading.data ?? []) as Array<{learner_id:number;chapters:number}>).map(row=>[row.learner_id,Number(row.chapters)]));
+  const rewardRows = (unwrap(rewardResult) ?? []) as Array<{learner_id:number;stage_number:number;earned_completed:number}>;
+  const journeyRows = (unwrap(journeyResult) ?? []) as Array<{learner_id:number;stage_number:number;completed:number;updated_at:string}>;
+  const progressRows = (unwrap(progressResult) ?? []) as Array<{ learner_id: number; stage_id: number; completed_levels: number; total_levels: number; completion_percentage: number; last_updated: string }>;
 
   const profileByUserId = new Map(profiles.map((profile) => [profile.user_id, profile]));
   const progressByLearnerId = new Map<number, typeof progressRows>();

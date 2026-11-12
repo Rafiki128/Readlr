@@ -58,3 +58,94 @@
 .chronicle-volume .book-trail-page>header>div:not(.milo-companion){flex:0 1 auto;max-width:min(44%,560px);text-align:left}
 .chronicle-volume .book-trail-page>header>.milo-companion{margin-left:auto}
 @media(max-width:700px){.chronicle-volume .book-trail-page>header>div:not(.milo-companion){max-width:none;flex:1}}
+/* The text page must always fit inside the book. "safe center" keeps the top from being pushed out
+   of view when the text is taller than the page, and the column scrolls as a last resort. */
+.chronicle-volume .chronicle-story-spread>div:last-child{justify-content:safe center;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;min-height:0}
+/* Shorter laptop screens (e.g. 1280x720, 1366x768): tighten spacing so the whole page fits without scrolling. */
+@media(min-width:701px) and (max-height:860px){
+  .chronicle-volume .chronicle-story-spread>div:last-child{padding:14px 28px}
+  .chronicle-volume .chronicle-story-spread h2,.chronicle-volume .chronicle-story-spread.has-story-scene h2{font-size:clamp(24px,2.6vw,32px);margin:6px 0 8px}
+  .chronicle-volume .chronicle-story-spread p{margin:4px 0;line-height:1.5}
+  .chronicle-volume .chronicle-story-spread.has-story-scene .storybook-story::first-letter{font-size:2.7em}
+  .chronicle-volume .story-mission{margin-top:8px;padding:6px 14px 6px 8px}
+  .chronicle-volume .story-mission-icon{width:34px;height:34px}
+  .chronicle-volume .story-chips{margin-top:8px}
+  .chronicle-volume .chronicle-story-spread .reading-secondary{margin-top:10px}
+  .chronicle-volume .chronicle-story-spread.has-story-scene .reading-secondary.story-read{padding:9px 20px;min-height:42px}
+  .chronicle-volume .chronicle-story-spread .book-page-hint{margin-top:8px}
+  .chronicle-volume .chronicle-earned-note{margin:6px 0 10px;padding:8px 12px}
+  .chronicle-volume .chronicle-close-cue{margin:0 0 10px!important}
+}
+/* Very short windows (a 768px laptop once the browser bar is counted): give the book more room and shrink type a step. */
+@media(min-width:701px) and (max-height:720px){
+  .book-centered-world .book-world-header{padding:6px 24px}
+  .book-centered-world .book-world-header h1{font-size:22px}
+  .book-centered-world .book-world-skill{width:52px;height:52px}
+  .chronicle-volume .chronicle-story-spread>div:last-child{padding:10px 26px}
+  .chronicle-volume .chronicle-story-spread h2,.chronicle-volume .chronicle-story-spread.has-story-scene h2{font-size:clamp(22px,2.3vw,28px);margin:4px 0 6px}
+  .chronicle-volume .chronicle-story-spread p{font-size:15px;line-height:1.45;margin:3px 0}
+  .chronicle-volume .story-chronicle-tag{padding:3px 6px 3px 12px;font-size:12px}
+  .chronicle-volume .story-mission strong{font-size:15px}
+  .chronicle-volume .story-chips span{padding:3px 10px;font-size:12px}
+  .chronicle-volume .chronicle-story-spread.has-story-scene .reading-secondary.story-read{padding:7px 18px;min-height:38px}
+  .chronicle-volume .chronicle-story-spread .reading-secondary{margin-top:8px}
+  .chronicle-volume .chronicle-story-spread .book-page-hint{margin-top:6px;font-size:12px}
+  .chronicle-volume .album-page-controls{margin-top:10px}
+  /* Trail pages: a shorter heading and smaller stops keep every stop label inside the map. */
+  .chronicle-volume .book-trail-page{padding:10px 22px!important;gap:8px}
+  .chronicle-volume .book-trail-page>header{min-height:0}
+  .chronicle-volume .book-trail-page h2{font-size:22px;margin:2px 0}
+  .chronicle-volume .book-trail-page .book-trail-narration{font-size:13px;line-height:1.4;margin-top:2px}
+  .chronicle-volume .book-trail-page>header .milo-companion{width:58px!important;height:58px!important}
+  .chronicle-volume .book-map-stop{margin-top:-34px;gap:2px}
+  .chronicle-volume .book-map-token{width:64px;height:68px}
+  .chronicle-volume .book-map-token>svg:not(.lucide){width:54px;height:54px}
+  .chronicle-volume .book-map-stop strong{font-size:13px;padding:3px 6px}
+  .chronicle-volume .book-map-stop small{font-size:12px}
+  .book-centered-world{padding-bottom:8px}
+}
+
+/* ---- Readable on every screen: no book text below 12px. ---- */
+.chronicle-volume .book-map-stop small{font-size:12px}
+.chronicle-volume .book-trail-page>footer{font-size:12px}
+.chronicle-sticker-award small{font-size:12px}
+.chronicle-ten-books span{font-size:12px;max-width:95px}
+@media(max-width:700px){
+  .book-centered-world .book-world-header p{font-size:12px}
+  .chronicle-volume .book-map-stop small{font-size:12px;line-height:1.2}
+}
+
+/* ---- The book follows the window's height instead of a fixed minimum. ---- */
+@media(min-width:701px){.chronicle-volume .album-binding{min-height:0}}
+/* While a page turns, the page underneath fills the book (its height is held by ChroniclePages). */
+.chronicle-volume.is-turning .chronicle-static-spread{position:absolute;inset:0;height:auto}
+
+/* ---- Safety net for any screen: when the current page cannot fit at a readable size (very short or
+   narrow windows, zoomed-in browsers), ChroniclePages adds .is-flowing. The book then keeps its natural
+   height and the screen scrolls, the same way phones work, so nothing is ever cut off. ---- */
+.chronicle-volume.is-flowing{flex:none;margin-bottom:8px}
+.chronicle-volume.is-flowing .album-binding{flex:none}
+.chronicle-volume.is-flowing .album-paper-stack{height:auto;min-height:360px}
+.chronicle-volume.is-flowing .album-paper-stack>.chronicle-page{height:auto;min-height:360px;overflow:visible}
+.chronicle-volume.is-flowing .chronicle-story-spread{height:auto;min-height:360px}
+.chronicle-volume.is-flowing .chronicle-story-spread>div:last-child{overflow:visible}
+.chronicle-volume.is-flowing .book-trail-page{height:auto;min-height:360px}
+.chronicle-volume.is-flowing .book-trail-page .book-page-map{flex:none;height:300px;min-height:300px!important}
+
+/* ---- Around 600px tall (small laptops, 1024x600 tablets): one more step of tightening so the book still fits. ---- */
+@media(min-width:701px) and (max-height:660px){
+  .book-centered-world .book-world-header{padding:2px 24px}
+  .book-centered-world .book-world-header h1{font-size:20px}
+  .book-centered-world .book-world-header p{margin:0}
+  .book-centered-world .book-world-skill{width:44px;height:44px}
+  .chronicle-volume{margin-top:2px}
+  .chronicle-volume .album-binding{padding:8px 10px 10px}
+  .chronicle-volume .album-page-controls{margin-top:6px}
+  .chronicle-volume .chronicle-story-spread>div:last-child{padding:8px 22px}
+  .chronicle-volume .chronicle-story-spread p{margin:2px 0;line-height:1.4}
+  .chronicle-volume .story-mission{margin-top:6px}
+  .chronicle-volume .story-chips{margin-top:6px}
+  .chronicle-volume .chronicle-story-spread .reading-secondary{margin-top:6px}
+  .chronicle-volume .chronicle-story-spread .book-page-hint{margin-top:4px}
+  .chronicle-volume .chronicle-earned-note{margin:4px 0 8px}
+}

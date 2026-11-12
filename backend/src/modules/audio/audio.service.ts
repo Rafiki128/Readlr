@@ -3,13 +3,13 @@ import config from '../../config/env.js';
 import { AudioResult } from './audio.types.js';
 import { judgeCvcWord, cvcTranscriptionPrompt, type RecognitionSegment } from './cvcRecognition.js';
 
-export async function recognizeCvcWord(file: Express.Multer.File, target: string) {
+export async function recognizeCvcWord(file: Pick<Express.Multer.File,'buffer'|'mimetype'>, target: string, prompt = cvcTranscriptionPrompt(target)) {
   if (!openai) throw new Error('Recognition unavailable');
   const extension = file.mimetype.includes('mp4') ? 'mp4' : file.mimetype.includes('ogg') ? 'ogg' : file.mimetype.includes('wav') ? 'wav' : 'webm';
   const response = await openai.audio.transcriptions.create({
     file: new File([file.buffer], `recording.${extension}`, {type:file.mimetype}),
     model:'whisper-large-v3', language:'en', response_format:'verbose_json', temperature:0,
-    prompt:cvcTranscriptionPrompt(target),
+    prompt,
   }, {timeout:20000, maxRetries:0});
   return judgeCvcWord(target,response.text ?? '',(response as unknown as {segments?:RecognitionSegment[]}).segments);
 }

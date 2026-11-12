@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import './stickerAlbum.css';
@@ -9,6 +9,8 @@ export function ChroniclePages({pages,title,initialPage=0,onPageChange}:{pages:R
   const [page,setPage]=useState(initialPage);
   const [turning,setTurning]=useState<{from:number;to:number;direction:number}|null>(null);
   const busy=useRef(false);
+  const stack=useRef<HTMLDivElement>(null);
+  const [turnHeight,setTurnHeight]=useState<number|null>(null);
   const reduced=useReducedMotion();
   const [small,setSmall]=useState(()=>window.matchMedia('(max-width:700px)').matches);
   useEffect(()=>{
@@ -22,19 +24,39 @@ export function ChroniclePages({pages,title,initialPage=0,onPageChange}:{pages:R
   function turn(to:number){
     if(busy.current||to<0||to>=pages.length)return;
     if(reduced){setPage(to);onPageChange?.(to);return;}
-    busy.current=true;setTurning({from:page,to,direction:to>page?1:-1});
+    // Hold the current page height so the book does not collapse while the leaf turns.
+    busy.current=true;setTurnHeight(stack.current?.offsetHeight??null);setTurning({from:page,to,direction:to>page?1:-1});
   }
   useEffect(()=>{
     if(initialPage!==page&&!turning)turn(initialPage);
   },[initialPage,page,turning,pages.length,reduced]);
+  // If the current page cannot fit inside the book on this screen, let the book grow to its natural
+  // height (the world scrolls) instead of cutting text off. Re-checked on resize and on every page.
+  const volume=useRef<HTMLElement>(null);
+  useLayoutEffect(()=>{
+    const book=volume.current;if(!book||turning)return;
+    const fit=()=>{
+      book.classList.remove('is-flowing');
+      if(small)return;
+      const current=book.querySelector<HTMLElement>('.album-paper-stack>.chronicle-page');
+      if(!current)return;
+      const boxes=[current,...current.querySelectorAll<HTMLElement>('.chronicle-story-spread>div:last-child,.book-page-map,.book-trail-page')];
+      if(boxes.some(box=>box.scrollHeight>box.clientHeight+2))book.classList.add('is-flowing');
+    };
+    fit();
+    const observer=new ResizeObserver(()=>fit());
+    if(book.parentElement)observer.observe(book.parentElement);
+    void document.fonts?.ready.then(fit);
+    return()=>observer.disconnect();
+  },[page,turning,small,pages]);
   function leaf(index:number,side:number,decorative=false){
     return <div className={`chronicle-half half-${side} ${small?'is-single':''}`} inert={decorative||!!turning}>
       <div className="chronicle-half-content"><div className="chronicle-page">{pages[index]}</div></div>
     </div>;
   }
-  return <section className={`chronicle-volume ${turning?'is-turning':''}`} aria-label={`${title} book`}>
+  return <section ref={volume} className={`chronicle-volume ${turning?'is-turning':''}`} aria-label={`${title} book`}>
     <div className={`album-binding ${small?'single-page':''}`} aria-busy={!!turning}>
-      <div className="album-paper-stack">
+      <div className="album-paper-stack" ref={stack} style={turning&&turnHeight?{minHeight:turnHeight}:undefined}>
         {turning?.direction===1&&<div className="chronicle-turn-sparkles" aria-hidden="true">{Array.from({length:9},(_,index)=><i key={index}/>)}</div>}
         {turning?<div className="chronicle-static-spread">
           {leaf(small||turning.direction===-1?turning.to:page,0,true)}

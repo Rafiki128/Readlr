@@ -12,6 +12,7 @@ import { AuthService, AuthController, createAuthRouter } from './modules/auth/in
 import { config } from './config/env.js';
 import { adminRoutes } from './modules/admin/index.js';
 import { evidenceRoutes } from './modules/evidence/index.js';
+import studyRoutes from './modules/study/study.route.js';
 
 const app: Express = express();
 
@@ -44,6 +45,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/frames', framesRoutes);
 app.use('/api/evidence', evidenceRoutes);
+app.use('/api/study', studyRoutes);
 app.use('/api/characters', characterRouter);
 
 // Initialize default characters

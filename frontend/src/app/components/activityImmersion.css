@@ -134,3 +134,56 @@
 .book-blend-board .book-sound-join>span:focus-visible{outline:5px solid #27aee4;outline-offset:5px}
 .book-blend-board .blend-result-label{margin:0}
 @media(max-width:700px){.book-blend-board{padding:16px 8px 12px;gap:14px}.blend-word-dock{min-height:94px;gap:5px}.blend-word-dock i,.blend-word-dock i>span,.book-blend-board .book-sound-join>span{width:58px;height:70px;font-size:40px}.book-blend-board .book-sound-join{gap:clamp(24px,8vw,46px);min-height:82px}.blend-docked-word{font-size:44px}}
+
+/* ---- Activities never cut content off. When a game, lesson or check is taller than the window
+   (short laptop screens, display scaling, zoom, tablets), the activity page scrolls instead of hiding
+   the bottom row. The checkpoint's play area may grow to its content rather than being squeezed. ---- */
+.chronicle-activity-paper :is(.reading-journey,.camp-lesson){overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain}
+.chronicle-activity-paper .reading-round:has(.reading-play){grid-template-rows:auto auto auto minmax(min-content,1fr) auto!important}
+/* Tablets and narrow windows (701-1050px): the two-column game scenes had minimum column widths wider
+   than the page, which cut off the letter buttons on the right. Let the columns shrink instead. */
+@media(min-width:701px) and (max-width:1050px){
+  .chronicle-activity-paper :is(.garden-seed-scene,.drawbridge-builder-scene,.changing-mirror-scene,.key-keeper-scene,.royal-library-scene,.market-builder-scene){grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:12px;padding:16px 3%}
+}
+/* Study sessions show a floating "Learning time / My books" badge in the bottom-right corner.
+   Leave room under the activity so its last row can always scroll clear of the badge. */
+.study-learning-open .chronicle-activity-paper :is(.reading-journey,.camp-lesson){padding-bottom:58px!important}
+.study-learning-open .chronicle-activity-paper .book-blending-lesson{padding-bottom:58px}
+/* Short windows (laptops, 125% display scaling): tighten the shared activity frame and the orchard so they fit without scrolling. */
+@media(min-width:701px) and (max-height:820px){
+  .chronicle-activity-shell{padding:8px 16px}
+  .chronicle-activity-paper .reading-heading{min-height:0;padding-bottom:8px;margin-bottom:8px}
+  .chronicle-activity-paper .reading-heading h1{font-size:24px}
+  .chronicle-activity-paper .reading-heading .milo-companion{width:52px!important;height:52px!important}
+  .chronicle-activity-paper .gate-orchard{padding:12px 18px;min-height:0}
+  .chronicle-activity-paper .gate-orchard h2{font-size:24px}
+  .chronicle-activity-paper .gate-pictures{margin:8px auto;min-height:0}
+  .chronicle-activity-paper .gate-pictures .gate-piece{width:120px;height:120px}
+  .chronicle-activity-paper .gate-pictures .gate-piece svg{width:66px;height:66px}
+  .chronicle-activity-paper .gate-basket{height:124px;grid-template-rows:32px 1fr}
+  .chronicle-activity-paper .gate-basket .gate-token{height:74px}
+  .chronicle-activity-paper .gate-basket .gate-token svg{width:48px;height:48px}
+  .chronicle-activity-paper .gate-orchard-progress{margin-top:10px}
+}
+/* Very short windows (phones held sideways, heavy zoom): the word games normally squeeze their scene into
+   the height that is left, which hid letters and labels. Here each game grows to its content and the
+   activity page scrolls instead. */
+@media(min-width:701px) and (max-height:540px){
+  .chronicle-activity-paper :is(.lantern-sort,.market-builder,.garden-seed-game,.drawbridge-builder,.changing-mirror-game,.key-keeper-game,.royal-story-game){height:auto!important;min-height:0;overflow:visible!important}
+  .chronicle-activity-paper :is(.lantern-sort-scene,.market-builder-scene,.garden-seed-scene,.drawbridge-builder-scene,.changing-mirror-scene,.key-keeper-scene,.royal-library-scene){flex:none!important;min-height:max-content!important}
+}
+/* Narrow phones held upright: two side-by-side game columns did not fit, which cut off the letter
+   buttons on the right. Stack the columns and let the game grow; the activity page scrolls. */
+@media(max-width:480px){
+  .chronicle-activity-paper :is(.lantern-sort,.market-builder,.garden-seed-game,.drawbridge-builder,.changing-mirror-game,.key-keeper-game,.royal-story-game){height:auto!important;min-height:0;overflow:visible!important}
+  .chronicle-activity-paper :is(.garden-seed-scene,.drawbridge-builder-scene,.changing-mirror-scene,.key-keeper-scene,.royal-library-scene,.market-builder-scene){grid-template-columns:minmax(0,1fr)!important;flex:none!important;min-height:max-content!important}
+}
+/* Vowel Tower on narrow phones: the lift car sat past the scene's right edge. Shift the tower left and
+   pin the car to the right edge so both fit side by side (any scene 300px wide or more). */
+@media(max-width:480px){
+  .chronicle-activity-paper .vowel-tower-scene .tower-building{left:calc(50% - 45px);width:190px}
+  .chronicle-activity-paper .vowel-tower-scene .vowel-lift-car{left:auto;right:6px;width:98px}
+  .chronicle-activity-paper .vowel-tower-scene .tower-roof{left:-12px;width:214px}
+  /* The tile panel sat over the lift car (the word to finish); the sky above the tower is free. */
+  .chronicle-activity-paper .vowel-tower-scene .vowel-lift-choices{top:14px;bottom:auto}
+}

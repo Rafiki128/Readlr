@@ -3,6 +3,7 @@ import { supabase, unwrap } from '../../database/db.js';
 import { classroomState, effectivePolicy } from './classroom.service.js';
 import { parsePolicy, stagePermitted } from './classroom.policy.js';
 import { surveyAssigned } from './survey.controller.js';
+import { studyReadingAccess } from '../study/study.service.js';
 
 export async function getClassroom(_req:Request,res:Response) {
   try { res.json(await classroomState()); }
@@ -45,8 +46,12 @@ export async function heartbeat(req:Request,res:Response) {
 export function enforceClassroom(stageFrom:(req:Request)=>number | Promise<number>) {
   return async (req:Request,res:Response,next:NextFunction) => {
     try {
-      const {policy} = await effectivePolicy((req as any).userId);
-      if (!stagePermitted(policy,await stageFrom(req))) { res.status(403).json({code:'classroom_restricted',error:'This activity is restricted by your classroom administrator.'}); return; }
+      const userId=(req as any).userId, stage=await stageFrom(req);
+      // Study learners in their learning time keep reading (stage 3) while the teacher checks recordings;
+      // the study itself limits them to their assigned books.
+      if (stage===3) { const study=await studyReadingAccess(userId); if (study&&'books' in study) { next(); return; } }
+      const {policy} = await effectivePolicy(userId);
+      if (!stagePermitted(policy,stage)) { res.status(403).json({code:'classroom_restricted',error:'This activity is restricted by your classroom administrator.'}); return; }
       next();
     } catch { res.status(503).json({error:'Classroom controls could not be checked. Please reconnect.'}); }
   };
