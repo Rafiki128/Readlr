@@ -16,20 +16,25 @@ import './chronicleWorld.css';
 import './soundLearningCamp.css';
 import { ActivityScene } from './ActivityScene';
 import { CampOrientation } from './CampOrientation';
-import { readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
+import { readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
+
 import { HearMiloButton, useMiloInstruction } from './MiloSays';
 
 type Area='vowels'|'consonants'|'blends';
 
-const phrases:Record<string,string>={mango:'Milo picks a mango.',apple:'An apple grows on the tree.',egg:'An egg is in the nest.',insect:'A little insect rests on a leaf.',octopus:'The octopus waves hello.',umbrella:'An umbrella keeps Milo dry.',cape:'Milo wears a bright cape.',tree:'A tree grows tall.',kite:'The kite dances in the sky.',hope:'Milo has hope for a sunny day.',cube:'Milo builds with a cube.',sun:'The sun warms the garden.',top:'Milo spins a top.',tin:'Milo opens a tin.',pen:'Milo draws with a pen.',net:'Milo carries a net.',hat:'Milo puts on a hat.',bag:'A book is in the bag.',dog:'The dog sits by Milo.',goat:'The goat climbs a hill.',log:'Milo sits on a log.',rug:'rug to hug',fan:'Milo opens a colorful fan.',cup:'cup to cap',web:'A web hangs in the tree.',jet:'A jet flies high.',box:'Milo opens the box.',van:'The van stops by the gate.',yam:'Milo puts a yam in the basket.',zip:'Milo pulls the zip.',quilt:'A warm quilt covers the bed.'};
+const phrases:Record<string,string>={mango:'Milo picks a mango.',apple:'An apple grows on the tree.',egg:'An egg is in the nest.',
+  insect:'A little insect rests on a leaf.',octopus:'The octopus waves hello.',umbrella:'An umbrella keeps Milo dry.',cape:'Milo wears a bright cape.',
+  tree:'A tree grows tall.',kite:'The kite dances in the sky.',hope:'Milo has hope for a sunny day.',cube:'Milo builds with a cube.',sun:'The sun warms the garden.',
+  top:'Milo spins a top.',tin:'Milo opens a tin.',pen:'Milo draws with a pen.',net:'Milo carries a net.',hat:'Milo puts on a hat.',bag:'A book is in the bag.',dog:'The dog sits by Milo.',
+  goat:'The goat climbs a hill.',log:'Milo sits on a log.',rug:'rug to hug',fan:'Milo opens a colorful fan.',cup:'cup to cap',web:'A web hangs in the tree.',jet:'A jet flies high.',box:'Milo opens the box.',van:'The van stops by the gate.',yam:'Milo puts a yam in the basket.',zip:'Milo pulls the zip.',quilt:'A warm quilt covers the bed.'};
 
 // Target words that trigger sentence/phrase mode for Books 5, 6, 7, 8, and 9
 const SENTENCE_MODE_WORDS = ['umbrella', 'goat', 'dog', 'rug', 'cup', 'web', 'kite', 'van', 'yam', 'box', 'jet', 'zip', 'cape', 'tree', 'hope', 'cube'];
 
 export const BOOK_5_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
-  umbrella: { nodeId: 'u-umbrella', targetSound: 'u', phrase: 'a big umbrella' },
-  goat: { nodeId: 'g-goat', targetSound: 'g', phrase: 'a fat goat' },
-  dog: { nodeId: 'd-dog', targetSound: 'd', phrase: 'a small dog' }
+  umbrella: { nodeId: 'u-umbrella', targetSound: 'u', phrase: 'An umbrella keeps Milo dry' },
+  goat: { nodeId: 'g-goat', targetSound: 'g', phrase: 'The goat climbs a hill' },
+  dog: { nodeId: 'd-dog', targetSound: 'd', phrase: 'The dog sits by Milo' }
 };
 
 // Book 6: Sound Substitution / Word Shaper Curriculum
@@ -40,26 +45,26 @@ export const BOOK_6_NODES: Record<string, { nodeId: string; targetSound: string;
 
 // Book 7: Cumulative Phrases Curriculum
 export const BOOK_7_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
-  web: { nodeId: 'w-web', targetSound: 'w', phrase: 'A web hangs in the tree.' },
-  kite: { nodeId: 'k-kite', targetSound: 'k', phrase: 'The kite dances in the sky.' }
+  web: { nodeId: 'w-web', targetSound: 'w', phrase: 'A web hangs in the tree' },
+  kite: { nodeId: 'k-kite', targetSound: 'k', phrase: 'The kite dances in the sky' }
 };
 
 // Book 8: The Royal Library (Reading for Meaning)
 export const BOOK_8_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
-  van: { nodeId: 'v-van', targetSound: 'v', phrase: 'The van stops by the gate.' },
-  yam: { nodeId: 'y-yam', targetSound: 'y', phrase: 'Milo puts a yam in the basket.' },
-  box: { nodeId: 'x-box', targetSound: 'x', phrase: 'Milo opens the box.' },
-  jet: { nodeId: 'j-jet', targetSound: 'j', phrase: 'A jet flies high.' },
-  zip: { nodeId: 'z-zip', targetSound: 'z', phrase: 'Milo pulls the zip.' }
+  van: { nodeId: 'v-van', targetSound: 'v', phrase: 'The van stops by the gate' },
+  yam: { nodeId: 'y-yam', targetSound: 'y', phrase: 'Milo puts a yam in the basket' },
+  box: { nodeId: 'x-box', targetSound: 'x', phrase: 'Milo opens the box' },
+  jet: { nodeId: 'j-jet', targetSound: 'j', phrase: 'A jet flies high' },
+  zip: { nodeId: 'z-zip', targetSound: 'z', phrase: 'Milo pulls the zip' }
 };
 
 // Book 9: The Vowel Tower (Magic E & Long Vowels)
 export const BOOK_9_NODES: Record<string, { nodeId: string; targetSound: string; phrase: string }> = {
-  cape: { nodeId: 'long-a-cape', targetSound: 'long a', phrase: 'Milo wears a bright cape.' },
-  tree: { nodeId: 'long-e-tree', targetSound: 'long e', phrase: 'A tree grows tall.' },
-  kite: { nodeId: 'long-i-kite', targetSound: 'long i', phrase: 'The kite dances in the sky.' }, // Overlaps with Book 7 contextually
-  hope: { nodeId: 'long-o-hope', targetSound: 'long o', phrase: 'Milo has hope for a sunny day.' },
-  cube: { nodeId: 'long-u-cube', targetSound: 'long u', phrase: 'Milo builds with a cube.' }
+  cape: { nodeId: 'long-a-cape', targetSound: 'long a', phrase: 'Milo wears a bright cape' },
+  tree: { nodeId: 'long-e-tree', targetSound: 'long e', phrase: 'A tree grows tall' },
+  kite: { nodeId: 'long-i-kite', targetSound: 'long i', phrase: 'The kite dances in the sky' }, // Overlaps with Book 7 contextually
+  hope: { nodeId: 'long-o-hope', targetSound: 'long o', phrase: 'Milo has hope for a sunny day' },
+  cube: { nodeId: 'long-u-cube', targetSound: 'long u', phrase: 'Milo builds with a cube' }
 };
 
 function HighlightedSoundWord({word,sound}:{word:string;sound:string}) {
@@ -180,10 +185,17 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
     catch { /* Stopped, or no voice available: the sequence carries on. */ }
   };
 
-  const playBuildSequence = async () => {
-    sound.stop();
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+  const playBuildSequence = async (isReplay = false) => {
+    if (isReplay) {
+      sound.stop();
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+    }
     
+    // Wait long enough to let Milo finish his top message ("You found X! Let's review...") 
+    // before reading the words. If it's a replay, skip the long wait.
+    const waitTime = isReplay ? 300 : 3800;
+    await new Promise((r) => window.setTimeout(r, waitTime));
+
     const currentId = ++buildSequenceId.current;
     for (let i = 0; i < sentenceArray.length; i++) {
       if (!live.current || buildSequenceId.current !== currentId || phase !== 'build-up') break;
@@ -198,7 +210,8 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
 
   useEffect(() => {
     if (phase !== 'build-up' || !isSentenceMode) return;
-    void playBuildSequence();
+    // Pass false to trigger the 3.8s wait so it doesn't overlap Milo
+    void playBuildSequence(false);
 
     return () => {
       buildSequenceId.current++; 
@@ -452,7 +465,8 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
             if (window.speechSynthesis) window.speechSynthesis.cancel();
 
             if (phase === 'build-up' && isSentenceMode) {
-              void playBuildSequence(); 
+              // Pass true so the replay skips the 3.8s wait and plays immediately
+              void playBuildSequence(true); 
             } else if (phase === 'say' && isSentenceMode) {
               void speakText(sentence);
             } else {
