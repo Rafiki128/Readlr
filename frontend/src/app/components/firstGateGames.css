@@ -19,7 +19,7 @@
 .reading-play>.book-sequential-action{min-height:220px;flex-direction:column}
 .book-sequential-action>button{animation:book-action-reveal .2s ease-out}
 .book-practice-help{position:relative;text-align:center;margin:12px auto;color:#285b60;font-size:15px}
-.book-practice-help summary{cursor:pointer;padding:12px;min-height:44px;list-style-position:inside}
+.book-practice-help summary{cursor:pointer;padding:12px;min-height:48px;list-style-position:inside}
 .book-practice-help[open]>button{margin:8px;vertical-align:middle}
 .gate-letter-bank .reading-icon:disabled{display:none}
 @keyframes book-action-reveal{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}

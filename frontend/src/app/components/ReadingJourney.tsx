@@ -21,7 +21,8 @@ import { devicePracticeNotice, ReadingServiceError } from '../../hooks/readingPr
 import { SoundOrchard, LetterTrain, VoiceRail } from './FirstGateGames';
 import { addSpokenStation, bookOneAction, FIRST_GATE_WORDS, firstGateShowsWordModel } from './firstGateLogic';
 import { ReadingAnchorArt } from './ReadingAnchorArt';
-import { ReadingWordPicture } from './ReadingWordPicture';
+import { ReadingWordPicture, WORD_SCENES } from './ReadingWordPicture';
+import { choiceHintClass, helpEvidence, helpLadder, hintLine, hintNeedsWord, missLine, showMeOrder, type HelpHint } from './helpLadder';
 import { chronicleSounds } from './chronicleLessons';
 import { LanternVowelSort, LanternVoiceTrail } from './LanternLaneGames';
 import { addLitLantern } from './lanternLaneLogic';
@@ -171,6 +172,10 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
   const [placed,setPlaced]=useState<number[]>([]);
   const [heard,setHeard]=useState(false);
   const [helped,setHelped]=useState(false);
+  const [hintsUsed,setHintsUsed]=useState(0);
+  const [misses,setMisses]=useState(0);
+  const [showing,setShowing]=useState(false);
+  const [tried,setTried]=useState<string[]>([]);
   const [clip,setClip]=useState<string|null>(null);
   const [selectedAnswer,setSelectedAnswer]=useState<string|null>(null);
   const clipPlayer=useRef<HTMLAudioElement>(null);
@@ -232,9 +237,10 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
   function save(result:EvidenceResult,response:string|null,kind:'selection'|'construction'|'speech_prediction') {
     // Checkpoint evidence is inserted atomically by the recognition API.
     if(sandbox||localMode||checkpoint)return;
+    const help=helpEvidence(active,hintsUsed,{train:firstBook&&active.kind==='build'});
     const saved=queueEvidenceAttempt(learnerId,createEvidenceAttempt({sessionId:session.current,curriculumVersion:ARAL_VERSION,mediaManifestVersion:ARAL_MEDIA_VERSION,
       activityId:`aral.${chapter.id}.${checkpoint?'check':active.kind}`,skillId:`aral.${checkpoint?'read':active.kind}.${active.word}`,contentId:`aral.word.${active.word}`,
-      mode:checkpoint?'independent_check':'practice',responseType:kind,responseValue:response,result,hintCount:helped?1:0,modelExposed:heard,answerExposed:!checkpoint&&active.kind==='build'&&(!firstBook||firstGateShowsWordModel(active.word)),reducedChoices:false,
+      mode:checkpoint?'independent_check':'practice',responseType:kind,responseValue:response,result,hintCount:Math.max(help.hintCount,helped?1:0),modelExposed:heard||help.modelExposed,answerExposed:help.answerExposed||(!checkpoint&&active.kind==='build'&&(!firstBook||firstGateShowsWordModel(active.word))),reducedChoices:help.reducedChoices,
       mediaAssetIds:[],startedAt:started.current,completedAt:new Date().toISOString(),capturedOffline:!navigator.onLine}));
     if(!saved)setMessage('Your answer was checked, but this device could not save it.');
   }
@@ -251,11 +257,30 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
     setRetryQueue(queue=>queue.some(item=>item.kind===task.kind&&item.word===task.word&&item.clue===task.clue)?queue:[...queue,task]);
   }
   function markCorrect() {
-    if(remediation)setCorrectedCount(value=>value+1);else setSuccesses(value=>value+1);
+    // A word Milo showed comes back later, so it is not counted as a first-time success.
+    if(remediation)setCorrectedCount(value=>value+1);else if(!hintOn('show_me'))setSuccesses(value=>value+1);
     setAnswerState('correct');setDone(true);
   }
   function markIncorrect(_messageText:string) {
+    // Practice stays open after a miss; from the second miss Milo gives the next hint himself.
+    if(!checkpoint){const missed=misses+1;setMisses(missed);if(missed>=2&&hintsUsed<ladder.length)giveHint();else setMessage(hintsUsed<ladder.length?missLine():'Good try! Have another go.');return;}
     setAnswerState('incorrect');setHelped(true);setDone(true);returnLater();setMessage('We can try this one again soon.');
+  }
+  function giveHint() {
+    const hint=ladder[hintsUsed];
+    if(!hint||done)return;
+    setHintsUsed(hintsUsed+1);setMessage(hintLine(hint,active));
+    if(!heard&&hintNeedsWord(active))void hear();
+    if(hint==='hear_point'||hint==='hear_word'||(hint==='show_me'&&firstBook&&active.kind==='build'))void hear();
+    if(hint==='hear_story')void sound.narrateText({file:'',text:active.clue!.replace('___','blank')}).catch(()=>{});
+    if(hint==='picture'&&WORD_SCENES[active.word])hearScene(WORD_SCENES[active.word]);
+    if(hint!=='show_me')return;
+    if(!remediation)returnLater();
+    if(active.kind==='build'&&!firstBook){
+      const item=audioItem.current;
+      setShowing(true);setPlaced(showMeOrder(active.word,tiles));
+      window.setTimeout(()=>{if(live.current&&item===audioItem.current){setPlaced([]);setShowing(false);}},1800);
+    }
   }
   // A context scene spoken before answering is a model, so it counts as help (FR-3.5, FR-4.7).
   function hearScene(line:string) {
@@ -281,7 +306,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
     save(correct?'correct':'incorrect',value,kind);
     setSelectedAnswer(value);
     if(correct){markCorrect();setMessage(`Correct! You found ${active.word}.`);}
-    else {markIncorrect(`Not quite. ${value} is not the answer.`);if(kind==='construction')setPlaced([]);}
+    else {if(active.kind!=='build')setTried(list=>[...list,active.kind==='repair'||active.kind==='change'?value[active.missing]:value]);markIncorrect(`Not quite. ${value} is not the answer.`);if(kind==='construction')setPlaced([]);}
   }
   async function answerMeaning(value:string) {
     if(done||busy)return;
@@ -354,17 +379,20 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
       if(live.current){if(!sandbox&&!localMode)practice.recognize('unavailable');save('unavailable',null,'speech_prediction');setMessage(error instanceof Error?error.message:'Word checking is unavailable. Try again.');}
     } finally {inFlight.current=false;if(live.current){setBusy(false);setRecording(false);}}
   }
-  function next() {
+  function next(skipped?:ReadingTask) {
+    // A skipped practice word joins the queue here, since the queue state would not update before the last task ends.
+    const queue=skipped&&!retryQueue.some(item=>item.kind===skipped.kind&&item.word===skipped.word&&item.clue===skipped.clue)?[...retryQueue,skipped]:retryQueue;
+    if(queue!==retryQueue)setRetryQueue(queue);
     audioItem.current++;
     sound.stop();setClip(null);
     if(index+1===tasks.length){
-      if(retryQueue.length){const returning=retryQueue;setTasks(returning);setRetryQueue([]);setIndex(0);setRemediation(true);setPlaced([]);setSelectedAnswer(null);setDone(false);setHeard(false);setHelped(false);setAnswerState(null);setMessage('These challenges came back so you can finish them.');started.current=new Date().toISOString();setTiles(shuffleReading([...returning[0].word].map((letter,id)=>({letter,id}))));return;}
+      if(queue.length){const returning=queue;setTasks(returning);setRetryQueue([]);setIndex(0);setRemediation(true);setPlaced([]);setSelectedAnswer(null);setDone(false);setHeard(false);setHelped(false);setHintsUsed(0);setMisses(0);setShowing(false);setTried([]);setAnswerState(null);setMessage('These challenges came back so you can finish them.');started.current=new Date().toISOString();setTiles(shuffleReading([...returning[0].word].map((letter,id)=>({letter,id}))));return;}
       if(resumablePractice&&answerState==='correct')saveGuidedRoundStep(learnerId,chapter.id,{step:tasks.length,spoken:spokenStations});
       setComplete(true);return;
     }
     const n=index+1;
     if(resumablePractice&&answerState==='correct'&&!remediation)saveGuidedRoundStep(learnerId,chapter.id,{step:n,spoken:spokenStations});
-    setIndex(n);setPlaced([]);setSelectedAnswer(null);setDone(false);setHeard(false);setHelped(false);setAnswerState(null);setMessage('');started.current=new Date().toISOString();
+    setIndex(n);setPlaced([]);setSelectedAnswer(null);setDone(false);setHeard(false);setHelped(false);setHintsUsed(0);setMisses(0);setShowing(false);setTried([]);setAnswerState(null);setMessage('');started.current=new Date().toISOString();
     setTiles(shuffleReading([...tasks[n].word].map((letter,id)=>({letter,id}))));
   }
   async function skip() {
@@ -379,12 +407,15 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
         setIssued(saved);
         if((active.kind==='meaning'?saved.results.meaning:saved.results[index])!=='skipped')throw new Error('This answer was already saved. Reopen the checkpoint to resume.');
       }
-      save('no_response',null,active.kind==='read'?'speech_prediction':'selection');setUnassessed(s=>s+1);next();
+      save('no_response',null,active.kind==='read'?'speech_prediction':'selection');setUnassessed(s=>s+1);next(!checkpoint&&!remediation?active:undefined);
     }catch(error){if(live.current)setMessage(error instanceof Error?error.message:'Could not save. Please retry.');}
     finally{inFlight.current=false;if(live.current)setBusy(false);}
   }
   const pass=checkpoint&&(reviewMode||localMode||checkpointFallback?(chapter.id==='gate'?successes===originalTaskCount:successes/originalTaskCount>=.8)&&unassessed===0:issued?.passed===true);
   const firstBook=chapter.id==='gate';
+  const ladder=helpLadder(active,{train:firstBook&&active.kind==='build'});
+  const hintOn=(hint:HelpHint)=>!checkpoint&&ladder.slice(0,hintsUsed).includes(hint);
+  const choiceHint=(choices:readonly string[],answer:string,choice:string)=>choiceHintClass(checkpoint?[]:ladder.slice(0,hintsUsed),choices,answer,choice,done,tried);
   const nextAction=bookOneAction(heard,done,checkpoint,active.kind);
   const roundPrompt=firstBook&&nextAction==='listen'?'Listen to the word first.':chapter.id==='gate'&&active.kind==='build'?'Build the word train.':chapter.id==='gate'&&!checkpoint&&active.kind==='read'?'Read your word to move the train.':taskPrompt(active);
   function restartRound() {
@@ -392,7 +423,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
     setOrchardDone(false);
     setSpokenStations([]);orchardHelp.current.clear();
     setTasks(makeReadingRound(chapter,checkpoint));setIndex(0);setComplete(false);setDone(false);
-    setSuccesses(0);setUnassessed(0);setRetryQueue([]);setRemediation(false);setOriginalTaskCount(makeReadingRound(chapter,checkpoint).length);setCorrectedCount(0);setAnswerState(null);setPlaced([]);setSelectedAnswer(null);setHeard(false);setHelped(false);setCheckpointFallback(false);setMessage('');
+    setSuccesses(0);setUnassessed(0);setRetryQueue([]);setRemediation(false);setOriginalTaskCount(makeReadingRound(chapter,checkpoint).length);setCorrectedCount(0);setAnswerState(null);setPlaced([]);setSelectedAnswer(null);setHeard(false);setHelped(false);setHintsUsed(0);setMisses(0);setShowing(false);setTried([]);setCheckpointFallback(false);setMessage('');
     session.current=crypto.randomUUID();started.current=new Date().toISOString();
     setIssued(null);setLoadingCheck(checkpoint&&!sandbox&&!localMode);setRoundNumber(n=>n+1);
   }
@@ -412,7 +443,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
     <header ref={heading} className="reading-heading"><button className="reading-icon activity-back-button" onClick={leaveRound} aria-label="Back to journey" title="Back to journey"><ArrowLeft/></button><div><p className="reading-eyebrow">{checkpoint?'Word checkpoint':'Practice adventure'}</p><h1>{chapter.title}</h1></div><span>{complete?tasks.length:index+1} / {tasks.length}</span></header>
     <div className={`reading-round-progress ${remediation?'is-returning':''}`} role="progressbar" aria-label={remediation?'Practice-again progress':'Challenge progress'} aria-valuemin={0} aria-valuemax={tasks.length} aria-valuenow={complete?tasks.length:index+(done?1:0)}><span style={{width:`${Math.max(4,((complete?tasks.length:index+(done?1:0))/tasks.length)*100)}%`}}/></div>
     {complete?<ReadingCompletion chapter={chapter} checkpoint={checkpoint} pass={Boolean(pass)} reviewMode={Boolean(reviewMode)} successes={successes} originalTaskCount={originalTaskCount} correctedCount={correctedCount} unassessed={unassessed} spokenStations={spokenStations} words={[...new Set(tasks.filter(task=>task.kind==='read').map(task=>task.word))]} onPractice={onPractice} onRestart={restartRound} onReturn={()=>onComplete(Boolean(pass),checkpointFallback)}/>:<>
-      <div className="reading-narration"><CharacterCompanion state={recording?'listening':sound.isPlaying?'speaking':answerState==='correct'?'celebrating':answerState==='incorrect'?'encouraging':'idle'} size={90}/><div><span>{remediation?'Milo brought this one back':'Milo says'}</span><h2>{roundPrompt}</h2><MiloSays text={message||'Take your time. There is no timer to beat.'} speak={message?message:`${roundPrompt} Take your time. There is no timer to beat.`}/></div></div>
+      <div className="reading-narration"><CharacterCompanion state={recording?'listening':sound.isPlaying?'speaking':answerState==='correct'?'celebrating':answerState==='incorrect'||misses>0?'encouraging':'idle'} size={90}/><div><span>{remediation?'Milo brought this one back':'Milo says'}</span><h2>{roundPrompt}</h2><MiloSays text={message||'Take your time. There is no timer to beat.'} speak={message?message:`${roundPrompt} Take your time. There is no timer to beat.`}/></div></div>
       <section className={`reading-play reading-play--${active.kind} ${done?'reading-play--solved':''}`}>
         <ActivityScene/>
         {chapter.id==='gate'&&!checkpoint&&active.kind==='read'&&<VoiceRail word={active.word} spoken={spokenStations}/>}
@@ -425,15 +456,18 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
         {chapter.id==='library'&&!checkpoint&&active.kind==='read'&&<RoyalLibraryVoiceTrail active={active.word} restored={spokenStations}/>} 
         {chapter.id==='tower'&&!checkpoint&&active.kind==='read'&&<VowelTowerVoiceTrail active={active.word} awakened={spokenStations}/>} 
         {chapter.id==='crown'&&!checkpoint&&active.kind==='read'&&<CrownChamberVoiceTrail active={active.word} restored={spokenStations}/>} 
-        {firstBook&&nextAction==='listen'?<div className="book-sequential-action"><Headphones className="reading-big-icon"/><button className="reading-primary" disabled={sound.isPlaying} onClick={()=>void hear()}><Volume2/>{sound.isPlaying?'Listening...':active.kind==='listen'?'Hear the mystery word':'Hear the word'}</button></div>:active.kind==='build'&&chapter.id==='gate'?<LetterTrain key={`${index}-${roundNumber}`} word={active.word} done={done} showModel={firstGateShowsWordModel(active.word)} onAnswer={word=>answer(word,'construction')}/>:active.kind==='build'?<><div className="reading-target">{active.word}</div><div className="reading-slots" aria-label="Your word">{[...active.word].map((_,i)=><span key={i}>{placed[i]!==undefined?tiles.find(t=>t.id===placed[i])?.letter:''}</span>)}</div><div className="reading-tiles">{tiles.map(t=><button key={t.id} disabled={placed.includes(t.id)||done} onClick={()=>{const next=[...placed,t.id];setPlaced(next);if(next.length===active.word.length)answer(next.map(id=>tiles.find(t=>t.id===id)!.letter).join(''),'construction');}}>{t.letter}</button>)}<button className="reading-icon" onClick={()=>setPlaced([])} disabled={done} aria-label="Clear letters" title="Clear letters"><RotateCcw/></button></div></>:
-        active.kind==='repair'||active.kind==='change'?<><div className="reading-change">{active.fromWord&&<><span className="reading-target">{active.fromWord}</span><ArrowRight aria-label="changes to"/></>}<div className="reading-target">{[...active.word].map((letter,i)=><span key={i}>{i===active.missing&&!done?'_':letter}</span>)}</div></div>{!firstBook&&<button className="reading-secondary" onClick={()=>void hear()} disabled={sound.isPlaying}><Volume2/>Hear the new word</button>}<div className="reading-tiles">{shuffleFixedLetters(active).map(letter=><button key={letter} disabled={done||!heard} onClick={()=>answer(active.word.slice(0,active.missing)+letter+active.word.slice(active.missing+1))}>{letter}</button>)}</div></>:
-        active.kind==='listen'?<><Headphones className="reading-big-icon"/>{!firstBook&&<button className="reading-primary" onClick={()=>void hear()} disabled={sound.isPlaying}><Volume2/>Hear the mystery word</button>}<div className="reading-choices">{active.options.map(w=><button key={w} className={selectedAnswer===w?(answerState==='correct'?'is-correct':'is-wrong'):''} aria-label={selectedAnswer===w&&answerState==='correct'?`${w}, correct`:w} disabled={!heard||done} onClick={()=>answer(w)}>{w}{selectedAnswer===w&&answerState==='correct'&&<CheckCircle2 aria-hidden="true"/>}</button>)}</div></>:
-        active.kind==='meaning'?<><BookOpen className="reading-big-icon"/><p className="reading-story">{active.clue}</p>{!checkpoint&&<button className="reading-secondary" disabled={sound.isPlaying} onClick={()=>{setHelped(true);void sound.narrateText({file:'',text:active.clue!.replace('___','blank')}).catch(()=>setMessage('Audio could not play.'));}}><Volume2/>Hear the story</button>}<div className="reading-meaning-pictures">{active.options.map(w=><button key={w} className={selectedAnswer===w?(answerState==='correct'?'is-correct':'is-wrong'):''} disabled={done||busy} onClick={()=>void answerMeaning(w)} aria-label={w}><ReadingAnchorArt word={w}/><span>{w}</span>{selectedAnswer===w&&answerState==='correct'&&<CheckCircle2 className="reading-picture-check" aria-hidden="true"/>}</button>)}</div></>:
+        {firstBook&&nextAction==='listen'?<div className="book-sequential-action"><Headphones className="reading-big-icon"/><button className="reading-primary" disabled={sound.isPlaying} onClick={()=>void hear()}><Volume2/>{sound.isPlaying?'Listening...':active.kind==='listen'?'Hear the mystery word':'Hear the word'}</button></div>:active.kind==='build'&&chapter.id==='gate'?<LetterTrain key={`${index}-${roundNumber}-${misses}`} word={active.word} done={done} showModel={firstGateShowsWordModel(active.word)||hintOn('show_me')} onAnswer={word=>answer(word,'construction')}/>:active.kind==='build'?<><div className="reading-target">{active.word}</div><div className="reading-slots" aria-label="Your word">{[...active.word].map((_,i)=><span key={i} className={hintOn('hear_point')&&!showing&&i===placed.length?'is-hint':undefined}>{placed[i]!==undefined?tiles.find(t=>t.id===placed[i])?.letter:''}</span>)}</div><div className="reading-tiles">{tiles.map(t=><button key={t.id} className={hintOn('glow_tile')&&!showing&&t.id===tiles.find(tile=>tile.letter===active.word[placed.length]&&!placed.includes(tile.id))?.id?'is-hint':undefined} disabled={placed.includes(t.id)||done||showing} onClick={()=>{const next=[...placed,t.id];setPlaced(next);if(next.length===active.word.length)answer(next.map(id=>tiles.find(t=>t.id===id)!.letter).join(''),'construction');}}>{t.letter}</button>)}<button className="reading-icon" onClick={()=>setPlaced([])} disabled={done} aria-label="Clear letters" title="Clear letters"><RotateCcw/></button></div></>:
+        active.kind==='repair'||active.kind==='change'?<><div className="reading-change">{active.fromWord&&<><span className="reading-target">{active.fromWord}</span><ArrowRight aria-label="changes to"/></>}<div className="reading-target">{[...active.word].map((letter,i)=><span key={i}>{i===active.missing&&!done?'_':letter}</span>)}</div></div>{!firstBook&&<button className="reading-secondary" onClick={()=>void hear()} disabled={sound.isPlaying}><Volume2/>Hear the new word</button>}<div className="reading-tiles">{shuffleFixedLetters(active).map((letter,_i,letters)=><button key={letter} className={choiceHint(letters,active.word[active.missing],letter)} disabled={done||!heard||choiceHint(letters,active.word[active.missing],letter)==='is-faded'} onClick={()=>answer(active.word.slice(0,active.missing)+letter+active.word.slice(active.missing+1))}>{letter}</button>)}</div></>:
+        active.kind==='listen'?<><Headphones className="reading-big-icon"/>{!firstBook&&<button className="reading-primary" onClick={()=>void hear()} disabled={sound.isPlaying}><Volume2/>Hear the mystery word</button>}<div className="reading-choices">{active.options.map(w=><button key={w} className={choiceHint(active.options,active.word,w)??(selectedAnswer===w?(answerState==='correct'?'is-correct':'is-wrong'):'')} aria-label={selectedAnswer===w&&answerState==='correct'?`${w}, correct`:w} disabled={!heard||done||choiceHint(active.options,active.word,w)==='is-faded'} onClick={()=>answer(w)}>{w}{selectedAnswer===w&&answerState==='correct'&&<CheckCircle2 aria-hidden="true"/>}</button>)}</div></>:
+        active.kind==='meaning'?<><BookOpen className="reading-big-icon"/><p className="reading-story">{active.clue}</p>{!checkpoint&&<button className="reading-secondary" disabled={sound.isPlaying} onClick={()=>{setHelped(true);void sound.narrateText({file:'',text:active.clue!.replace('___','blank')}).catch(()=>setMessage('Audio could not play.'));}}><Volume2/>Hear the story</button>}<div className="reading-meaning-pictures">{active.options.map(w=><button key={w} className={choiceHint(active.options,active.word,w)??(selectedAnswer===w?(answerState==='correct'?'is-correct':'is-wrong'):'')} disabled={done||busy||choiceHint(active.options,active.word,w)==='is-faded'} onClick={()=>void answerMeaning(w)} aria-label={w}><ReadingAnchorArt word={w}/><span>{w}</span>{selectedAnswer===w&&answerState==='correct'&&<CheckCircle2 className="reading-picture-check" aria-hidden="true"/>}</button>)}</div></>:
           <>{(!checkpoint||done)&&<ReadingWordPicture word={active.word} onHear={hearScene} hearDisabled={busy||sound.isPlaying}/>}<div className="reading-target">{active.word}</div><div className="reading-actions">{(!firstBook||!done)&&<button className={`reading-primary ${recording?'is-listening':''}`} data-recording={recording} disabled={busy||done||sound.isPlaying} onClick={()=>void record()}>{recording?<><span className="recording-pulse" aria-hidden="true"/><span className="recording-live">Live</span></>:<Mic/>}<span>{recording?`Recording · ${seconds}`:busy?'Checking...':`Say ${active.word}`}</span></button>}{reviewMode&&!done&&<details className="book-practice-help"><summary>Preview tools</summary><button className="reading-secondary" disabled={busy} onClick={()=>{markCorrect();setSpokenStations(words=>chapter.id==='lanterns'?addLitLantern(words,active.word,'matched'):chapter.id==='market'?addStockedLabel(words,active.word,'matched'):chapter.id==='garden'?addBloomedWord(words,active.word,'matched'):chapter.id==='bridge'?addRaisedPlank(words,active.word,'matched'):chapter.id==='hall'?addTransformedWord(words,active.word,'matched'):chapter.id==='keys'?addUnlockedWord(words,active.word,'matched'):chapter.id==='library'?addRestoredStory(words,active.word,'matched'):chapter.id==='tower'?addAwakenedVowelWord(words,active.word,'matched'):chapter.id==='crown'?addRestoredCrownWord(words,active.word,'matched'):addSpokenStation(words,active.word,'matched'));setMessage('Preview result. No voice was assessed.');}}>Preview success</button></details>}</div>{clip&&<div className="reading-voice-replay"><audio ref={clipPlayer} src={clip} preload="metadata"/><button className="reading-icon" title="Hear my voice" aria-label="Hear my voice" onClick={()=>void clipPlayer.current?.play()}><Volume2/></button><span>My voice</span></div>}</>}
         {done&&active.kind!=='read'&&active.kind!=='meaning'&&<ReadingWordPicture word={active.word} onHear={hearScene} hearDisabled={sound.isPlaying}/>}
         {answerState&&<div className={`reading-answer-banner is-${answerState}`} role="status">{answerState==='correct'?<CheckCircle2 aria-hidden="true"/>:<RotateCcw aria-hidden="true"/>}<div><strong>{answerState==='correct'?'Correct!':'We can try this again'}</strong><span>{answerState==='correct'?`${active.word} is complete.`:'This word will come back after a few more challenges.'}</span></div></div>}
       </section>
-      <footer className="reading-round-footer">{!done&&<details key={index} className="book-practice-help"><summary>Need help?</summary>{(firstBook?heard:active.kind==='read')&&!checkpoint&&<button className="reading-secondary" disabled={busy||sound.isPlaying} onClick={()=>void hear()}><Volume2 aria-hidden="true"/>{firstBook?'Hear the word again':'Hear the word'}</button>}<button className="reading-secondary" disabled={busy} onClick={()=>void skip()}>Try another word</button></details>}{done&&<button className="reading-primary" onClick={next}>{answerState==='incorrect'?'Next challenge':'Continue'}<ArrowRight/></button>}</footer>
+      <footer className="reading-round-footer">{!done&&(checkpoint?<details key={index} className="book-practice-help"><summary>Need help?</summary><button className="reading-secondary" disabled={busy} onClick={()=>void skip()}>Try another word</button></details>:<div className="reading-help">
+        {firstBook&&heard&&<button className="reading-secondary reading-help-button" disabled={busy||sound.isPlaying} onClick={()=>void hear()}><Volume2 aria-hidden="true"/>Hear again</button>}
+        {hintsUsed<ladder.length?<button className={`reading-secondary reading-help-button ${misses>0?'is-offered':''}`} disabled={busy||showing||sound.isPlaying} onClick={giveHint}><Lightbulb aria-hidden="true"/>{ladder[hintsUsed]==='show_me'?'Show me how':'Help'}</button>:<button className="reading-secondary reading-help-button" disabled={busy} onClick={()=>void skip()}>Skip for now</button>}
+      </div>)}{done&&<button className="reading-primary" onClick={()=>next()}>{answerState==='incorrect'?'Next challenge':'Continue'}<ArrowRight/></button>}</footer>
     </>}
   </main>;
 }

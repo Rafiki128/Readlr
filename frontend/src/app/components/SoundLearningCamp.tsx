@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Headphones, Mic, RotateCcw, Shield, Volume2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Headphones, Lightbulb, Mic, RotateCcw, Shield, Volume2, X } from 'lucide-react';
 import { SOUND_CARDS, type SoundCard } from './aralCurriculum';
 import { AdventureBackdrop, LandmarkArt } from './AdventureArt';
 import { ReadingAnchorArt } from './ReadingAnchorArt';
@@ -143,6 +143,8 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
   const clipPlayer=useRef<HTMLAudioElement>(null);
   const buildSequenceId = useRef(0);
   const [heard,setHeard]=useState(false);
+  const [findHint,setFindHint]=useState(0);
+  const [findMissed,setFindMissed]=useState(false);
   const sound=useBridgeAudio('/audio/stage3');
   const recorder=useCvcRecorder();
   const live=useRef(true),inFlight=useRef(false),request=useRef<AbortController|null>(null);
@@ -311,7 +313,7 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
     </div>
     <section className="camp-learning-window">
       <div className="camp-window-top"><span/><span/><span/></div>
-      <div className="camp-lesson-narration"><CharacterCompanion state={recording?'listening':sound.isPlaying?'speaking':phase==='finish'?'celebrating':'idle'} gesture={phase==='finish'?'reveal':'point'} size={145}/><div><span>Milo says</span><p aria-live="polite">{phase==='find'?(message.startsWith('Look for ')?<>Look for <mark className="camp-guidance-sound">{card.letter}</mark> in <HighlightedSoundWord word={card.word} sound={card.letter}/>.</>:<>Can you find <mark className="camp-guidance-sound">{card.letter}</mark> in <HighlightedSoundWord word={card.word} sound={card.letter}/>? Tap the letter.</>):message}</p></div><button className="reading-icon" disabled={busy||sound.isPlaying} onClick={()=>void narrate(true)} title="Hear Milo explain" aria-label="Hear Milo explain"><Volume2/></button></div>
+      <div className="camp-lesson-narration"><CharacterCompanion state={recording?'listening':sound.isPlaying?'speaking':phase==='finish'?'celebrating':'idle'} gesture={phase==='finish'?'reveal':'point'} size={145}/><div><span>Milo says</span><p aria-live="polite">{phase==='find'&&findHint===0?(message.startsWith('Look for ')?<>Look for <mark className="camp-guidance-sound">{card.letter}</mark> in <HighlightedSoundWord word={card.word} sound={card.letter}/>.</>:<>Can you find <mark className="camp-guidance-sound">{card.letter}</mark> in <HighlightedSoundWord word={card.word} sound={card.letter}/>? Tap the letter.</>):message}</p></div><button className="reading-icon" disabled={busy||sound.isPlaying} onClick={()=>void narrate(true)} title="Hear Milo explain" aria-label="Hear Milo explain"><Volume2/></button></div>
       <div className={`camp-picture-stage ${phase==='finish'?'is-blooming':''}`}><ActivityScene/><div className="camp-focus-picture"><ReadingAnchorArt word={card.word}/></div>{phase==='finish'&&<span className="camp-practice-flower"><LandmarkArt kind="garden"/></span>}</div>
       
       {phase === 'build-up' && isSentenceMode ? (
@@ -403,7 +405,7 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
           <div className="camp-word" aria-label={card.word}>
             {isFind ? (
               [...parts[0].split('').map(text=>({text,correct:false})),{text:parts[1],correct:true},...parts[2].split('').map(text=>({text,correct:false}))].map((piece,i)=>(
-                <button key={i} onClick={()=>{
+                <button key={i} className={piece.correct&&findHint>=2?'is-hint':undefined} onClick={()=>{
                   if(piece.correct){
                     if (isSentenceMode) {
                       setPhase('build-up');
@@ -416,7 +418,7 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
                       setMessage(`You found it! Now say ${card.word}.`);
                     }
                   } else {
-                    setMessage(`Look for ${parts[1]} in ${card.word}.`);
+                    setFindMissed(true);setMessage(`Look for ${parts[1]} in ${card.word}.`);
                   }
                 }}>{piece.text}</button>
               ))
@@ -459,7 +461,12 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
     <>
       {heard && phase !== 'finish' && (
         <details className="book-practice-help">
-          <summary>Need help?</summary>
+          <summary className={isFind&&findMissed&&findHint===0?'reading-help-button is-offered':undefined}>Need help?</summary>
+          {isFind && findHint < 2 && (
+            <button className="reading-secondary reading-help-button" onClick={() => { setMessage(findHint === 0 ? card.cue : `The glowing letter is ${card.letter}.`); setFindHint(findHint + 1); }}>
+              <Lightbulb aria-hidden="true" />{findHint === 0 ? 'Mouth tip' : 'Show me'}
+            </button>
+          )}
           <button className="reading-secondary" disabled={busy || sound.isPlaying} onClick={() => {
             sound.stop();
             if (window.speechSynthesis) window.speechSynthesis.cancel();

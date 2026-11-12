@@ -24,3 +24,22 @@ These lines are the fixed Step 14 prototype dialogue. They may be recorded or ca
 | Delayed review | First error | Saved. Keep going. | That answer stays saved. Practice can happen after the review. | None |
 | Delayed review | Repeated error | Review, then practice. | Finish this short review, then revisit the focused blend lesson. | Suggest approved practice after review |
 | Delayed review | Success | Later check saved. | Your later answers are saved separately from your first check. | None |
+
+## Book help ladder (word rounds and sound lessons)
+
+Practice only. Checkpoints keep no hints. Each line falls back to the computer voice until recorded.
+
+| Moment | Line | Action |
+| --- | --- | --- |
+| After a miss | Good try! Tap the light for help. | Help button glows |
+| After every hint is used | Good try! Have another go. | None |
+| Hint: hear and point (build) | Listen. Start at the glowing space. | Play the word, glow the next space |
+| Hint: glow tile (build) | The glowing letter comes next. | Glow the next tile |
+| Hint: mouth tip | (the sound card cue, for example "Let air flow like a quiet hiss.") | None |
+| Hint: fewer choices | I took one away. Try again. | Fade one wrong choice |
+| Hint: story (picture meaning) | Listen to the little story. | Play the story sentence |
+| Hint: picture (read aloud) | Look at the picture and listen. | Play the picture scene line |
+| Hint: hear word (read aloud) | Listen, then say it with me. | Play the word |
+| Show me how (build) | Watch me first. Then you try. | Fill the tiles, then reset; the word comes back once |
+| Show me how (choices) | Tap the glowing one. | Glow the answer; the word comes back once |
+| Sound lesson show me | The glowing letter is {letter}. | Glow the letter |
