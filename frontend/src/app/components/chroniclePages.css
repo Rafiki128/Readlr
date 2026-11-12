@@ -250,3 +250,9 @@
 .chronicle-ten-books strong{font-size:27px;line-height:1}
 .chronicle-ten-books span{max-width:75px;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1.15}
 @media(prefers-reduced-motion:reduce){.crown-moving-jewel{display:none}.crown-restoration{animation:none!important;transition:none!important}}
+
+/* Blend lesson on shorter screens (e.g. 1366x768 / 1920x870 laptops): the letter board needs ~400px,
+   more than its fixed 170px row, so it overlapped the action button. Size rows to content and
+   scroll the lesson instead of overlapping when the window is too short. */
+.chronicle-activity-paper .book-blending-lesson{grid-template-rows:44px minmax(min-content,1fr) auto auto auto minmax(58px,auto) auto;align-content:space-between;overflow-y:auto;overflow-x:hidden}
+@media(max-height:900px){.chronicle-activity-paper .book-blending-lesson .book-blend-scene .milo-companion{width:110px!important;height:110px!important}.chronicle-activity-paper .book-blending-lesson .book-blend-board{gap:12px;padding-block:14px 10px;margin-block:6px}}

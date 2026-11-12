@@ -146,7 +146,7 @@ export function AdminClassroomControls({ token, learners, target, onTargetChange
         {!!preview?.readingUnlockThrough && <p className="admin-confirm-note">Reading Chronicles: unlock through Book {preview.readingUnlockThrough}. Checkpoints are not marked complete.</p>}
         {!!preview?.readingOpenChallenges?.length && <p className="admin-confirm-note">Open all challenges in Books {preview.readingOpenChallenges.join(', ')}, including their final gates. Completion and rewards are unchanged.</p>}
         {!!preview?.readingOpenStops?.length && <p className="admin-confirm-note">Open {preview.readingOpenStops.length} individually selected stops. Their books become accessible; other stops follow saved progress.</p>}
-        <p className="admin-confirm-note">Sticker Book, Sound Library, Progress, and Achievements follow the learner\'s curriculum milestones.</p>
+        <p className="admin-confirm-note">Sticker Book, Sound Library, Progress, and Achievements follow the learner's curriculum milestones.</p>
         {target === 'class' && <p className="admin-confirm-note">Individual learner overrides still take priority. Changes reach connected learners within about 15 seconds.</p>}
         <AlertDialogFooter><AlertDialogCancel>Keep current settings</AlertDialogCancel><AlertDialogAction className="admin-confirm-apply" onClick={() => void save()}>Confirm changes</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>

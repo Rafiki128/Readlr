@@ -28,6 +28,8 @@ import { CurriculumSoundLibrary } from './components/CurriculumSoundLibrary';
 import { WorldDestination } from './components/WorldDestination';
 import { StageSelection } from "./components/StageSelection";
 import { useClassroom } from "./hooks/useClassroom";
+import { useStudySession } from "./hooks/useStudySession";
+import { StudySession } from "./components/StudySession";
 import { ClassroomMessage } from "./components/ClassroomMessage";
 import { ClassroomNotice } from "./components/ClassroomNotice";
 import { ReadingJourney } from './components/ReadingJourney';
@@ -304,6 +306,7 @@ function AppContent() {
     level: currentScreen === 'game' ? selectedLevel : null,
     screen: currentScreen,
   });
+  const studySession = useStudySession(token, isAuthenticated && user?.role === 'learner');
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
@@ -707,6 +710,15 @@ function AppContent() {
 
   if (user?.role === "admin") {
     return <AdminDashboard/>;
+  }
+
+  // A running pretest/posttest study session replaces the normal learner app.
+  if (user?.role === 'learner' && token && learnerId && studySession.study?.active) {
+    return <StudySession token={token} userId={user.id} learnerId={learnerId} study={studySession.study} surveyAssigned={classroom.surveyAssigned}
+      onUpdate={studySession.setStudy} onRefresh={studySession.refresh} onLogout={handleBackToRoleSelect} />;
+  }
+  if (user?.role === 'learner' && token && !studySession.loaded) {
+    return <main className="study-shell"><section className="study-card"><p>Loading...</p></section></main>;
   }
 
   const classroomMessage = user?.role === 'learner' && !classroom.error ? <ClassroomMessage key={user.id} userId={user.id} policy={classroom.policy} /> : null;

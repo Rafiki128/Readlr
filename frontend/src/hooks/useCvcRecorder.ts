@@ -6,7 +6,8 @@ export function useCvcRecorder(telemetry?: { begin: () => void; finish: (outcome
   const generation = useRef(0);
   function stop() { generation.current++; cancel.current?.(); cancel.current = null; }
   useEffect(() => stop, []);
-  async function capture(onTick:(remaining:number)=>void, beforeStart:()=>Promise<void>):Promise<Blob> {
+  /** `endOnSilence` stops shortly after the learner finishes speaking instead of always recording the full window. */
+  async function capture(onTick:(remaining:number)=>void, beforeStart:()=>Promise<void>, options:{endOnSilence?:boolean}={}):Promise<Blob> {
     stop();
     const run = generation.current;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) throw new Error("This browser cannot record. You can practice without the microphone.");
@@ -54,16 +55,21 @@ export function useCvcRecorder(telemetry?: { begin: () => void; finish: (outcome
           recorder!.start();
           telemetry?.begin();
           const start = Date.now(); onTick(4);
+          let lastVoice = 0;
+          const end = () => {
+            clearTimeout(ending);
+            flushing=setTimeout(()=>finish(new Error("The recording did not finish. Tap to try again.")),5000);
+            if(recorder?.state==="recording") recorder.stop();
+          };
           sampling=setInterval(()=> {
             analyser.getFloatTimeDomainData(data);
             const rms=Math.sqrt(data.reduce((sum,sample)=>sum+sample*sample,0)/data.length);
-            peak=Math.max(peak,rms); if(rms>=.018) frames++;
+            peak=Math.max(peak,rms); if(rms>=.018) { frames++; lastVoice=Date.now(); }
             onTick(Math.max(1,Math.ceil((4000-Date.now()+start)/1000)));
+            // Enough voiced frames to pass the voice check, followed by 700 ms of quiet.
+            if(options.endOnSilence && frames>=6 && lastVoice && Date.now()-lastVoice>700 && recorder?.state==="recording") { clearInterval(sampling); end(); }
           },50);
-          ending=setTimeout(()=>{
-            flushing=setTimeout(()=>finish(new Error("The recording did not finish. Tap to try again.")),5000);
-            if(recorder?.state==="recording") recorder.stop();
-          },4000);
+          ending=setTimeout(end,4000);
         }).catch(error=>finish(error instanceof Error ? error : new Error("Please allow the microphone and try again.")));
       } catch { finish(new Error("Please allow the microphone and try again.")); }
     });
