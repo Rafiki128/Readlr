@@ -17,9 +17,9 @@ export async function getSurvey(req:Request,res:Response) {
   } catch {unavailable(res);}
 }
 export async function submitSurvey(req:Request,res:Response) {
-  if (!validateSubmission(req.body)) {res.status(400).json({message:'Check your section and survey answers.'});return;}
+  if (!validateSubmission(req.body)) {res.status(400).json({message:'Check your survey answers.'});return;}
   try {
-    const ok=unwrap(await supabase.rpc('submit_student_survey',{p_user:(req as any).userId,p_version:SURVEY_VERSION,p_section:req.body.section.trim(),p_language:req.body.language,p_answers:req.body.answers}));
+    const ok=unwrap(await supabase.rpc('submit_student_survey',{p_user:(req as any).userId,p_version:SURVEY_VERSION,p_language:req.body.language,p_answers:req.body.answers}));
     if (!ok) {res.status(403).json({message:'Your survey assignment has ended. Your answers were not submitted.'});return;}
     res.json({success:true});
   } catch {unavailable(res);}
@@ -58,7 +58,7 @@ export function surveyWorkbook(rows:any[]) {
   book.creator='Readlr';
   const sheet=book.addWorksheet('Responses');
   sheet.addRow(['Learner ID','Learner','Section','Language','Submitted (UTC)','Questionnaire version',...questions.map(q=>`Q${q.id}`),'Study participant']);
-  for(const row of rows)sheet.addRow([row.user_id,String(row.name),String(row.section),row.language,new Date(row.submitted_at),SURVEY_VERSION,...row.answers,row.study_participant?'Yes':'No']);
+  for(const row of rows)sheet.addRow([row.user_id,String(row.name),String(row.section??''),row.language,new Date(row.submitted_at),SURVEY_VERSION,...row.answers,row.study_participant?'Yes':'No']);
   sheet.getColumn(5).numFmt='yyyy-mm-dd hh:mm:ss';
   const key=book.addWorksheet('Question key');
   key.addRow(['Question','English','Cebuano','Answer values']);

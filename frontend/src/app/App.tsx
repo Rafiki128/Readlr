@@ -723,7 +723,7 @@ function AppContent() {
   }
 
   const classroomMessage = user?.role === 'learner' && !classroom.error ? <ClassroomMessage key={user.id} userId={user.id} policy={classroom.policy} /> : null;
-  if (currentScreen === 'survey' && token && user?.role === 'learner') return <><NavigationHeader userName={learnerName} userAvatar={learnerAvatar} currentScreen="survey" onNavigate={handleNavigate} onLogout={handleBackToRoleSelect} surveyAssigned={classroom.surveyAssigned}/><StudentSurvey key={user.id} token={token} userId={user.id} onBack={handleBackToStages}/></>;
+  if (currentScreen === 'survey' && token && user?.role === 'learner') return <><NavigationHeader userName={learnerName} userAvatar={learnerAvatar} currentScreen="survey" onNavigate={handleNavigate} onLogout={handleBackToRoleSelect} surveyAssigned={classroom.surveyAssigned} learningCampEnabled featureAccess={featureAccess} learnerId={learnerId} rewardState={{ state: curriculumState.state, completedBooks }}/><StudentSurvey key={user.id} token={token} userId={user.id} onBack={handleBackToStages}/></>;
   const allClassroomStagesUnlocked = classroom.policy?.mode === 'stages' &&
     [1, 2, 3].every(stage => classroom.policy?.stages?.includes(stage));
   const classroomBlocksCurrentScreen=!!classroom.policy&&(
@@ -736,7 +736,7 @@ function AppContent() {
 
   if (user?.role === 'learner' &&
     (classroom.error || classroomBlocksCurrentScreen)) {
-    return <>{classroomMessage}{classroom.surveyAssigned&&<button className="m-4 rounded-lg bg-teal-700 text-white p-4" onClick={()=>setCurrentScreen('survey')}>Open your feedback survey</button>}<ClassroomNotice policy={classroom.policy} error={classroom.error} onLogout={handleBackToRoleSelect} onStage={stage => {
+    return <>{classroomMessage}{classroom.surveyAssigned&&<button className="survey-primary m-4" onClick={()=>setCurrentScreen('survey')}>Open your feedback survey</button>}<ClassroomNotice policy={classroom.policy} error={classroom.error} onLogout={handleBackToRoleSelect} onStage={stage => {
       setSelectedLevel(1); handleSelectStage(stage);
     }} /></>;
   }

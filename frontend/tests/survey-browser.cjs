@@ -23,7 +23,7 @@ const data=JSON.parse(execFileSync(process.execPath,['--import','tsx','--input-t
     else if(p.endsWith('/progress/me/reset-state'))body={stages:[]};
     else if(p.endsWith('/admin/survey/me')){if(req.method()==='POST'){submissions.push(req.postDataJSON());body={success:true};}else body=data;}
     else if(p.endsWith('/admin/survey/assignments')){if(req.method()==='PUT'){const b=req.postDataJSON();if(b.target==='class')assignment.enabled=b.enabled;else assignment.overrides[b.target]=b.enabled;assignment.revision++;}body=assignment;}
-    else if(p.endsWith('/admin/survey/responses'))body={...data,responses:[{user_id:7,name:'Test Student',section:'Sunflower',language:'ceb',submitted_at:new Date().toISOString(),answers:submissions[0].answers}]};
+    else if(p.endsWith('/admin/survey/responses'))body={...data,responses:[{user_id:7,name:'Test Student',section:null,language:'ceb',submitted_at:new Date().toISOString(),answers:submissions[0].answers}]};
     else if(p.includes('/progress/'))body={progress:[],journeys:[]};
     await route.fulfill({status,json:body});
    });
@@ -32,12 +32,10 @@ const data=JSON.parse(execFileSync(process.execPath,['--import','tsx','--input-t
    if(role==='learner'){
     await page.getByRole('button',{name:'Start Adventure'}).waitFor();
     await page.evaluate(()=>{history.pushState({},'','/survey');window.dispatchEvent(new PopStateEvent('popstate'));});
-    await page.getByRole('heading',{name:'How was your adventure?'}).waitFor();
+    await page.getByRole('heading',{name:/How was your adventure\?/}).waitFor();
+    assert.equal(await page.locator('.kid-header').count(),1,'Survey must use the kid navigation');
     if(process.argv[3])await page.screenshot({path:path.join(process.argv[3],'survey-welcome.png')});
-    await page.getByRole('combobox',{name:'Survey language'}).click();
-    await page.getByRole('option',{name:'Cebuano',exact:true}).click();
-    await page.getByLabel('Imong seksyon').fill('Sunflower');
-    await page.getByRole('button',{name:'Magsugod na ta'}).click();
+    await page.getByRole('button',{name:'Bisaya',exact:true}).click();
     await page.getByRole('heading',{name:data.questions[0].ceb}).waitFor();
     if(process.argv[3])await page.screenshot({path:path.join(process.argv[3],'survey-desktop.png')});
     await page.setViewportSize({width:393,height:852});
@@ -51,12 +49,12 @@ const data=JSON.parse(execFileSync(process.execPath,['--import','tsx','--input-t
      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
      if(i===0&&process.argv[3])await page.screenshot({path:path.join(process.argv[3],'survey-mobile.png')});
      if(i===3)await page.getByRole('button',{name:'Laktawi',exact:true}).click();
-     else{await page.getByRole('radio').nth(i<12?3:0).check();if(i===13&&process.argv[3])await page.screenshot({path:path.join(process.argv[3],'survey-choice-mobile.png')});await page.getByRole('button',{name:i===13?'Tan-awa':'Sunod',exact:true}).click();}
+     else{await page.locator('fieldset label').nth(i<12?3:0).click();assert.equal(await page.getByRole('radio').nth(i<12?3:0).isChecked(),true);if(i===13&&process.argv[3])await page.screenshot({path:path.join(process.argv[3],'survey-choice-mobile.png')});}
     }
-    await page.getByRole('heading',{name:'Andam na sa pagpaambit?'}).waitFor();
-    await page.getByRole('button',{name:'Ipadala akong mga tubag'}).click();
-    await page.getByRole('heading',{name:'Salamat sa imong mga tubag!'}).waitFor();
-    assert.equal(submissions.length,1);assert.equal(submissions[0].answers[3],null);assert.equal(submissions[0].language,'ceb');assert.equal(submissions[0].answers[13],'nothing');assert.equal(submissions[0].name,undefined);
+    await page.getByRole('heading',{name:'Human na!'}).waitFor();
+    await page.getByRole('button',{name:'Ipadala',exact:true}).click();
+    await page.getByRole('heading',{name:'Salamat!'}).waitFor();
+    assert.equal(submissions.length,1);assert.equal(submissions[0].section,undefined);assert.equal(submissions[0].answers[3],null);assert.equal(submissions[0].language,'ceb');assert.equal(submissions[0].answers[13],'nothing');assert.equal(submissions[0].name,undefined);
    }else{
     await page.getByRole('button',{name:'Classroom controls',exact:true}).click();
     await page.getByRole('combobox',{name:'Access',exact:true}).click();
@@ -91,7 +89,7 @@ const data=JSON.parse(execFileSync(process.execPath,['--import','tsx','--input-t
     assert.ok(Math.abs(refreshBox.y-exportBox.y)<1&&Math.abs(refreshBox.height-exportBox.height)<1,'Export toolbar buttons must align');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Admin survey must fit the viewport');
     await page.getByRole('button',{name:'View answers for Test Student'}).click();
-    await page.getByText('Test Student - Sunflower',{exact:true}).waitFor();
+    await page.getByRole('heading',{name:'Test Student',exact:true}).waitFor();
     if(process.argv[3])await page.screenshot({path:path.join(process.argv[3],'survey-admin.png')});
    }
    await context.close();
