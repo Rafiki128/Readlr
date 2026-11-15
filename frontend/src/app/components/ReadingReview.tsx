@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Eye, RotateCcw } from 'lucide-react';
 import { ReadingJourney } from './ReadingJourney';
+import { Book1Guide } from './Book1Guide';
 import { ChronicleHome } from './ChronicleHome';
 import { SoundLearningCamp } from './SoundLearningCamp';
 import { StickerBookView } from './StickerBook';
@@ -33,5 +34,6 @@ export function ReadingReview({onBack,onSignIn}:{onBack:()=>void;onSignIn?:()=>v
     </header>
     <p className="reading-review-note">Work in progress: some pictures and voices are provisional. Microphone checks send your recording to the speech service; results are for review only.</p>
     <div className="reading-review-content">{place==='home'?<ChronicleHome reviewMode initialIndex={book} onFocusBook={setBook} onProgress={()=>setPlace('progress')} onStickers={()=>setPlace('stickers')} onSounds={()=>setPlace('sounds')} onAchievements={()=>setPlace('achievements')} onOpenCamp={()=>setPlace('camp')} onOpenBook={index=>{setBook(index);setPlace('book');}}/>:place==='camp'?<SoundLearningCamp key={session} reviewMode onBack={()=>setPlace('home')}/>:place==='progress'?<WorldDestination kind="progress" onBack={()=>setPlace('home')}>{back=><ReadingProgressDashboard learnerId={null} token={null} userName="Review" state={reviewState} completedBooks={reviewBooks} onBack={back}/>}</WorldDestination>:place==='stickers'?<WorldDestination kind="stickers" onBack={()=>setPlace('home')}>{back=><StickerBookView learnerName="Review" curriculumState={reviewState} completedBooks={reviewBooks} onBack={back}/>}</WorldDestination>:place==='sounds'?<WorldDestination kind="sounds" onBack={()=>setPlace('home')}>{back=><CurriculumSoundLibrary completedBooks={reviewBooks} onBack={back}/>}</WorldDestination>:place==='achievements'?<CurriculumAchievements state={reviewState} completedBooks={reviewBooks} onBack={()=>setPlace('home')}/>:<ReadingJourney key={`${session}-${book}`} learnerId={0} initialChapter={book} reviewMode onBack={()=>setPlace('home')}/>}</div>
+    {place==='book'&&book===0&&<Book1Guide learnerId={0} save={false}/>}
   </div>;
 }

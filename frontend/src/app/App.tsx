@@ -33,6 +33,7 @@ import { StudySession } from "./components/StudySession";
 import { ClassroomMessage } from "./components/ClassroomMessage";
 import { ClassroomNotice } from "./components/ClassroomNotice";
 import { ReadingJourney } from './components/ReadingJourney';
+import { Book1Guide } from './components/Book1Guide';
 import { ReadingReview } from './components/ReadingReview';
 import { GameLevel } from "./components/GameLevel";
 import { StoryScene } from "./components/StoryScene";
@@ -842,6 +843,7 @@ function AppContent() {
             onActivityChange={setJourneyActivityOpen}
           />
         )}
+        {currentScreen === "level-map" && selectedStage===3 && learnerId && selectedChronicle===0 && <Book1Guide learnerId={learnerId} save />}
 
         {currentScreen === "game" && (
           <GameLevel
