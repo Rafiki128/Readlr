@@ -7,7 +7,8 @@ export const stopMiloInstruction = () => instructionStop?.();
 
 /** Marks the start of Milo audio; returns the function that marks its end. */
 export function claimMiloAudio(instruction: boolean, stop: () => void) {
-  if (instruction) { instructionStop = stop; return () => {}; }
+  // One instruction voice at a time: a new instruction stops the one still speaking.
+  if (instruction) { if (instructionStop && instructionStop !== stop) instructionStop(); instructionStop = stop; return () => {}; }
   instructionStop?.();
   otherAudio++;
   let released = false;
