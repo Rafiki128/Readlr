@@ -30,12 +30,21 @@ Configure these runtime variables in the backend host. Do not put any of them in
 NODE_ENV=production
 PORT=3000
 CORS_ORIGIN=https://app.yourdomain.com
+FRONTEND_URL=https://app.yourdomain.com
+BACKEND_URL=https://api.yourdomain.com
+FACEBOOK_CALLBACK_URL=https://api.yourdomain.com/api/auth/facebook/callback
 JWT_SECRET=<a unique, long random secret>
 SUPABASE_URL=<your Supabase project URL>
 SUPABASE_SERVICE_ROLE_KEY=<server-only service role key>
 OPENAI_API_KEY=<if used>
 GROQ_API_KEY=<if used>
+GMAIL_USER=<the Gmail address used to send password-reset emails>
+GMAIL_APP_PASSWORD=<a Google app password for that account>
 ```
+
+In the Google OAuth client, register `https://api.yourdomain.com/api/auth/google/callback` as an authorized redirect URI. In the Meta/Facebook app settings, add the exact `FACEBOOK_CALLBACK_URL` value to **Valid OAuth Redirect URIs**. Keep both callback URLs identical to the backend URL and paths, including `https://`.
+
+Password-reset email uses Gmail SMTP. Enable 2-Step Verification on the sender account and create a Google App Password; use that app password for `GMAIL_APP_PASSWORD`, not the account's normal password.
 
 Build command: `npm ci && npm run backend:build`
 

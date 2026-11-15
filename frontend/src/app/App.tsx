@@ -50,6 +50,9 @@ import { ProfilePage } from "./components/ProfilePage";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { AdminDashboard } from "./components/AdminDashboard";
 
+// Password reset confirmation component import
+import { ResetPasswordConfirm } from "../modules/auth/components/ResetPasswordConfirm";
+
 // Stage configuration for determining progress
 const STAGE_CONFIG: Record<number, { title: string; totalLevels: number; nextStageId?: number }> = {
   1: { title: "Valley of Vowels", totalLevels: 20, nextStageId: 2 },
@@ -924,6 +927,19 @@ function AppContent() {
 }
 
 export default function App() {
+  // 1. Intercept the password reset route before anything else renders
+  if (window.location.pathname.includes('reset-password')) {
+    return (
+      <ResetPasswordConfirm 
+        onBackToLogin={() => {
+          window.history.pushState({}, '', '/');
+          window.location.reload();
+        }} 
+      />
+    );
+  }
+
+  // 2. Standard app render tree
   return (
     <AuthProvider>
       <AppContent />
