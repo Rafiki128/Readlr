@@ -5,6 +5,7 @@ import { getMiloGuidance, miloGuidanceSeenKey, type MiloGuidanceAction, type Mil
 import { CharacterCompanion } from './CharacterCompanion';
 import { recordedLine } from '../../hooks/recordedLines';
 import { trackMouth } from '../../hooks/miloMouth';
+import { interruptNow, playOnSpeaker } from '../../hooks/speaker';
 import './miloCoach.css';
 
 interface MiloCoachProps {
@@ -36,7 +37,9 @@ export function MiloCoach({ learnerId, context, event, cueKey, engaged = false, 
     try { localStorage.setItem(miloGuidanceSeenKey(learnerId, context), 'seen'); } catch { /* Guidance remains available without storage. */ }
   }, [context, learnerId, previewMode]);
   const recording = useRef<HTMLAudioElement | null>(null);
-  const silence = () => { window.speechSynthesis?.cancel(); recording.current?.pause(); recording.current = null; };
+  const speaking = useRef<(() => void) | null>(null);
+  // Only Milo's own speech is cancelled, so a hint change never cuts another line.
+  const silence = () => { if (speaking.current) window.speechSynthesis?.cancel(); recording.current?.pause(); recording.current = null; speaking.current?.(); speaking.current = null; };
   useEffect(() => silence, []);
   useEffect(() => { silence(); }, [cue]);
   useEffect(() => {
@@ -54,13 +57,15 @@ export function MiloCoach({ learnerId, context, event, cueKey, engaged = false, 
       audio.volume = learningVolume();
       trackMouth(audio);
       recording.current = audio;
-      void audio.play().catch(() => {});
+      void playOnSpeaker(audio).catch(() => {});
       return;
     }
     if (!('speechSynthesis' in window)) return;
     const utterance = new SpeechSynthesisUtterance(line.text);
     utterance.volume = learningVolume();
     utterance.rate = 0.94;
+    speaking.current = interruptNow(recording, silence);
+    utterance.onend = utterance.onerror = () => { speaking.current?.(); speaking.current = null; };
     window.speechSynthesis.speak(utterance);
   };
 
