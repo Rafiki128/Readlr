@@ -33,3 +33,15 @@ export interface DecodedToken {
   iat: number;
   exp: number;
 }
+
+export interface FacebookTokenResponse {
+  access_token?: string;
+  token_type?: string;
+  expires_in?: number;
+}
+
+export interface FacebookProfileResponse {
+  id?: string;
+  name?: string;
+  email?: string;
+}

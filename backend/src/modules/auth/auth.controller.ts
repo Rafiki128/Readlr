@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from './auth.service.js';
-import { LoginRequest, RegisterRequest, AuthResponse } from './auth.types.js';
+import { LoginRequest, RegisterRequest, AuthResponse, FacebookTokenResponse, FacebookProfileResponse } from './auth.types.js';
 import { registrationRole } from './adminInvitation.js';
 import { createLimiter } from '../../middleware/rateLimit.js';
 import { isStrongPassword, PASSWORD_RULES_MESSAGE } from './passwordPolicy.js';
@@ -254,14 +254,14 @@ export class AuthController {
       // 1. Exchange the code for an access token
       const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&redirect_uri=${redirectUri}&client_secret=${clientSecret}&code=${code}`;
       const tokenResponse = await fetch(tokenUrl);
-      const tokenData = await tokenResponse.json();
+      const tokenData = (await tokenResponse.json()) as FacebookTokenResponse;
 
       if (!tokenData.access_token) throw new Error("No access token received from Facebook");
 
       // 2. Fetch the user's profile and email
       const profileUrl = `https://graph.facebook.com/me?fields=id,name,email&access_token=${tokenData.access_token}`;
       const profileResponse = await fetch(profileUrl);
-      const profileData = await profileResponse.json();
+      const profileData = (await profileResponse.json()) as FacebookProfileResponse;
 
       if (!profileData.email) {
         res.redirect(`${FRONTEND_URL}?error=NoEmailAttachedToFacebook`);
