@@ -11,11 +11,24 @@ export const registerLimit = createLimiter(10, 10 * 60_000, 'Too many sign-ups f
 export function createAuthRouter(authController: AuthController): Router {
   const router = express.Router();
 
+  // Standard Auth
   router.post('/register', registerLimit.middleware, authController.register);
   router.post('/login', loginLimit.middleware, authController.login);
+  
+  // Google OAuth Auth
+  router.get('/google', authController.googleAuthTrigger);
+  router.get('/google/callback', authController.googleAuthCallback);
+
+  // Facebook OAuth Auth
+  router.get('/facebook', authController.facebookAuthTrigger);
+  router.get('/facebook/callback', authController.facebookAuthCallback);
+
+  // Recovery
   router.post('/recovery/request', recoveryLimit, requestRecovery);
   router.post('/recovery/status', recoveryLimit, recoveryStatus);
   router.post('/recovery/complete', recoveryLimit, completeRecovery);
+  
+  // Profile & Account Management
   router.get('/profile', authMiddleware, authController.getProfile);
   router.delete('/me', authMiddleware, authController.deleteAccount);
 

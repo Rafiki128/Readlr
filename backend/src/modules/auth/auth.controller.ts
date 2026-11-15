@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from './auth.service.js';
 import { LoginRequest, RegisterRequest, AuthResponse } from './auth.types.js';
 import { registrationRole } from './adminInvitation.js';
@@ -16,43 +17,39 @@ export class AuthController {
     this.authService = authService;
   }
 
+  // --- STANDARD AUTH METHODS ---
+
   register = async (req: Request, res: Response): Promise<void> => {
     try {
       const { email, password, confirmPassword, role, guardianConfirmed, consent, consentVersion }: RegisterRequest = req.body;
 
-      // Validation
       if (!email || !password || !confirmPassword || !role) {
         res.status(400).json({ success: false, message: 'Missing required fields' });
         return;
       }
-
       if (password !== confirmPassword) {
         res.status(400).json({ success: false, message: 'Passwords do not match' });
         return;
       }
-
       if (!isStrongPassword(password)) {
         res.status(400).json({ success: false, message: PASSWORD_RULES_MESSAGE });
         return;
       }
-
-      // Staff roles are assigned only after server-side invitation checks.
       if (role !== 'learner') {
         res.status(403).json({ success: false, message: 'Staff accounts are invitation-only' });
         return;
       }
 
-      // Register user
       const normalizedEmail = email.trim().toLowerCase();
       const assignedRole = registrationRole(normalizedEmail, req.body.adminInvitation);
       const consented = guardianConfirmed === true && consent === true && consentVersion === CONSENT_VERSION;
+      
       if (assignedRole === 'learner' && !consented) {
         res.status(400).json({ success: false, message: 'Please confirm you are the guardian and agree to the privacy notice.' });
         return;
       }
+      
       const user = await this.authService.register(normalizedEmail, password, assignedRole, assignedRole === 'learner' ? CONSENT_VERSION : null);
-
-      // Generate token
       const token = this.authService.generateToken(user.id, user.email, user.role);
 
       const response: AuthResponse = {
@@ -78,16 +75,12 @@ export class AuthController {
     try {
       const { email, password }: LoginRequest = req.body;
 
-      // Validation
       if (!email || !password) {
         res.status(400).json({ success: false, message: 'Email and password are required' });
         return;
       }
 
-      // Login user
       const user = await this.authService.login(email.trim().toLowerCase(), password);
-
-      // Generate token
       const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
 
       const response: AuthResponse = {
@@ -173,6 +166,119 @@ export class AuthController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete account';
       res.status(500).json({ success: false, message });
+    }
+  };
+
+  // --- OAUTH METHODS ---
+
+  googleAuthTrigger = (req: Request, res: Response): void => {
+    const googleClient = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      'http://localhost:3000/api/auth/google/callback'
+    );
+
+    console.log("Checking Client ID:", process.env.GOOGLE_CLIENT_ID);
+
+    const url = googleClient.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['email', 'profile'],
+      prompt: 'consent'
+    });
+    res.redirect(url);
+  };
+
+  googleAuthCallback = async (req: Request, res: Response): Promise<void> => {
+    const code = req.query.code as string;
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+  
+    if (!code) {
+      res.redirect(`${FRONTEND_URL}?error=GoogleAuthFailed`);
+      return;
+    }
+  
+    try {
+      const googleClient = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        'http://localhost:3000/api/auth/google/callback'
+      );
+
+      const { tokens } = await googleClient.getToken(code);
+      
+      const ticket = await googleClient.verifyIdToken({
+        idToken: tokens.id_token!,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) throw new Error("No valid payload found");
+      
+      const email = payload.email.trim().toLowerCase();
+      const name = payload.name || email.split('@')[0];
+  
+      const user = await this.authService.findOrCreateGoogleUser(email, name);
+      const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
+  
+      res.redirect(`${FRONTEND_URL}?token=${token}`);
+    } catch (error) {
+      console.error('Google OAuth Error:', error);
+      res.redirect(`${FRONTEND_URL}?error=AuthenticationFailed`);
+    }
+  };
+
+  // --- FACEBOOK OAUTH METHODS ---
+
+  facebookAuthTrigger = (req: Request, res: Response): void => {
+    const clientId = process.env.FACEBOOK_APP_ID;
+    const redirectUri = 'http://localhost:3000/api/auth/facebook/callback';
+    
+    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=email,public_profile`;
+    res.redirect(url);
+  };
+
+  facebookAuthCallback = async (req: Request, res: Response): Promise<void> => {
+    const code = req.query.code as string;
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    if (!code) {
+      res.redirect(`${FRONTEND_URL}?error=FacebookAuthFailed`);
+      return;
+    }
+
+    try {
+      const clientId = process.env.FACEBOOK_APP_ID;
+      const clientSecret = process.env.FACEBOOK_APP_SECRET;
+      const redirectUri = 'http://localhost:3000/api/auth/facebook/callback';
+
+      // 1. Exchange the code for an access token
+      const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&redirect_uri=${redirectUri}&client_secret=${clientSecret}&code=${code}`;
+      const tokenResponse = await fetch(tokenUrl);
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenData.access_token) throw new Error("No access token received from Facebook");
+
+      // 2. Fetch the user's profile and email
+      const profileUrl = `https://graph.facebook.com/me?fields=id,name,email&access_token=${tokenData.access_token}`;
+      const profileResponse = await fetch(profileUrl);
+      const profileData = await profileResponse.json();
+
+      if (!profileData.email) {
+        res.redirect(`${FRONTEND_URL}?error=NoEmailAttachedToFacebook`);
+        return;
+      }
+
+      const email = profileData.email.trim().toLowerCase();
+      const name = profileData.name || email.split('@')[0];
+
+      // 3. Log them in using the service method
+      const user = await this.authService.findOrCreateFacebookUser(email, name);
+      const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
+
+      res.redirect(`${FRONTEND_URL}?token=${token}`);
+    } catch (error) {
+      console.error('Facebook OAuth Error:', error);
+      res.redirect(`${FRONTEND_URL}?error=AuthenticationFailed`);
     }
   };
 }

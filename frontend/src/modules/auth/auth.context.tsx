@@ -42,6 +42,8 @@ interface AuthContextType {
   freshLogin: boolean;
   register: (email: string, password: string, confirmPassword: string, role: 'learner' | 'teacher', consent: GuardianConsent, adminInvitation?:string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => void;
+  loginWithFacebook: () => void;
   logout: (options?: LogoutOptions) => Promise<void>;
   error: string | null;
   clearError: () => void;
@@ -57,17 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem('auth_token');
   });
-  const [isLoading, setIsLoading] = useState(() => Boolean(localStorage.getItem('auth_token')));
+  const [isLoading, setIsLoading] = useState(() => Boolean(localStorage.getItem('auth_token')) || window.location.search.includes('token='));
   const [error, setError] = useState<string | null>(null);
-
-  // Check if token is still valid on mount
-  useEffect(() => {
-    if (token) {
-      verifyToken(token);
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
 
   const verifyToken = useCallback(async (authToken: string) => {
     setIsLoading(true);
@@ -96,6 +89,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }
   }, []);
+
+  // Check if token is still valid on mount OR if we just returned from an OAuth redirect
+  useEffect(() => {
+    // Look for ?token=xyz in the URL bar (sent back from your backend after Google/Facebook login)
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('token');
+    const errorFromUrl = params.get('error');
+
+    if (errorFromUrl) {
+      setError(decodeURIComponent(errorFromUrl));
+      setIsLoading(false);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (tokenFromUrl) {
+      // Capture the OAuth token, save it, and verify the user
+      setFreshLogin(true);
+      localStorage.setItem('auth_token', tokenFromUrl);
+      setToken(tokenFromUrl);
+      
+      // Clean up the URL so the token doesn't stay visible in the address bar
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      verifyToken(tokenFromUrl);
+    } else if (token) {
+      // Standard flow for returning users
+      verifyToken(token);
+    } else {
+      setIsLoading(false);
+    }
+  }, [token, verifyToken]);
 
   const register = useCallback(
     async (
@@ -184,6 +206,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // OAuth Triggers: These redirect the browser to your backend to start the OAuth flow
+  const loginWithGoogle = useCallback(() => {
+    window.location.href = `${API_URL}/auth/google`;
+  }, []);
+
+  const loginWithFacebook = useCallback(() => {
+    window.location.href = `${API_URL}/auth/facebook`;
+  }, []);
+
   const logout = useCallback(async ({ learnerId = null, accountDeleted = false }: LogoutOptions = {}) => {
     const evidenceSafe = accountDeleted || !learnerId || !token || await flushEvidence(learnerId, token);
     try { clearLearnerDeviceData(localStorage, learnerId, user?.id ?? null, !evidenceSafe); } catch { /* Logout must still finish if storage is blocked. */ }
@@ -206,6 +237,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     freshLogin,
     register,
     login,
+    loginWithGoogle,
+    loginWithFacebook,
     logout,
     error,
     clearError,
