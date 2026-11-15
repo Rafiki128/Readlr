@@ -10,6 +10,20 @@ export const CONSENT_VERSION = 'guardian-consent-v1';
 // Five wrong passwords lock account deletion for 15 minutes.
 export const deletePasswordLimit = createLimiter(5, 15 * 60_000, 'Too many wrong passwords. Please wait 15 minutes.');
 
+function getBackendUrl(req: Request): string {
+  if (process.env.BACKEND_URL) {
+    return process.env.BACKEND_URL.replace(/\/$/, '');
+  }
+  const forwardedProto = req.get('x-forwarded-proto');
+  const protocol = forwardedProto ? forwardedProto.split(',')[0].trim() : req.protocol;
+  const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
+  return `${protocol}://${host}`;
+}
+
+function getFrontendUrl(): string {
+  return (process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+}
+
 export class AuthController {
   private authService: AuthService;
 
@@ -43,12 +57,12 @@ export class AuthController {
       const normalizedEmail = email.trim().toLowerCase();
       const assignedRole = registrationRole(normalizedEmail, req.body.adminInvitation);
       const consented = guardianConfirmed === true && consent === true && consentVersion === CONSENT_VERSION;
-      
+
       if (assignedRole === 'learner' && !consented) {
         res.status(400).json({ success: false, message: 'Please confirm you are the guardian and agree to the privacy notice.' });
         return;
       }
-      
+
       const user = await this.authService.register(normalizedEmail, password, assignedRole, assignedRole === 'learner' ? CONSENT_VERSION : null);
       const token = this.authService.generateToken(user.id, user.email, user.role);
 
@@ -172,13 +186,19 @@ export class AuthController {
   // --- OAUTH METHODS ---
 
   googleAuthTrigger = (req: Request, res: Response): void => {
+    const frontendUrl = getFrontendUrl();
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      console.error('Google OAuth Error: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing');
+      res.redirect(`${frontendUrl}?error=GoogleAuthNotConfigured`);
+      return;
+    }
+
+    const redirectUri = `${getBackendUrl(req)}/api/auth/google/callback`;
     const googleClient = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      'http://localhost:3000/api/auth/google/callback'
+      redirectUri
     );
-
-    console.log("Checking Client ID:", process.env.GOOGLE_CLIENT_ID);
 
     const url = googleClient.generateAuthUrl({
       access_type: 'offline',
@@ -190,69 +210,81 @@ export class AuthController {
 
   googleAuthCallback = async (req: Request, res: Response): Promise<void> => {
     const code = req.query.code as string;
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-  
+    const frontendUrl = getFrontendUrl();
+
     if (!code) {
-      res.redirect(`${FRONTEND_URL}?error=GoogleAuthFailed`);
+      res.redirect(`${frontendUrl}?error=GoogleAuthFailed`);
       return;
     }
-  
+
     try {
+      const redirectUri = `${getBackendUrl(req)}/api/auth/google/callback`;
       const googleClient = new OAuth2Client(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        'http://localhost:3000/api/auth/google/callback'
+        redirectUri
       );
 
       const { tokens } = await googleClient.getToken(code);
-      
+
       const ticket = await googleClient.verifyIdToken({
         idToken: tokens.id_token!,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
-      
+
       const payload = ticket.getPayload();
       if (!payload || !payload.email) throw new Error("No valid payload found");
-      
+
       const email = payload.email.trim().toLowerCase();
       const name = payload.name || email.split('@')[0];
-  
+
       const user = await this.authService.findOrCreateGoogleUser(email, name);
       const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
-  
-      res.redirect(`${FRONTEND_URL}?token=${token}`);
+
+      res.redirect(`${frontendUrl}?token=${token}`);
     } catch (error) {
       console.error('Google OAuth Error:', error);
-      res.redirect(`${FRONTEND_URL}?error=AuthenticationFailed`);
+      res.redirect(`${frontendUrl}?error=AuthenticationFailed`);
     }
   };
 
   // --- FACEBOOK OAUTH METHODS ---
 
   facebookAuthTrigger = (req: Request, res: Response): void => {
+    const frontendUrl = getFrontendUrl();
     const clientId = process.env.FACEBOOK_APP_ID;
-    const redirectUri = 'http://localhost:3000/api/auth/facebook/callback';
-    
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=email,public_profile`;
+
+    if (!clientId) {
+      console.error('Facebook OAuth Error: FACEBOOK_APP_ID is missing');
+      res.redirect(`${frontendUrl}?error=FacebookAuthNotConfigured`);
+      return;
+    }
+
+    const redirectUri = `${getBackendUrl(req)}/api/auth/facebook/callback`;
+    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=email,public_profile`;
     res.redirect(url);
   };
 
   facebookAuthCallback = async (req: Request, res: Response): Promise<void> => {
     const code = req.query.code as string;
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl();
 
     if (!code) {
-      res.redirect(`${FRONTEND_URL}?error=FacebookAuthFailed`);
+      res.redirect(`${frontendUrl}?error=FacebookAuthFailed`);
       return;
     }
 
     try {
       const clientId = process.env.FACEBOOK_APP_ID;
       const clientSecret = process.env.FACEBOOK_APP_SECRET;
-      const redirectUri = 'http://localhost:3000/api/auth/facebook/callback';
+      const redirectUri = `${getBackendUrl(req)}/api/auth/facebook/callback`;
+
+      if (!clientId || !clientSecret) {
+        throw new Error("Facebook credentials missing on server");
+      }
 
       // 1. Exchange the code for an access token
-      const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&redirect_uri=${redirectUri}&client_secret=${clientSecret}&code=${code}`;
+      const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${clientSecret}&code=${code}`;
       const tokenResponse = await fetch(tokenUrl);
       const tokenData = (await tokenResponse.json()) as FacebookTokenResponse;
 
@@ -264,7 +296,7 @@ export class AuthController {
       const profileData = (await profileResponse.json()) as FacebookProfileResponse;
 
       if (!profileData.email) {
-        res.redirect(`${FRONTEND_URL}?error=NoEmailAttachedToFacebook`);
+        res.redirect(`${frontendUrl}?error=NoEmailAttachedToFacebook`);
         return;
       }
 
@@ -275,10 +307,10 @@ export class AuthController {
       const user = await this.authService.findOrCreateFacebookUser(email, name);
       const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
 
-      res.redirect(`${FRONTEND_URL}?token=${token}`);
+      res.redirect(`${frontendUrl}?token=${token}`);
     } catch (error) {
       console.error('Facebook OAuth Error:', error);
-      res.redirect(`${FRONTEND_URL}?error=AuthenticationFailed`);
+      res.redirect(`${frontendUrl}?error=AuthenticationFailed`);
     }
   };
 }
