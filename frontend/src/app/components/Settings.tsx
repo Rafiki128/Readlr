@@ -12,6 +12,7 @@ import { AvatarFrame } from "./AvatarFrame";
 import { BackgroundMusicToggle } from "./BackgroundMusicToggle";
 import { toast as notify } from "sonner";
 import { GrownUpConfirm } from "./GrownUpConfirm";
+import { ReadingWorldBackdrop } from "./ReadingWorldBackdrop";
 
 const AVATAR_OPTIONS = [
   "🦊", "🐻", "🐼", "🐨", "🦁", "🐯",
@@ -363,9 +364,10 @@ export function Settings({ onNavigate, onAvatarUpdate }: SettingsProps) {
   }
 
   return (
-    <div className="settings-page size-full bg-[var(--paper)] overflow-auto">
+    <div className="settings-page size-full relative isolate overflow-auto">
+      <ReadingWorldBackdrop welcome/>
       <div className="min-h-full px-6 md:px-10 py-8">
-        <div className="max-w-3xl mx-auto">
+        <div className="settings-panel max-w-3xl mx-auto">
           {/* Title */}
           <motion.div
             initial={{ y: -8, opacity: 0 }}

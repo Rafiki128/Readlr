@@ -135,7 +135,7 @@ export function NavigationHeader({
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className={`${currentScreen === "stage-selection" || currentScreen === "learning-camp" ? "world-navigation" : ""} kid-header bg-[var(--paper)]/90 backdrop-blur-md border-b border-[var(--hairline)] sticky top-0 z-50`}
+          className={`${["stage-selection", "learning-camp", "survey", "settings", "help"].includes(currentScreen) ? "world-navigation" : ""} kid-header bg-[var(--paper)]/90 backdrop-blur-md border-b border-[var(--hairline)] sticky top-0 z-50`}
         >
           <div className="kid-header-row">
             <button className="kid-logo" onClick={() => onNavigate("stage-selection")} aria-label="Readlr home">
