@@ -11,6 +11,7 @@ import {
 } from './learningCampCurriculum';
 import './guidedBlendCamp.css';
 import { MiloCoach } from './MiloCoach';
+import { playClip } from '../../hooks/speaker';
 
 interface GuidedBlendCampProps {
   learnerId: number;
@@ -23,16 +24,6 @@ interface GuidedBlendCampProps {
 }
 
 type Phase = 'checking' | 'listen' | 'build' | 'success' | 'blocked';
-
-function playAudio(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio(url);
-    const cleanup = () => { audio.onended = null; audio.onerror = null; };
-    audio.onended = () => { cleanup(); resolve(); };
-    audio.onerror = () => { cleanup(); reject(new Error('Audio unavailable')); };
-    audio.play().catch((error) => { cleanup(); reject(error); });
-  });
-}
 
 export function GuidedBlendCamp({
   learnerId,
@@ -109,10 +100,10 @@ export function GuidedBlendCamp({
     setPlayingIndex(index);
     try {
       if (previewMode) await new Promise((resolve) => window.setTimeout(resolve, 350));
-      else await playAudio(audioMedia[index].url);
+      else await playClip(audioMedia[index].url);
       setHeard((current) => current.map((value, position) => position === index ? true : value));
-    } catch {
-      setPhase('blocked');
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') setPhase('blocked');
     } finally {
       setPlayingIndex(null);
     }

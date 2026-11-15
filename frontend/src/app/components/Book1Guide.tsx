@@ -87,7 +87,9 @@ export function Book1Guide({ learnerId, save }: { learnerId: number; save: boole
     return () => { document.removeEventListener('pointerdown', onTap, true); if (watch) window.clearInterval(watch); };
   }, [step]);
 
-  const say = useMiloInstruction(step?.line);
+  const [heardLine, setHeardLine] = useState<string>();
+  const say = useMiloInstruction(step?.line, setHeardLine);
+  const heard = heardLine === step?.line;
 
   function skip() {
     setConfirm(false); setStep(null); setBox(null);
@@ -114,7 +116,7 @@ export function Book1Guide({ learnerId, save }: { learnerId: number; save: boole
   return (
     <div className="book1-guide" role="dialog" aria-modal="false" aria-label="Book guide">
       <div className="book1-guide__shade" style={{ clipPath: hole }} />
-      {!step.interactive && <div className="book1-guide__shade book1-guide__shade--look" />}
+      {(!step.interactive || !heard) && <div className="book1-guide__shade book1-guide__shade--look" />}
       <div className="book1-guide__ring" style={{ left: box.left, top: box.top, width: box.right - box.left, height: box.bottom - box.top }} />
       {hand && (
         <motion.div key={step.id} className="book1-guide__hand" aria-hidden="true" style={{ left: from.x - 44 * 0.4, top: from.y - 44 * 0.12 }}
@@ -127,7 +129,7 @@ export function Book1Guide({ learnerId, save }: { learnerId: number; save: boole
         <CharacterCompanion size={56} state="idle" />
         <p>{step.line}</p>
         <HearMiloButton onClick={say} />
-        {!step.interactive && <button type="button" className="book1-guide__ok" onClick={() => finish(step.id)}><ThumbsUp aria-hidden="true" />OK</button>}
+        {!step.interactive && <button type="button" className="book1-guide__ok" disabled={!heard} onClick={() => finish(step.id)}><ThumbsUp aria-hidden="true" />OK</button>}
         <button type="button" className="book1-guide__skip" onClick={() => setConfirm(true)} aria-label="Skip the guide"><X aria-hidden="true" /></button>
       </div>
       <GrownUpConfirm open={confirm} question="Skip the guide?" confirmLabel="Yes" onConfirm={skip} onCancel={() => setConfirm(false)} />

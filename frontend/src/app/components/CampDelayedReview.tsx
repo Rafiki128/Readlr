@@ -7,6 +7,7 @@ import './campDelayedReview.css';
 import { MiloCoach } from './MiloCoach';
 import { useCvcRecorder } from '../../hooks/useCvcRecorder';
 import { recognizeCvc } from '../../hooks/recognizeCvc';
+import { playClip } from '../../hooks/speaker';
 
 interface CampDelayedReviewProps {
   learnerId: number;
@@ -19,16 +20,6 @@ interface CampDelayedReviewProps {
 }
 
 type Phase = 'checking' | 'intro' | 'sound' | 'word-read' | 'summary' | 'blocked';
-
-function playAudio(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio(url);
-    const clean = () => { audio.onended = null; audio.onerror = null; };
-    audio.onended = () => { clean(); resolve(); };
-    audio.onerror = () => { clean(); reject(new Error('Audio unavailable')); };
-    audio.play().catch((error) => { clean(); reject(error); });
-  });
-}
 
 export function CampDelayedReview({ learnerId, curriculumVersion, mediaManifestVersion, onBack, onComplete, onPracticeBlend, previewMode = false }: CampDelayedReviewProps) {
   const [phase, setPhase] = useState<Phase>('checking');
@@ -60,9 +51,9 @@ export function CampDelayedReview({ learnerId, curriculumVersion, mediaManifestV
     if (playing || heard) return;
     setPlaying(true);
     try {
-      if (previewMode) await new Promise((resolve) => window.setTimeout(resolve, 320)); else await playAudio(url);
+      if (previewMode) await new Promise((resolve) => window.setTimeout(resolve, 320)); else await playClip(url);
       next();
-    } catch { setPhase('blocked'); }
+    } catch (error) { if ((error as Error).name !== 'AbortError') setPhase('blocked'); }
     finally { setPlaying(false); }
   };
   const answerSound = (response: CampLetter) => {

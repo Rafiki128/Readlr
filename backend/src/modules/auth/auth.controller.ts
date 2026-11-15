@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import { AuthService } from './auth.service.js';
-import { LoginRequest, RegisterRequest, AuthResponse } from './auth.types.js';
+import { LoginRequest, RegisterRequest, AuthResponse, FacebookTokenResponse, FacebookProfileResponse } from './auth.types.js';
 import { registrationRole } from './adminInvitation.js';
 import { createLimiter } from '../../middleware/rateLimit.js';
 import { isStrongPassword, PASSWORD_RULES_MESSAGE } from './passwordPolicy.js';
@@ -75,12 +75,12 @@ export class AuthController {
       const normalizedEmail = email.trim().toLowerCase();
       const assignedRole = registrationRole(normalizedEmail, req.body.adminInvitation);
       const consented = guardianConfirmed === true && consent === true && consentVersion === CONSENT_VERSION;
-      
+
       if (assignedRole === 'learner' && !consented) {
         res.status(400).json({ success: false, message: 'Please confirm you are the guardian and agree to the privacy notice.' });
         return;
       }
-      
+
       const user = await this.authService.register(normalizedEmail, password, assignedRole, assignedRole === 'learner' ? CONSENT_VERSION : null);
       const token = this.authService.generateToken(user.id, user.email, user.role);
 
@@ -261,11 +261,12 @@ export class AuthController {
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
     if (!clientId || !clientSecret) {
       console.error('Google OAuth Error: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing.');
       res.redirect(`${frontendUrl}?error=GoogleAuthNotConfigured`);
-      return;
-    }
+      return; 
+}
 
     let redirectUri: string;
     try {

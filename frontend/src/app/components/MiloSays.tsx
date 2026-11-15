@@ -1,31 +1,36 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Volume2 } from "lucide-react";
 import { useBridgeAudio } from "../../hooks/useBridgeAudio";
-import { otherMiloAudioActive } from "../../hooks/miloInstructionState";
-import { waitForMiloScript } from "../../hooks/miloScripts";
 import { microphoneOpen } from "../../hooks/backgroundMusic";
 import "./miloSays.css";
 
-// Gives up waiting after a minute so a stuck sound never blocks the next instruction for good.
-async function waitForQuiet(cancelled: () => boolean) {
-  for (let waited = 0; waited < 60000 && !cancelled(); waited += 150) {
-    if (!otherMiloAudioActive() && !microphoneOpen()) break;
+// Gives up waiting after a minute so a stuck microphone never blocks the next instruction for good.
+async function waitForMicrophone(cancelled: () => boolean) {
+  for (let waited = 0; waited < 60000 && !cancelled() && microphoneOpen(); waited += 150) {
     await new Promise(resolve => setTimeout(resolve, 150));
   }
-  await waitForMiloScript();
-  await new Promise(resolve => setTimeout(resolve, 250));
 }
 
 /** Reads an instruction aloud whenever it changes, for learners who can't read yet. Returns a replay function. */
-export function useMiloInstruction(text: string | undefined) {
+export function useMiloInstruction(text: string | undefined, onFinished?: (text: string) => void) {
   const voice = useBridgeAudio("/audio/stage3", { instruction: true });
   const latest = useRef(text);
   latest.current = text;
-  const say = () => { if (latest.current) { voice.stop(); void voice.narrateText({ file: "", text: latest.current }).catch(() => {}); } };
+  const finished = useRef(onFinished);
+  finished.current = onFinished;
+  const said = useRef(0);
+  // Only the newest reading reports back, so a replay never ends the wait early.
+  const say = () => {
+    const spoken = latest.current;
+    if (!spoken) return;
+    const id = ++said.current;
+    voice.stop();
+    void voice.narrateText({ file: "", text: spoken }).catch(() => {}).then(() => { if (id === said.current) finished.current?.(spoken); });
+  };
   useEffect(() => {
     if (!text) return;
     let cancelled = false;
-    void waitForQuiet(() => cancelled).then(() => { if (!cancelled) say(); });
+    void waitForMicrophone(() => cancelled).then(() => { if (!cancelled) say(); });
     return () => { cancelled = true; voice.stop(); };
   }, [text]);
   return say;
