@@ -10,6 +10,24 @@ export const CONSENT_VERSION = 'guardian-consent-v1';
 // Five wrong passwords lock account deletion for 15 minutes.
 export const deletePasswordLimit = createLimiter(5, 15 * 60_000, 'Too many wrong passwords. Please wait 15 minutes.');
 
+function getFacebookCallbackUrl(): string {
+  const callbackUrl = process.env.FACEBOOK_CALLBACK_URL;
+  if (callbackUrl) return callbackUrl;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FACEBOOK_CALLBACK_URL is required in production.');
+  }
+  return 'http://localhost:3000/api/auth/facebook/callback';
+}
+
+function getFacebookFrontendUrl(): string {
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (frontendUrl) return frontendUrl;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FRONTEND_URL is required in production.');
+  }
+  return 'http://localhost:5173';
+}
+
 export class AuthController {
   private authService: AuthService;
 
@@ -102,6 +120,52 @@ export class AuthController {
     }
   };
 
+  requestPasswordReset = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        res.status(400).json({ success: false, message: 'Email address is required' });
+        return;
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const redirectTo = `${req.headers.origin || 'http://localhost:5173'}/reset-password`;
+
+      // Delegates to the auth service to create the reset token and email the link.
+      await this.authService.requestPasswordReset(normalizedEmail, redirectTo);
+
+      res.status(200).json({
+        success: true,
+        message: 'Password reset email sent successfully. Please check your inbox.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send reset email';
+      res.status(500).json({ success: false, message });
+    }
+  };
+
+  resetPasswordConfirm = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        res.status(400).json({ success: false, message: 'Token and new password are required' });
+        return;
+      }
+
+      await this.authService.resetPasswordWithToken(token, password);
+
+      res.status(200).json({
+        success: true,
+        message: 'Password successfully updated.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reset password';
+      res.status(400).json({ success: false, message });
+    }
+  };
+
   getProfile = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = (req as any).userId;
@@ -178,8 +242,6 @@ export class AuthController {
       'http://localhost:3000/api/auth/google/callback'
     );
 
-    console.log("Checking Client ID:", process.env.GOOGLE_CLIENT_ID);
-
     const url = googleClient.generateAuthUrl({
       access_type: 'offline',
       scope: ['email', 'profile'],
@@ -231,54 +293,68 @@ export class AuthController {
 
   facebookAuthTrigger = (req: Request, res: Response): void => {
     const clientId = process.env.FACEBOOK_APP_ID;
-    const redirectUri = 'http://localhost:3000/api/auth/facebook/callback';
-    
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=email,public_profile`;
-    res.redirect(url);
+    const redirectUri = getFacebookCallbackUrl();
+    const url = new URL('https://www.facebook.com/v19.0/dialog/oauth');
+    url.search = new URLSearchParams({
+      client_id: clientId ?? '',
+      redirect_uri: redirectUri,
+      scope: 'email,public_profile',
+    }).toString();
+    res.redirect(url.toString());
   };
 
   facebookAuthCallback = async (req: Request, res: Response): Promise<void> => {
     const code = req.query.code as string;
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    let frontendUrl: string;
+    try {
+      frontendUrl = getFacebookFrontendUrl();
+    } catch (error) {
+      console.error('Facebook OAuth configuration error:', error);
+      res.status(500).send('Facebook sign-in is not configured correctly.');
+      return;
+    }
 
     if (!code) {
-      res.redirect(`${FRONTEND_URL}?error=FacebookAuthFailed`);
+      res.redirect(`${frontendUrl}?error=FacebookAuthFailed`);
       return;
     }
 
     try {
       const clientId = process.env.FACEBOOK_APP_ID;
       const clientSecret = process.env.FACEBOOK_APP_SECRET;
-      const redirectUri = 'http://localhost:3000/api/auth/facebook/callback';
+      const redirectUri = getFacebookCallbackUrl();
 
-      // 1. Exchange the code for an access token
-      const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&redirect_uri=${redirectUri}&client_secret=${clientSecret}&code=${code}`;
+      const tokenUrl = new URL('https://graph.facebook.com/v19.0/oauth/access_token');
+      tokenUrl.search = new URLSearchParams({
+        client_id: clientId ?? '',
+        redirect_uri: redirectUri,
+        client_secret: clientSecret ?? '',
+        code,
+      }).toString();
       const tokenResponse = await fetch(tokenUrl);
       const tokenData = await tokenResponse.json();
 
       if (!tokenData.access_token) throw new Error("No access token received from Facebook");
 
-      // 2. Fetch the user's profile and email
       const profileUrl = `https://graph.facebook.com/me?fields=id,name,email&access_token=${tokenData.access_token}`;
       const profileResponse = await fetch(profileUrl);
       const profileData = await profileResponse.json();
 
       if (!profileData.email) {
-        res.redirect(`${FRONTEND_URL}?error=NoEmailAttachedToFacebook`);
+        res.redirect(`${frontendUrl}?error=NoEmailAttachedToFacebook`);
         return;
       }
 
       const email = profileData.email.trim().toLowerCase();
       const name = profileData.name || email.split('@')[0];
 
-      // 3. Log them in using the service method
       const user = await this.authService.findOrCreateFacebookUser(email, name);
       const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
 
-      res.redirect(`${FRONTEND_URL}?token=${token}`);
+      res.redirect(`${frontendUrl}?token=${token}`);
     } catch (error) {
       console.error('Facebook OAuth Error:', error);
-      res.redirect(`${FRONTEND_URL}?error=AuthenticationFailed`);
+      res.redirect(`${frontendUrl}?error=AuthenticationFailed`);
     }
   };
 }

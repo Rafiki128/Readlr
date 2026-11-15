@@ -2,20 +2,19 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, Eye, EyeOff, Facebook } from 'lucide-react';
 import { useAuth } from '../auth.context.js';
-import { PasswordRecovery } from './PasswordRecovery';
 
 interface LoginProps {
   onSuccess?: () => void;
   onSwitchToRegister?: () => void;
+  onSwitchToRecovery?: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) => {
+export const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister, onSwitchToRecovery }) => {
   const { login, loginWithGoogle, loginWithFacebook, isLoading, error } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [recover, setRecover] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +105,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) =
                 <button 
                   type="button" 
                   className="text-[13px] font-semibold text-[#5b21b6] hover:text-[#4c1d95] hover:underline underline-offset-2 transition-colors" 
-                  onClick={() => setRecover(true)}
+                  onClick={onSwitchToRecovery}
                 >
                   Forgot password?
                 </button>
@@ -150,8 +149,6 @@ export const Login: React.FC<LoginProps> = ({ onSuccess, onSwitchToRegister }) =
               )}
             </motion.button>
           </form>
-          
-          {recover && <PasswordRecovery email={email} onClose={() => setRecover(false)} />}
 
           {/* Divider */}
           <div className="my-5 flex items-center gap-3">
