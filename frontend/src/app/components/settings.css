@@ -1,4 +1,5 @@
-.settings-page{letter-spacing:0}
+.settings-page{letter-spacing:0}.settings-page>.reading-world-scenery{position:fixed}
+.settings-panel{padding:28px;background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(6px);border:2px solid color-mix(in srgb,var(--card) 70%,transparent);border-radius:28px;box-shadow:0 18px 40px rgba(31,36,48,.14)}
 .settings-select[data-slot=select-trigger]{min-height:54px;height:auto;border-radius:8px;background:var(--paper);border-color:var(--hairline);padding:12px 16px;color:var(--ink);white-space:normal;gap:12px}
 .settings-select [data-slot=select-value]{flex:1;text-align:left}
 .settings-select[data-state=open]{border-color:#8060cf;box-shadow:0 0 0 3px #8060cf20}
@@ -20,5 +21,5 @@
 .settings-data-details summary::-webkit-details-marker{display:none}
 .settings-data-details[open] summary svg{transform:rotate(90deg)}
 .settings-data-details p{font-size:13px;line-height:1.7;color:var(--ink-soft);margin:0 0 12px}
-@media(max-width:600px){.settings-page h1{font-size:30px}.settings-page section{padding:20px}.settings-page section p{overflow-wrap:break-word}}
+@media(max-width:600px){.settings-panel{padding:16px 12px;border-radius:20px}.settings-page h1{font-size:30px}.settings-page section{padding:20px}.settings-page section p{overflow-wrap:break-word}}
 @media(prefers-reduced-motion:reduce){.settings-page *{transition:none!important;animation:none!important}}

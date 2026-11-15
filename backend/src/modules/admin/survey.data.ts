@@ -24,6 +24,6 @@ export const choices = {
   14: [['nothing','Nothing','Wala'],['games','Games','Mga dula'],['sounds','Sounds','Mga tingog'],['reading','Reading','Pagbasa'],['pictures','Pictures','Mga picture'],['rewards','Rewards','Mga ganti']],
 };
 export function validateSubmission(body: any) {
-  if (!body || body.version!==SURVEY_VERSION || !['en','ceb'].includes(body.language) || typeof body.section!=='string' || !body.section.trim() || body.section.trim().length>80 || !Array.isArray(body.answers) || body.answers.length!==14) return false;
+  if (!body || body.version!==SURVEY_VERSION || !['en','ceb'].includes(body.language) ||!Array.isArray(body.answers) || body.answers.length!==14) return false;
   return body.answers.every((answer: unknown,i:number)=> answer===null || (i<12 ? Number.isInteger(answer) && Number(answer)>=1 && Number(answer)<=5 : choices[(i+1) as 13|14].some(c=>c[0]===answer)));
 }
