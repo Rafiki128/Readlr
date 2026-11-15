@@ -8,7 +8,7 @@ import { voiceCandidates, withVoiceFallback } from "./miloVoice";
 import { resolveStageOneAudioPath } from "../app/components/stageOneAudio";
 import { observeAudioActivity, startAudioPlayback } from "./audioPlayback";
 import { recordedLine, recordingChunks } from "./recordedLines";
-import { claimMiloAudio } from "./miloInstructionState";
+import { leave, takeTurn } from "./speaker";
 
 export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false } = {}) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -18,6 +18,8 @@ export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false
   const cancelPending = useRef<(() => void) | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
+  const owner = useRef({}).current;
+  const turn = useRef<(() => void) | null>(null);
 
   function stop() {
     generation.current++;
@@ -39,6 +41,9 @@ export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false
       window.speechSynthesis?.cancel();
       speech.current = null;
     }
+    turn.current?.();
+    turn.current = null;
+    leave(owner);
   }
 
   function wait(ms: number) {
@@ -48,10 +53,22 @@ export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false
     });
   }
 
-  const claim = () => claimMiloAudio(instruction, stop);
+  // Holds the shared speaker for one whole play or narration; the generation check catches a stop while waiting.
+  async function withTurn<T>(run: () => Promise<T>): Promise<T> {
+    const pending = takeTurn(owner, stop);
+    const current = generation.current;
+    const release = await pending;
+    if (generation.current !== current) { release(); throw new DOMException("Stopped", "AbortError"); }
+    turn.current = release;
+    try { return await run(); }
+    finally { if (turn.current === release) turn.current = null; release(); }
+  }
 
   function play(path: string, onProgress?: (fraction: number) => void) {
-    const release = claim();
+    return withTurn(() => playFile(path, onProgress));
+  }
+
+  function playFile(path: string, onProgress?: (fraction: number) => void) {
     const paths = voiceCandidates(path, getLearningSettings().milo_voice)
       .map(candidate => resolveStageTwoAudioPath(resolveStageOneAudioPath(candidate)));
     const player = withVoiceFallback(new Audio(), paths);
@@ -63,16 +80,14 @@ export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false
     const playback = startAudioPlayback(player, onProgress);
     cancelPending.current = playback.cancel;
     return playback.done.finally(() => {
-      release();
       unobserve();
       if (cancelPending.current === playback.cancel) cancelPending.current = null;
       if (audio.current === player) { audio.current = null; if (mounted.current) setIsPlaying(false); }
     });
   }
 
-  async function narrateText(entry: { file: string; text: string }, onLine?: (line: string) => void) {
-    const release = claim();
-    try { await narrateLines(entry, onLine); } finally { release(); }
+  function narrateText(entry: { file: string; text: string }, onLine?: (line: string) => void) {
+    return withTurn(() => narrateLines(entry, onLine));
   }
 
   async function narrateLines(entry: { file: string; text: string }, onLine?: (line: string) => void) {
@@ -89,7 +104,7 @@ export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false
     // Full recordings have no cue sheet yet; distribute captions by text length.
     for (const file of [recordedLine(entry.text), entry.file && (entry.file.startsWith("/") ? entry.file : `${basePath}/${entry.file}`)]) {
       if (!file) continue;
-      try { await play(file,fraction=>showPosition(fraction*total)); return; }
+      try { await playFile(file,fraction=>showPosition(fraction*total)); return; }
       catch (error) { if (stopped(error)) throw error; }
     }
     // Recorded runs of sentences play as recordings; any sentence without one uses the computer voice.
@@ -98,7 +113,7 @@ export function useBridgeAudio(basePath = "/audio/stage2", { instruction = false
     const line = chunk.text;
     onLine?.(line);
     if (chunk.file) {
-      try { await play(chunk.file); continue; }
+      try { await playFile(chunk.file); continue; }
       catch (error) { if (stopped(error)) throw error; }
     }
     await new Promise<void>((resolve, reject) => {

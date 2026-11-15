@@ -1,6 +1,6 @@
 import { learningVolume } from "./learningSettings";
-import { stopMiloInstruction } from "./miloInstructionState";
 import { trackMouth } from "./miloMouth";
+import { leave, takeTurn } from "./speaker";
 
 // Recording-script ID -> approved Milo recording. Lines without an entry fall back to speech.
 export const MILO_SCRIPT_FILES: Readonly<Record<string, string>> = {
@@ -38,33 +38,28 @@ export const miloLine = (id: string, text: string) => ({ file: MILO_SCRIPT_FILES
 
 // One-shot playback for lines that must outlive their screen (e.g. the welcome-to-home transition).
 let oneShot: HTMLAudioElement | null = null;
+const scriptOwner = {};
 export function stopMiloScript() {
-  if (!oneShot) return;
-  oneShot.pause();
+  oneShot?.pause();
   oneShot = null;
-}
-// Resolves once any one-shot line has finished, so automatic narration never talks over it.
-export function waitForMiloScript(): Promise<void> {
-  const audio = oneShot;
-  if (!audio || audio.paused || audio.ended) return Promise.resolve();
-  return new Promise(resolve => {
-    const done = () => { audio.removeEventListener("ended", done); audio.removeEventListener("pause", done); audio.removeEventListener("error", done); resolve(); };
-    audio.addEventListener("ended", done);
-    audio.addEventListener("pause", done);
-    audio.addEventListener("error", done);
-  });
+  leave(scriptOwner);
 }
 /** Resolves with the line's length in seconds once it starts, or 0 if it cannot play. */
 export function playMiloScript(id: string): Promise<number> {
   stopMiloScript();
-  stopMiloInstruction();
   const file = MILO_SCRIPT_FILES[id];
   if (!file || learningVolume() === 0) return Promise.resolve(0);
-  const audio = new Audio(file);
-  audio.volume = learningVolume();
-  trackMouth(audio);
-  oneShot = audio;
-  return audio.play()
-    .then(() => Number.isFinite(audio.duration) ? audio.duration : 0)
-    .catch(() => { if (oneShot === audio) oneShot = null; return 0; });
+  return takeTurn(scriptOwner, stopMiloScript).then(release => {
+    const audio = new Audio(file);
+    audio.volume = learningVolume();
+    trackMouth(audio);
+    oneShot = audio;
+    const done = () => { if (oneShot === audio) oneShot = null; release(); };
+    audio.addEventListener("ended", done);
+    audio.addEventListener("pause", done);
+    audio.addEventListener("error", done);
+    return audio.play()
+      .then(() => Number.isFinite(audio.duration) ? audio.duration : 0)
+      .catch(() => { done(); return 0; });
+  }, () => 0);
 }

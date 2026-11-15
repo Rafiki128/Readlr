@@ -16,6 +16,7 @@ import {
 } from './learningCampIndependent';
 import './campIndependentCheck.css';
 import { MiloCoach } from './MiloCoach';
+import { playClip } from '../../hooks/speaker';
 
 interface CampIndependentCheckProps {
   learnerId: number;
@@ -29,16 +30,6 @@ interface CampIndependentCheckProps {
 
 type Phase = 'checking' | 'intro' | 'sound' | 'word-audio' | 'word-build' | 'read-word' | 'meaning' | 'remediation' | 'summary' | 'blocked';
 type Remediation = { type: 'sound'; item: SoundCheckItem } | { type: 'blend' } | { type: 'meaning' };
-
-function playAudio(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio(url);
-    const cleanup = () => { audio.onended = null; audio.onerror = null; };
-    audio.onended = () => { cleanup(); resolve(); };
-    audio.onerror = () => { cleanup(); reject(new Error('Audio unavailable')); };
-    audio.play().catch((error) => { cleanup(); reject(error); });
-  });
-}
 
 export function CampIndependentCheck({
   learnerId,
@@ -95,10 +86,10 @@ export function CampIndependentCheck({
     setPlaying(true);
     try {
       if (previewMode) await new Promise((resolve) => window.setTimeout(resolve, 350));
-      else await playAudio(url);
+      else await playClip(url);
       after();
-    } catch {
-      setPhase('blocked');
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') setPhase('blocked');
     } finally {
       setPlaying(false);
     }

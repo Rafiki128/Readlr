@@ -7,6 +7,7 @@ import { CampSoundShield } from './CampObjectArt';
 import { CharacterCompanion } from './CharacterCompanion';
 import { highlightedWord } from './chronicleContent';
 import { useBridgeAudio } from '../../hooks/useBridgeAudio';
+import { playOnSpeaker } from '../../hooks/speaker';
 import { useCvcRecorder } from '../../hooks/useCvcRecorder';
 import { recognizeCvc } from '../../hooks/recognizeCvc';
 import { recognizeSentence } from '../../hooks/recognizeSentence.ts';
@@ -497,7 +498,7 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
       {clip && (
         <div className="camp-replay">
           <audio ref={clipPlayer} src={clip} preload="metadata" />
-          <button className="camp-replay-voice" disabled={busy} onClick={() => void clipPlayer.current?.play()} aria-label="Hear your voice" title="Hear your voice">
+          <button className="camp-replay-voice" disabled={busy} onClick={() => { if (clipPlayer.current) void playOnSpeaker(clipPlayer.current).catch(() => {}); }} aria-label="Hear your voice" title="Hear your voice">
             <Headphones />
             <span>My voice</span>
           </button>

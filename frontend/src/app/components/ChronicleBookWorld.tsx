@@ -14,7 +14,7 @@ import { chronicleBlendWords, chronicleSounds } from './chronicleLessons';
 import { BookStoryScene, StoryWordTiles } from './BookStoryScene';
 import { chronicleStopLocked, trailLayout, trailPageSegments } from './chronicleRoute';
 import './chronicleWorld.css';
-import './chronicleBook.css';
+import './chronicleBook.css';
 import { HearMiloButton, useMiloInstruction } from './MiloSays';
 
 export function ChronicleBookWorld({index,completed,practiceDone,available,reviewMode,challengesOpen=false,openStops=[],onBack,onFinishBook,onPractice,onCheckpoint,onSound,onBlend,visited=[],bookPage=0,onPageChange,celebrateStop}:{index:number;completed:boolean;practiceDone:boolean;available:boolean;reviewMode:boolean;challengesOpen?:boolean;openStops?:string[];onBack:()=>void;onFinishBook:()=>void;onPractice:()=>void;onCheckpoint:()=>void;onSound:(card:SoundCard)=>void;onBlend:()=>void;visited?:string[];bookPage?:number;onPageChange?:(page:number)=>void;celebrateStop?:string|null}) {
@@ -42,6 +42,7 @@ export function ChronicleBookWorld({index,completed,practiceDone,available,revie
     return {...lesson,locked};
   });
   const nextStop=lessons.find(lesson=>!lesson.done&&!lesson.locked);
+  const hereId=nextStop?.id;
   const sayPage=useMiloInstruction(bookPage===0?`${chapter.title}. Tap Read with Milo to hear the story. Then turn the page to find your trail.`:nextStop?`Next stop: ${nextStop.title}. Tap it on the trail to play.`:undefined);
   const trailPages=Array.from({length:Math.ceil(lessons.length/3)},(_,page)=>{
       const pageStart=page*3;
@@ -99,7 +100,7 @@ export function ChronicleBookWorld({index,completed,practiceDone,available,revie
           })}
         </svg>
         {celebratingPage&&<div className="book-map-celebration" aria-hidden="true">{Array.from({length:10},(_,spark)=><i key={spark}/>)}</div>}
-        {stops.map((stop,i)=>{const point=points[i];const celebrating=celebrateStop===stop.id;return <button key={stop.id} style={{'--stop-x':`${point.x/9}%`,'--stop-y':`${point.y/3.6}%`} as CSSProperties} className={`book-map-stop ${stop.done?'is-done':''} ${celebrating?'is-newly-done':''}`} disabled={stop.locked} onClick={()=>leave(stop.action)}><span className="book-map-token">{stop.locked?<LockKeyhole/>:stop.word?<ReadingAnchorArt word={stop.word}/>:index===6&&stop.id==='games'?<KeyRound/>:index===7&&stop.id==='games'?<Feather/>:(index===8||index===9)&&stop.id==='games'?<Sparkles/>:stop.id==='check'?<Mic/>:stop.id==='blend'?<Headphones/>:<Puzzle/>}{stop.done&&<Check className="book-stop-check"/>}{celebrating&&<span className="book-stop-sparkles" aria-hidden="true">{[0,1,2,3,4,5].map(star=><i key={star}/>)}<Sparkles/></span>}</span><strong>{stop.title}</strong><small>{stop.hint}</small></button>})}
+        {stops.map((stop,i)=>{const point=points[i];const celebrating=celebrateStop===stop.id;return <button key={stop.id} style={{'--stop-x':`${point.x/9}%`,'--stop-y':`${point.y/3.6}%`} as CSSProperties} className={`book-map-stop ${stop.done?'is-done':''} ${celebrating?'is-newly-done':''} ${stop.id===hereId?'is-here':''}`} aria-current={stop.id===hereId?'step':undefined} disabled={stop.locked} onClick={()=>leave(stop.action)}><span className="book-map-token">{stop.id===hereId&&<span className="book-map-here" aria-hidden="true"><CharacterCompanion size={44} state="encouraging"/></span>}{stop.locked?<LockKeyhole/>:stop.word?<ReadingAnchorArt word={stop.word}/>:index===6&&stop.id==='games'?<KeyRound/>:index===7&&stop.id==='games'?<Feather/>:(index===8||index===9)&&stop.id==='games'?<Sparkles/>:stop.id==='check'?<Mic/>:stop.id==='blend'?<Headphones/>:<Puzzle/>}{stop.done&&<Check className="book-stop-check"/>}{celebrating&&<span className="book-stop-sparkles" aria-hidden="true">{[0,1,2,3,4,5].map(star=><i key={star}/>)}<Sparkles/></span>}</span><strong>{stop.title}</strong><small>{stop.hint}</small></button>})}
       </div><footer><BookOpen size={18}/><span>{theme.skill} · {page*3+1}–{Math.min(page*3+3,lessons.length)} of {lessons.length} stops</span></footer></div>;
     });
   const pages=[

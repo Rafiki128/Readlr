@@ -9,6 +9,7 @@ import { VowelChallengeView } from "./VowelChallengeView";
 import { getLearningSettings, learningVolume } from "../../hooks/learningSettings";
 import { useBridgeAudio } from "../../hooks/useBridgeAudio";
 import { startAudioPlayback } from "../../hooks/audioPlayback";
+import { interruptNow } from "../../hooks/speaker";
 import { explanationSeen } from "../../hooks/learningIntroduction";
 import { hasVoiceSignal } from "./stageTwoContent";
 
@@ -1342,9 +1343,10 @@ export function GameLevel({ learnerId, stageId, levelId, onBack, onComplete }: G
     setCharacterState("listening");
     setBubbleMessage(autoReplay ? "Listen. This is your vowel sound coming back to you." : "Listen closely. That is your explorer voice on the trail.");
     cancelVoicePlayback.current?.();
+    const release = interruptNow(learnerAudioRef, () => cancelVoicePlayback.current?.());
     const playback = startAudioPlayback(audio);
     cancelVoicePlayback.current = playback.cancel;
-    void playback.done.then(() => {
+    void playback.done.finally(release).then(() => {
       if (!stageOneActiveRef.current || learnerAudioRef.current !== audio) return;
       stageOneRecordingPlaybackFinishedRef.current = true;
       setCharacterState(autoReplay ? "celebrating" : "idle");

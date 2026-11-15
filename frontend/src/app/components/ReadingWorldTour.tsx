@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Volume2 } from 'lucide-react';
 import { CharacterCompanion } from './CharacterCompanion';
 import { LandmarkArt } from './AdventureArt';
 import { useBridgeAudio } from '../../hooks/useBridgeAudio';
-import { miloLine, stopMiloScript, waitForMiloScript } from '../../hooks/miloScripts';
+import { miloLine, stopMiloScript } from '../../hooks/miloScripts';
 import './readingWorldTour.css';
 
 export const WORLD_TOUR_STOPS = [
@@ -43,10 +43,13 @@ export function ReadingWorldTour({onFinish}:{onFinish:()=>void}) {
     target?.classList.add('world-tour-target');
     return()=>{target?.classList.remove('world-tour-target');};
   },[stop]);
+  // Next waits until Milo finishes this stop; only the newest reading counts, so a replay never ends the wait early.
+  const [heard,setHeard]=useState<string>();
+  const said=useRef(0);
+  const speak=()=>{const id=++said.current,current=stop.id;void audio.narrateText(miloLine(stop.id,stop.text)).catch(()=>{}).then(()=>{if(id===said.current)setHeard(current);});};
   useEffect(()=>{
-    let live=true;
-    void waitForMiloScript().then(()=>{if(live)return audio.narrateText(miloLine(stop.id,stop.text));}).catch(()=>{});
-    return()=>{live=false;audio.stop();};
+    speak();
+    return()=>{audio.stop();};
   },[stop]);
   const finish=()=>{audio.stop();onFinish();};
   const move=(next:number)=>{audio.stop();setStep(next);};
@@ -55,11 +58,11 @@ export function ReadingWorldTour({onFinish}:{onFinish:()=>void}) {
     <Dialog.Content ref={panel} className="reading-tour-panel" style={{left:layout.left,top:layout.top}} onInteractOutside={event=>event.preventDefault()}>
       <div className="reading-tour-art" aria-hidden="true"><LandmarkArt kind={stop.art}/></div>
       <div className="reading-tour-copy">
-        <div className="reading-tour-guide"><CharacterCompanion size={60} state={audio.isPlaying?'speaking':'idle'}/><span>Milo's world tour</span><button aria-label="Listen to Milo's tour guide" title="Listen to Milo" onClick={()=>{audio.stop();stopMiloScript();void audio.narrateText(miloLine(stop.id,stop.text)).catch(()=>{});}}><Volume2/></button></div>
+        <div className="reading-tour-guide"><CharacterCompanion size={60} state={audio.isPlaying?'speaking':'idle'}/><span>Milo's world tour</span><button aria-label="Listen to Milo's tour guide" title="Listen to Milo" onClick={()=>{audio.stop();stopMiloScript();speak();}}><Volume2/></button></div>
         <Dialog.Title>{stop.title}</Dialog.Title>
         <Dialog.Description>{stop.text}</Dialog.Description>
         <progress value={step+1} max={WORLD_TOUR_STOPS.length} aria-label="World tour progress"/>
-        <footer><button disabled={step===0} onClick={()=>move(step-1)} aria-label="Previous tour step" title="Previous"><ArrowLeft/></button><span>{step+1} of {WORLD_TOUR_STOPS.length}</span><button className="reading-tour-next" onClick={()=>step===WORLD_TOUR_STOPS.length-1?finish():move(step+1)}>{step===WORLD_TOUR_STOPS.length-1?'Go to Learning Camp':'Next'}<ArrowRight/></button></footer>
+        <footer><button disabled={step===0} onClick={()=>move(step-1)} aria-label="Previous tour step" title="Previous"><ArrowLeft/></button><span>{step+1} of {WORLD_TOUR_STOPS.length}</span><button className="reading-tour-next" disabled={heard!==stop.id} onClick={()=>step===WORLD_TOUR_STOPS.length-1?finish():move(step+1)}>{step===WORLD_TOUR_STOPS.length-1?'Go to Learning Camp':'Next'}<ArrowRight/></button></footer>
         <button className="reading-tour-skip" onClick={finish}>Skip to Learning Camp</button>
       </div>
     </Dialog.Content>

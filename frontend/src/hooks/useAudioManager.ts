@@ -4,12 +4,17 @@ import { resolveStageTwoAudioPath } from '../app/components/stageTwoAudio';
 import { getLearningSettings, learningVolume } from './learningSettings';
 import { voiceCandidates, withVoiceFallback } from './miloVoice';
 import { trackMouth } from './miloMouth';
+import { interruptNow } from './speaker';
 
 // Global audio manager to prevent overlapping audio across the entire app
 let globalAudioRef: HTMLAudioElement | null = null;
 let globalSynthesis: SpeechSynthesisUtterance | null = null;
+const managerOwner = {};
+let releaseTurn: (() => void) | null = null;
+const endTurn = () => { releaseTurn?.(); releaseTurn = null; };
 
 export const stopAllGlobalAudio = () => {
+  endTurn();
   try {
     // Stop HTML5 audio
     if (globalAudioRef) {
@@ -70,16 +75,19 @@ export function useAudioManager() {
       globalAudioRef = audio;
       currentAudioRef.current = audio;
       isPlayingRef.current = true;
-      
+      releaseTurn = interruptNow(managerOwner, stopAllGlobalAudio);
+
       // Handle errors
       audio.onerror = () => {
         console.log(`Failed to load audio: ${audioPath}`);
         isPlayingRef.current = false;
       };
-      
+      audio.addEventListener('error', () => { if (globalAudioRef === audio) endTurn(); });
+
       audio.play().catch((error) => {
         console.log(`Failed to play audio: ${audioPath}`, error);
         isPlayingRef.current = false;
+        if (globalAudioRef === audio) endTurn();
       });
 
       // Clean up reference when audio ends
@@ -87,6 +95,7 @@ export function useAudioManager() {
         isPlayingRef.current = false;
         if (globalAudioRef === audio) {
           globalAudioRef = null;
+          endTurn();
         }
         if (currentAudioRef.current === audio) {
           currentAudioRef.current = null;
@@ -121,14 +130,17 @@ export function useAudioManager() {
         isPlayingRef.current = false;
         if (globalSynthesis === utterance) {
           globalSynthesis = null;
+          endTurn();
         }
       };
 
       utterance.onerror = () => {
         isPlayingRef.current = false;
+        if (globalSynthesis === utterance) endTurn();
       };
-      
+
       window.speechSynthesis.cancel(); // Cancel any existing speech
+      releaseTurn = interruptNow(managerOwner, stopAllGlobalAudio);
       window.speechSynthesis.speak(utterance);
       return utterance;
     } catch (error) {
