@@ -10,7 +10,7 @@ import {
 export const STUDY_BUCKET = 'study-recordings';
 
 export interface StudySession {
-  user_id: number; participant_code: string; study_group: StudyGroup; phase: StudyPhase; learning_minutes: number;
+  user_id: number; participant_code: string; study_group: StudyGroup; phase: StudyPhase; learning_minutes: number | null;
   pretest_order: string[]; posttest_order: string[];
   learning_started_at: string | null; posttest_started_at: string | null; finished_at: string | null;
   created_at: string; updated_at: string;
@@ -22,8 +22,9 @@ export interface StudyResponse {
 }
 export class StudyError extends Error { constructor(public status: number, message: string) { super(message); } }
 
+// Untimed sessions (null minutes) have no end time, so only the admin can start the posttest.
 export function learningEndsAt(session: Pick<StudySession, 'learning_started_at' | 'learning_minutes'>) {
-  return session.learning_started_at ? new Date(Date.parse(session.learning_started_at) + session.learning_minutes * 60_000) : null;
+  return session.learning_started_at && session.learning_minutes !== null ? new Date(Date.parse(session.learning_started_at) + session.learning_minutes * 60_000) : null;
 }
 
 /** Loads a learner's session and moves learning to posttest once the learning time has run out. */
@@ -216,7 +217,7 @@ export async function adminOverview() {
   };
 }
 
-export async function enroll(userIds: number[], learningMinutes: number) {
+export async function enroll(userIds: number[], learningMinutes: number | null) {
   const profiles = unwrap(await supabase.from('learner_profiles').select('user_id,study_participant').in('user_id', userIds)) as Array<{ user_id: number; study_participant: boolean }>;
   const consented = new Set(profiles.filter(p => p.study_participant).map(p => p.user_id));
   if (userIds.some(id => !consented.has(id))) throw new StudyError(400, 'Only learners marked as study participants (with signed consent) can be enrolled.');

@@ -7,7 +7,7 @@ export interface StudyState {
   phase?: StudyPhase;
   books?: string[];
   learningEndsAt?: string | null;
-  learningMinutes?: number;
+  learningMinutes?: number | null;
   /** True once the posttest is finished and the student survey is open to this learner. */
   survey?: boolean;
   test?: { phase: 'pretest' | 'posttest'; words: string[]; answered: string[] } | null;

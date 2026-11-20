@@ -138,9 +138,6 @@ export async function recognizeSentenceAudio(file: Express.Multer.File, targetSe
   const targetWords = cleanTarget.split(' ').filter(Boolean);
   const spokenWords = transcription.split(' ').filter(Boolean);
 
-  console.log("Target array:", targetWords);
-  console.log("Whisper heard array:", spokenWords);
-
   // 3. Compare word by word strictly in sequence
   const wordScores: Record<number, 'correct' | 'missed'> = {};
   let allCorrect = true;

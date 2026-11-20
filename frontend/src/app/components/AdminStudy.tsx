@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from './ui/alert-dialog';
 import './study.css';
 
-interface Session { userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; finishedAt: string | null }
+interface Session { userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; finishedAt: string | null }
 interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number }; wordCount: number }
 interface Counts { correct: number; scored: number; total: number }
 interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts } }
@@ -49,6 +49,7 @@ function StudySessions({ token }: { token: string }) {
   const [notice, setNotice] = useState('');
   const [chosen, setChosen] = useState<number[]>([]);
   const [minutes, setMinutes] = useState(30);
+  const [untimed, setUntimed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<Session | null>(null);
   const [confirmWord, setConfirmWord] = useState('');
@@ -61,7 +62,7 @@ function StudySessions({ token }: { token: string }) {
     setBusy(true); setError(''); setNotice('');
     try { await run(); setNotice(done); await load(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
-  const enroll = () => act(async () => { await api('/enroll', { method: 'POST', body: JSON.stringify({ userIds: chosen, learningMinutes: minutes }) }); setChosen([]); },
+  const enroll = () => act(async () => { await api('/enroll', { method: 'POST', body: JSON.stringify({ userIds: chosen, learningMinutes: untimed ? null : minutes }) }); setChosen([]); },
     `Enrolled ${chosen.length} learner(s). They see the word game the next time their screen refreshes (within 15 seconds).`);
   const update = (s: Session, body: object, done: string) => act(() => api(`/sessions/${s.userId}`, { method: 'PUT', body: JSON.stringify(body) }), done);
   const remove = () => removing && act(async () => { await api(`/sessions/${removing.userId}`, { method: 'DELETE', body: JSON.stringify({ confirmation: confirmWord }) }); setRemoving(null); setConfirmWord(''); }, 'Session and recordings removed.');
@@ -85,8 +86,9 @@ function StudySessions({ token }: { token: string }) {
         <label className="flex items-center gap-2 mb-2"><input type="checkbox" checked={chosen.length === data.eligible.length} onChange={e => setChosen(e.target.checked ? data.eligible.map(l => l.id) : [])} />Select all ({data.eligible.length})</label>
         <div className="study-eligible">{data.eligible.map(l => <label key={l.id}><input type="checkbox" checked={chosen.includes(l.id)} onChange={e => setChosen(list => e.target.checked ? [...list, l.id] : list.filter(id => id !== l.id))} /><span><strong>{l.name}</strong> <small className="admin-muted">{l.email}</small></span></label>)}</div>
         <div className="flex flex-wrap items-end gap-3 mt-3">
-          <label className="grid gap-1">Learning time (minutes)<input type="number" min={5} max={120} value={minutes} onChange={e => setMinutes(Number(e.target.value))} className="rounded-lg border px-3 py-2 w-28" /></label>
-          <button className="admin-apply" disabled={busy || !chosen.length || minutes < 5 || minutes > 120} onClick={() => void enroll()}><UserPlus size={17} />Enroll {chosen.length || ''} and assign groups</button>
+          <label className="grid gap-1">Learning time (minutes)<input type="number" min={5} max={120} value={minutes} disabled={untimed} onChange={e => setMinutes(Number(e.target.value))} className="rounded-lg border px-3 py-2 w-28 disabled:opacity-50 disabled:cursor-not-allowed" /></label>
+          <label className="flex items-center gap-2 py-2"><input type="checkbox" checked={untimed} onChange={e => setUntimed(e.target.checked)} />Untimed (admin starts post-test)</label>
+          <button className="admin-apply" disabled={busy || !chosen.length || (!untimed && (minutes < 5 || minutes > 120))} onClick={() => void enroll()}><UserPlus size={17} />Enroll {chosen.length || ''} and assign groups</button>
         </div>
       </>}
     </section>
@@ -102,7 +104,7 @@ function StudySessions({ token }: { token: string }) {
               <td>{s.phase === 'pretest' ? <select aria-label={`Group for ${s.participantCode}`} value={s.group} disabled={busy} onChange={e => void update(s, { action: 'set-group', group: e.target.value }, `${s.participantCode} moved to group ${e.target.value}.`)} className="rounded border px-2 py-1"><option value="A">A</option><option value="B">B</option></select> : s.group}</td>
               <td><span className={`study-phase ${s.phase}`}>{PHASE_LABEL[s.phase] ?? s.phase}</span></td>
               <td>{s.pretestAnswered} / {data.wordCount}</td>
-              <td>{s.phase === 'learning' && left !== null ? `${Math.ceil(left / 60000)} min left` : s.learningEndsAt ? 'Done' : `${s.learningMinutes} min`}</td>
+              <td>{s.learningMinutes === null ? 'Untimed' : s.phase === 'learning' && left !== null ? `${Math.ceil(left / 60000)} min left` : s.learningEndsAt ? 'Done' : `${s.learningMinutes} min`}</td>
               <td>{s.posttestAnswered} / {data.wordCount}</td>
               <td className="whitespace-nowrap">
                 {s.phase === 'learning' && <button className="admin-discard" disabled={busy} onClick={() => void update(s, { action: 'start-posttest' }, `${s.participantCode} moved to the posttest.`)}>Start posttest now</button>}
