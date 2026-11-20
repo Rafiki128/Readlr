@@ -5,10 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from './ui/alert-dialog';
 import './study.css';
 
-interface Session { userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; finishedAt: string | null }
-interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number }; wordCount: number }
+interface Session { userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
+interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number } }
 interface Counts { correct: number; scored: number; total: number }
-interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts } }
+interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts }; blend: { pre: Counts; post: Counts } }
 interface Results { participants: Participant[]; agreement: { compared: number; agree: number; percent: number | null } }
 
 const PHASE_LABEL: Record<string, string> = { pretest: 'Pretest', learning: 'Learning', posttest: 'Posttest', done: 'Finished', closed: 'Back in normal app' };
@@ -103,9 +103,9 @@ function StudySessions({ token }: { token: string }) {
               <td><strong>{s.participantCode}</strong></td><td>{s.name}</td>
               <td>{s.phase === 'pretest' ? <select aria-label={`Group for ${s.participantCode}`} value={s.group} disabled={busy} onChange={e => void update(s, { action: 'set-group', group: e.target.value }, `${s.participantCode} moved to group ${e.target.value}.`)} className="rounded border px-2 py-1"><option value="A">A</option><option value="B">B</option></select> : s.group}</td>
               <td><span className={`study-phase ${s.phase}`}>{PHASE_LABEL[s.phase] ?? s.phase}</span></td>
-              <td>{s.pretestAnswered} / {data.wordCount}</td>
+              <td>{s.pretestAnswered} / {s.itemCount}</td>
               <td>{s.learningMinutes === null ? 'Untimed' : s.phase === 'learning' && left !== null ? `${Math.ceil(left / 60000)} min left` : s.learningEndsAt ? 'Done' : `${s.learningMinutes} min`}</td>
-              <td>{s.posttestAnswered} / {data.wordCount}</td>
+              <td>{s.posttestAnswered} / {s.itemCount}</td>
               <td className="whitespace-nowrap">
                 {s.phase === 'learning' && <button className="admin-discard" disabled={busy} onClick={() => void update(s, { action: 'start-posttest' }, `${s.participantCode} moved to the posttest.`)}>Start posttest now</button>}
                 {s.phase === 'done' && <button className="admin-discard" disabled={busy} onClick={() => void update(s, { action: 'close' }, `${s.participantCode} returned to the normal app.`)}>Return to app</button>}
@@ -130,10 +130,10 @@ function StudySessions({ token }: { token: string }) {
 
 function StudyScoring({ token }: { token: string }) {
   const api = useApi(token);
-  const [items, setItems] = useState<{ id: string; word: string }[]>([]);
+  const [items, setItems] = useState<{ id: string; word: string; item_type: 'word' | 'blend' }[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [last, setLast] = useState<{ id: string; word: string } | null>(null);
+  const [last, setLast] = useState<{ id: string; word: string; item_type: 'word' | 'blend' } | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -169,12 +169,12 @@ function StudyScoring({ token }: { token: string }) {
   });
   const rescore = async () => { setNotice(''); try { const data = await (await api('/rescore', { method: 'POST' })).json(); setNotice(`App checking started for ${data.queued} recording(s).`); } catch (e) { setError((e as Error).message); } };
   return <div className="study-admin-grid">
-    <p className="admin-muted">Blind scoring: you hear each recording without the learner's name, group, or whether it is the pretest or posttest. Mark <strong>Correct</strong> only if the whole word was read accurately. Keys: 1 correct, 2 incorrect, 3 unclear, Space replay.</p>
+    <p className="admin-muted">Blind scoring: you hear each recording without the learner's name, group, or whether it is the pretest or posttest. Mark <strong>Correct</strong> only if the whole word was read accurately (for blending items, said as one whole word). Keys: 1 correct, 2 incorrect, 3 unclear, Space replay.</p>
     {error && <p role="alert" className="admin-control-notice is-error">{error}</p>}
     {notice && <p role="status" className="admin-control-notice">{notice}</p>}
     <p><strong>{remaining ?? '...'}</strong> recording(s) left to score.</p>
     {item ? <div className="study-score-card">
-      <span className="admin-muted">Expected word</span>
+      <span className="admin-muted">{item.item_type === 'blend' ? `Blending — target: ${item.word}` : 'Expected word'}</span>
       <span className="study-score-word">{item.word}</span>
       <audio ref={player} src={audioUrl ?? undefined} controls preload="auto" />
       <button className="admin-icon-button" onClick={() => void player.current?.play()} aria-label="Replay recording" title="Replay"><Play size={18} /></button>
@@ -228,15 +228,17 @@ function StudyResults({ token }: { token: string }) {
       <div className="study-stat"><strong>{mean(complete, p => p.taught.post.correct - p.taught.pre.correct)}</strong>Mean gain, taught words (of {outOf(data.participants, p => p.taught.pre.total)})</div>
       <div className="study-stat"><strong>{mean(complete, p => p.transfer.post.correct - p.transfer.pre.correct)}</strong>Mean gain, transfer words (of {outOf(data.participants, p => p.transfer.pre.total)})</div>
       <div className="study-stat"><strong>{mean(complete, p => p.control.post.correct - p.control.pre.correct)}</strong>Mean gain, control words (of {outOf(data.participants, p => p.control.pre.total)})</div>
+      <div className="study-stat"><strong>{mean(complete.filter(p => p.blend.pre.total), p => p.blend.post.correct - p.blend.pre.correct)}</strong>Mean gain, sound blending (of {outOf(data.participants.filter(p => p.blend.pre.total), p => p.blend.pre.total)})</div>
       <div className="study-stat"><strong>{data.agreement.percent === null ? '–' : `${data.agreement.percent}%`}</strong>App agrees with teacher ({data.agreement.compared} compared)</div>
     </div>
     <p className="admin-muted">If the app teaches, taught and transfer gains should be clearly larger than control gains. Run the statistics (for example Wilcoxon signed-rank) on the exported file.</p>
-    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Group</th><th>Taught pre → post</th><th>Transfer pre → post</th><th>Control pre → post</th><th>Unscored</th></tr></thead><tbody>
+    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Group</th><th>Taught pre → post</th><th>Transfer pre → post</th><th>Control pre → post</th><th>Blending pre → post</th><th>Unscored</th></tr></thead><tbody>
       {data.participants.map(p => <tr key={p.participantCode}>
         <td><strong>{p.participantCode}</strong>{!p.complete && <small className="admin-muted"> (in progress)</small>}</td><td>{p.group}</td>
         <td>{p.taught.pre.correct} → {p.taught.post.correct} <small className="admin-muted">/{p.taught.pre.total} ({pct(p.taught.pre)}% → {pct(p.taught.post)}%)</small></td>
         <td>{p.transfer.pre.correct} → {p.transfer.post.correct} <small className="admin-muted">/{p.transfer.pre.total}</small></td>
         <td>{p.control.pre.correct} → {p.control.post.correct} <small className="admin-muted">/{p.control.pre.total}</small></td>
+        <td>{p.blend.pre.total ? <>{p.blend.pre.correct} → {p.blend.post.correct} <small className="admin-muted">/{p.blend.pre.total}</small></> : '–'}</td>
         <td>{p.unscored}</td>
       </tr>)}
     </tbody></table></div>

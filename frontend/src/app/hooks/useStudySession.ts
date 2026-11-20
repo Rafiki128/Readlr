@@ -10,7 +10,8 @@ export interface StudyState {
   learningMinutes?: number | null;
   /** True once the posttest is finished and the student survey is open to this learner. */
   survey?: boolean;
-  test?: { phase: 'pretest' | 'posttest'; words: string[]; answered: string[] } | null;
+  /** words is Part 1 (printed words); blends is Part 2 (sound blending), empty for sessions enrolled before it. */
+  test?: { phase: 'pretest' | 'posttest'; words: string[]; blends: string[]; answered: string[] } | null;
 }
 
 /** Polls the learner's validation-study session. Errors count as "no session" so the normal app keeps working. */

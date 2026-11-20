@@ -1,7 +1,7 @@
 // Pretest/posttest instrument for the classroom validation study.
 // Each group's transfer words use only letters that group is taught and never
 // appear in the app, so gains on them show decoding rather than memorized words.
-export const STUDY_VERSION = 'readlr-study-v3-15';
+export const STUDY_VERSION = 'readlr-study-v4-15-blend10';
 export type StudyGroup = 'A' | 'B';
 export type StudyPhase = 'pretest' | 'learning' | 'posttest' | 'done' | 'closed';
 export type WordSet = 'taught' | 'transfer';
@@ -20,10 +20,14 @@ export function categoryTotal(group: StudyGroup, key: CategoryKey): number {
 }
 export const ALL_STUDY_WORDS = (['A', 'B'] as const).flatMap(group => [...STUDY_WORDS[group].taught, ...STUDY_WORDS[group].transfer]);
 
+// Part 2 sound blending: Milo says each sound and the child says the whole word; same items for both groups and tests.
+export const BLEND_ITEMS = ['gap', 'nap', 'wed', 'vet', 'rib', 'fig', 'jot', 'rod', 'hum', 'bud'];
+export type ItemType = 'word' | 'blend';
+
 // Reading Chronicles chapters each group may open during the learning phase.
 export const STUDY_BOOKS: Record<StudyGroup, string[]> = { A: ['gate', 'lanterns', 'market'], B: ['gate', 'garden', 'bridge'] };
 
-export type WordCategory = 'taught' | 'transfer' | 'control-taught' | 'control-transfer';
+export type WordCategory = 'taught' | 'transfer' | 'control-taught' | 'control-transfer' | 'blend';
 /** Category of a test word relative to the learner's own group. */
 export function wordCategory(group: StudyGroup, word: string): WordCategory {
   const other: StudyGroup = group === 'A' ? 'B' : 'A';
@@ -31,6 +35,7 @@ export function wordCategory(group: StudyGroup, word: string): WordCategory {
   if (STUDY_WORDS[group].transfer.includes(word)) return 'transfer';
   if (STUDY_WORDS[other].taught.includes(word)) return 'control-taught';
   if (STUDY_WORDS[other].transfer.includes(word)) return 'control-transfer';
+  if (BLEND_ITEMS.includes(word)) return 'blend';
   throw new Error(`Unknown study word: ${word}`);
 }
 
@@ -58,6 +63,11 @@ export function allocateGroups(userIds: number[], existing: { A: number; B: numb
 /** Same vocabulary for every item and never the expected word, so no word gets a recognition advantage. */
 export function studyTranscriptionPrompt() {
   return `A child is reading one short printed English word aloud. Transcribe only what the child actually says. Possible words include: ${shuffled(ALL_STUDY_WORDS).join(', ')}. Write spoken words, not numerals.`;
+}
+
+/** Blending answers get their own fixed vocabulary so the printed-word prompt stays unchanged. */
+export function blendTranscriptionPrompt() {
+  return `A child heard separate speech sounds and is saying the whole short English word aloud. Transcribe only what the child actually says. Possible words include: ${shuffled(BLEND_ITEMS).join(', ')}. Write spoken words, not numerals.`;
 }
 
 export type Score = 'correct' | 'incorrect' | null;

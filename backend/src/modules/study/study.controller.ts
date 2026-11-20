@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
-import { ALL_STUDY_WORDS, STUDY_BOOKS, categoryTotal, STUDY_VERSION, STUDY_WORDS, finalScore, wordCategory } from './study.data.js';
+import { ALL_STUDY_WORDS, BLEND_ITEMS, STUDY_BOOKS, categoryTotal, STUDY_VERSION, STUDY_WORDS, finalScore, wordCategory } from './study.data.js';
 import {
   StudyError, adminOverview, enroll, getSession, learnerView, loadResults, recordAnswer, recording, removeSession,
   rescoreMissing, scoringBatch, setScore, updateSession, type StudyResponse, type StudySession,
@@ -29,7 +29,11 @@ export async function answerStudyWord(req: Request, res: Response) {
     console.warn(`Study answer refused for user ${userIdOf(req)}: no recording (word ${req.body?.word}, file ${req.file?.mimetype ?? 'missing'}).`);
     res.status(400).json({ message: 'A recording is required.' }); return;
   }
-  try { res.json(await recordAnswer(userIdOf(req), req.body?.phase, req.body?.word, skip ? null : { buffer: req.file!.buffer, mimetype: req.file!.mimetype })); }
+  try {
+    // Clients without the blending part send no item type, so their answers stay printed words.
+    res.json(await recordAnswer(userIdOf(req), req.body?.phase, req.body?.word, skip ? null : { buffer: req.file!.buffer, mimetype: req.file!.mimetype },
+      req.body?.item_type ?? 'word', req.body?.prompt_replayed === 'true'));
+  }
   catch (error) {
     // Refused answers leave the learner unable to finish a test, so they are always logged.
     if (error instanceof StudyError) console.warn(`Study answer refused for user ${userIdOf(req)} (word ${req.body?.word}, phase ${req.body?.phase}): ${error.message}`);
@@ -101,26 +105,31 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
   book.creator = 'Readlr';
   const codeOf = new Map(sessions.map(s => [s.user_id, s]));
   const long = book.addWorksheet('Responses');
-  long.addRow(['Participant', 'Group', 'Test', 'Position', 'Word', 'Category', 'Skipped', 'App result', 'App transcript', 'Teacher score', 'Final score (1/0)', 'Answered (UTC)']);
+  // New columns are appended so existing column positions stay the same for earlier analysis files.
+  long.addRow(['Participant', 'Group', 'Test', 'Position', 'Word', 'Category', 'Skipped', 'App result', 'App transcript', 'Teacher score', 'Final score (1/0)', 'Answered (UTC)', 'Item type', 'Prompt replayed']);
   for (const r of [...responses].sort((a, b) => (codeOf.get(a.user_id)?.participant_code ?? '').localeCompare(codeOf.get(b.user_id)?.participant_code ?? '') || a.phase.localeCompare(b.phase) * -1 || a.position - b.position)) {
     const session = codeOf.get(r.user_id);
-    if (!session || !ALL_STUDY_WORDS.includes(r.word)) continue;
+    if (!session || (!ALL_STUDY_WORDS.includes(r.word) && !BLEND_ITEMS.includes(r.word))) continue;
     const score = finalScore(r);
     long.addRow([session.participant_code, session.study_group, r.phase, r.position + 1, r.word, wordCategory(session.study_group, r.word), r.skipped ? 'Yes' : 'No',
-      r.app_result ?? '', r.app_transcript ?? '', r.teacher_score ?? '', score === null ? '' : score === 'correct' ? 1 : 0, new Date(r.created_at)]);
+      r.app_result ?? '', r.app_transcript ?? '', r.teacher_score ?? '', score === null ? '' : score === 'correct' ? 1 : 0, new Date(r.created_at),
+      r.item_type, r.prompt_replayed ? 'Yes' : 'No']);
   }
   long.getColumn(12).numFmt = 'yyyy-mm-dd hh:mm:ss';
   const wide = book.addWorksheet('Summary');
   // Totals differ by group (B has 3 transfer words), so headers name both.
   const outOf = (key: 'taught' | 'transfer' | 'control') => categoryTotal('A', key) === categoryTotal('B', key) ? `/${categoryTotal('A', key)}` : `(A /${categoryTotal('A', key)}, B /${categoryTotal('B', key)})`;
-  wide.addRow(['Participant', 'Group', 'Complete', `Pre taught ${outOf('taught')}`, `Post taught ${outOf('taught')}`, 'Gain taught', `Pre transfer ${outOf('transfer')}`, `Post transfer ${outOf('transfer')}`, 'Gain transfer', `Pre control ${outOf('control')}`, `Post control ${outOf('control')}`, 'Gain control', 'Unscored items', 'Learning minutes', 'Learning started (UTC)', 'Posttest started (UTC)', 'Finished (UTC)']);
+  wide.addRow(['Participant', 'Group', 'Complete', `Pre taught ${outOf('taught')}`, `Post taught ${outOf('taught')}`, 'Gain taught', `Pre transfer ${outOf('transfer')}`, `Post transfer ${outOf('transfer')}`, 'Gain transfer', `Pre control ${outOf('control')}`, `Post control ${outOf('control')}`, 'Gain control', 'Unscored items', 'Learning minutes', 'Learning started (UTC)', 'Posttest started (UTC)', 'Finished (UTC)',
+    `Pre blending /${BLEND_ITEMS.length}`, `Post blending /${BLEND_ITEMS.length}`, 'Gain blending']);
   for (const p of summary.participants) {
     const s = sessions.find(x => x.participant_code === p.participantCode)!;
     const date = (v: string | null) => v ? new Date(v) : '';
     wide.addRow([p.participantCode, p.group, p.complete ? 'Yes' : 'No', p.taught.pre.correct, p.taught.post.correct, p.taught.post.correct - p.taught.pre.correct,
       p.transfer.pre.correct, p.transfer.post.correct, p.transfer.post.correct - p.transfer.pre.correct,
       p.control.pre.correct, p.control.post.correct, p.control.post.correct - p.control.pre.correct, p.unscored, s.learning_minutes ?? 'Untimed',
-      date(s.learning_started_at), date(s.posttest_started_at), date(s.finished_at)]);
+      date(s.learning_started_at), date(s.posttest_started_at), date(s.finished_at),
+      // Sessions enrolled before blending stay blank rather than showing 0.
+      ...(p.blend.pre.total ? [p.blend.pre.correct, p.blend.post.correct, p.blend.post.correct - p.blend.pre.correct] : ['', '', ''])]);
   }
   for (const col of [15, 16, 17]) wide.getColumn(col).numFmt = 'yyyy-mm-dd hh:mm:ss';
   const notes = book.addWorksheet('Notes');
@@ -132,7 +141,8 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
     notes.addRow([`Group ${g} taught words`, STUDY_WORDS[g].taught.join(', ')]);
     notes.addRow([`Group ${g} transfer words`, STUDY_WORDS[g].transfer.join(', ')]);
   }
-  notes.addRow(['Categories', 'taught/transfer are the learner\'s own group words; control-taught/control-transfer are the other group\'s words (not studied by this learner).']);
+  notes.addRow(['Blending items', `${BLEND_ITEMS.join(', ')} (Part 2: Milo says each sound, the learner says the whole word; practice item mat is not recorded)`]);
+  notes.addRow(['Categories', 'taught/transfer are the learner\'s own group words; control-taught/control-transfer are the other group\'s words (not studied by this learner); blend is a Part 2 sound-blending item.']);
   notes.addRow(['Final score', 'Teacher score when available, otherwise the app result (matched = 1, different = 0). Skipped = 0. Unclear or unscored items are blank.']);
   notes.addRow(['Teacher scoring', 'Blind: the scorer heard each recording without the learner, group, or test phase.']);
   notes.addRow(['App/teacher agreement', summary.agreement.percent === null ? 'Not yet available' : `${summary.agreement.percent}% of ${summary.agreement.compared} recordings`]);
