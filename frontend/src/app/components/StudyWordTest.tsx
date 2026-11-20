@@ -3,10 +3,11 @@ import { Mic, SkipForward, Check, WifiOff } from 'lucide-react';
 import { useCvcRecorder } from '../../hooks/useCvcRecorder';
 import { CLASSROOM_API } from '../hooks/useClassroom';
 import type { StudyState } from '../hooks/useStudySession';
+import { StudyBlendIntro, StudyBlendItem } from './StudyBlendItem';
 import './study.css';
 
 type Status = 'ready' | 'recording' | 'saved';
-interface Answer { word: string; blob: Blob | null }
+interface Answer { word: string; blob: Blob | null; itemType: 'word' | 'blend'; replayed: boolean }
 
 /**
  * Pretest/posttest: the child reads each printed word once. There is deliberately no
@@ -23,6 +24,7 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
   const [local, setLocal] = useState<string[]>([]);
   const [pending, setPending] = useState(0);
   const [offline, setOffline] = useState(false);
+  const [blendStarted, setBlendStarted] = useState(false);
   const queue = useRef<Answer[]>([]);
   const uploading = useRef(false);
   const latest = useRef<StudyState | null>(null);
@@ -31,14 +33,20 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
   useEffect(() => () => { live.current = false; }, []);
 
   const finished = new Set([...test.answered, ...local]);
+  // Part 1 (printed words) always comes first; Part 2 (sound blending) starts only when it is done.
+  const blends = test.blends ?? [];
   const remaining = test.words.filter(word => !finished.has(word));
-  const word = remaining[0];
+  const remainingBlends = blends.filter(word => !finished.has(word));
+  const part: Answer['itemType'] = remaining.length ? 'word' : 'blend';
+  const word = remaining[0] ?? remainingBlends[0];
   const number = test.words.length - remaining.length + 1;
 
   async function upload(answer: Answer): Promise<'ok' | 'drop' | 'retry'> {
     const form = new FormData();
     form.append('phase', test.phase);
     form.append('word', answer.word);
+    form.append('item_type', answer.itemType);
+    if (answer.replayed) form.append('prompt_replayed', 'true');
     if (answer.blob) form.append('audio', answer.blob, `answer.${answer.blob.type.includes('mp4') ? 'mp4' : answer.blob.type.includes('ogg') ? 'ogg' : 'webm'}`);
     else form.append('skip', 'true');
     try {
@@ -89,15 +97,16 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
     void drain();
   }
 
-  async function record(practice = false) {
+  async function record(practice = false, replayed = false) {
     setMessage('');
     setStatus('recording');
     try {
       const blob = await recorder.capture(setSeconds, async () => undefined, { endOnSilence: true });
       if (practice) { setStatus('ready'); setMicChecked(true); setMessage('I can hear you. You are ready!'); return; }
       const current = word;
+      const itemType = part;
       setStatus('saved');
-      window.setTimeout(() => { if (live.current) { setStatus('ready'); submit({ word: current, blob }); } }, 300);
+      window.setTimeout(() => { if (live.current) { setStatus('ready'); submit({ word: current, blob, itemType, replayed }); } }, 300);
     } catch (error) {
       setStatus('ready');
       if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -134,6 +143,17 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
     </section>;
   }
 
+  if (part === 'blend') {
+    const notices = <>
+      {message && <p role="alert" className="study-warn">{message}</p>}
+      {offline && <p className="study-hint"><WifiOff size={14} className="inline mr-1" />Saving is slow. Keep going!</p>}
+    </>;
+    // After a reload partway through Part 2 the practice is not repeated.
+    if (!blendStarted && remainingBlends.length === blends.length) return <StudyBlendIntro onStart={() => setBlendStarted(true)} />;
+    return <StudyBlendItem key={word} word={word} number={blends.length - remainingBlends.length + 1} total={blends.length} status={status} seconds={seconds}
+      onRecord={replayed => void record(false, replayed)} onSkip={replayed => submit({ word, blob: null, itemType: 'blend', replayed })}>{notices}</StudyBlendItem>;
+  }
+
   return <section className="study-card study-test" aria-labelledby="study-word">
     <p className="study-progress">Word {number} of {test.words.length}</p>
     <div className="study-progress-bar" aria-hidden="true"><span style={{ width: `${((number - 1) / test.words.length) * 100}%` }} /></div>
@@ -143,7 +163,7 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
         <button className="study-mic" disabled={status !== 'ready'} onClick={() => void record()} aria-label="Record yourself reading the word">
           {status === 'recording' ? <span className="study-countdown">{seconds}</span> : <Mic size={48} />}
         </button>
-        <button className="study-skip" disabled={status !== 'ready'} onClick={() => submit({ word, blob: null })}><SkipForward size={20} /> Skip</button>
+        <button className="study-skip" disabled={status !== 'ready'} onClick={() => submit({ word, blob: null, itemType: 'word', replayed: false })}><SkipForward size={20} /> Skip</button>
       </div>}
     <p className="study-hint">{status === 'recording' ? 'Read the word now.' : status === 'ready' ? 'Tap the microphone, then read the word.' : ''}</p>
     {message && <p role="alert" className="study-warn">{message}</p>}

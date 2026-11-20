@@ -8,7 +8,7 @@ import {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 3 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5 },
   fileFilter: (_req, file, done) => {
     const accepted = /^(audio\/(webm|ogg|mp4|wav|x-wav)|video\/webm)(;.*)?$/.test(file.mimetype);
     if (!accepted) console.warn(`Study recording rejected: unsupported audio type "${file.mimetype}".`);
