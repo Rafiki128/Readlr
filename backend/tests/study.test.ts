@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { ALL_STUDY_WORDS, STUDY_BOOKS, STUDY_WORDS, allocateGroups, categoryTotal, finalScore, studyTranscriptionPrompt, wordCategory } from '../src/modules/study/study.data.js';
 import { READING_BANKS } from '../src/modules/evidence/reading-catalog.js';
 process.env.SUPABASE_URL = 'http://127.0.0.1:1'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-only';
-const { summarize } = await import('../src/modules/study/study.service.js');
+const { summarize, getSession, updateSession, learningEndsAt } = await import('../src/modules/study/study.service.js');
+const { supabase } = await import('../src/database/db.js');
 const { enrollStudy, answerStudyWord, deleteStudySession, scoreResponse, studyWorkbook } = await import('../src/modules/study/study.controller.js');
 const response = () => ({ statusCode: 200, body: null as any, status(n: number) { this.statusCode = n; return this; }, json(d: any) { this.body = d; return this; }, setHeader() {} });
 
@@ -109,4 +110,70 @@ test('admin and learner endpoints reject invalid input before touching the datab
   res = response(); await answerStudyWord({ userId: 1, body: { phase: 'pretest', word: 'sit' } } as any, res as any); assert.equal(res.statusCode, 400);
   res = response(); await deleteStudySession({ params: { userId: '3' }, body: {} } as any, res as any); assert.equal(res.statusCode, 400);
   res = response(); await scoreResponse({ params: { id: 'nope' }, body: { score: 'correct' } } as any, res as any); assert.equal(res.statusCode, 400);
+});
+
+// Minimal in-memory stand-in for the readlr_study_sessions queries used by getSession and advance.
+function stubSessionRow(row: any) {
+  const original = supabase.from;
+  supabase.from = (() => {
+    let patch: Record<string, unknown> | null = null;
+    const filters: Record<string, unknown> = {};
+    const matches = () => Object.entries(filters).every(([k, v]) => row[k] === v);
+    const query: any = {
+      select: () => query, eq: (k: string, v: unknown) => { filters[k] = v; return query; }, update: (p: Record<string, unknown>) => { patch = p; return query; },
+      maybeSingle: async () => ({ data: matches() ? { ...row } : null, error: null }),
+      single: async () => ({ data: { ...row }, error: null }),
+      then: (resolve: (v: unknown) => unknown) => { const hit = matches(); if (hit && patch) Object.assign(row, patch); return resolve({ data: hit ? [{ ...row }] : [], error: null }); },
+    };
+    return query;
+  }) as any;
+  return () => { supabase.from = original; };
+}
+const learningRow = (minutes: number | null, startedAt: string) => ({ ...session(9, 'P09', 'A'), phase: 'learning', learning_minutes: minutes, learning_started_at: startedAt });
+
+test('an untimed session has no end time and stays in learning after any elapsed time', async () => {
+  const row = learningRow(null, '2020-01-01T00:00:00Z');
+  assert.equal(learningEndsAt(row), null);
+  const restore = stubSessionRow(row);
+  try {
+    const loaded = await getSession(9);
+    assert.equal(loaded?.phase, 'learning');
+    assert.equal(row.phase, 'learning');
+    assert.equal(row.posttest_started_at, null);
+  } finally { restore(); }
+});
+
+test('a timed session still moves to posttest once its time is up', async () => {
+  const row = learningRow(30, '2020-01-01T00:00:00Z');
+  const restore = stubSessionRow(row);
+  try { assert.equal((await getSession(9))?.phase, 'posttest'); } finally { restore(); }
+});
+
+test('start-posttest advances an untimed session', async () => {
+  const row = learningRow(null, '2020-01-01T00:00:00Z');
+  const restore = stubSessionRow(row);
+  try {
+    await updateSession(9, 'start-posttest', undefined);
+    assert.equal(row.phase, 'posttest');
+    assert.ok(row.posttest_started_at);
+  } finally { restore(); }
+});
+
+test('enrolment accepts an untimed learning phase', async () => {
+  const original = supabase.from;
+  // Past validation the stub fails, so a 503 shows the null was accepted.
+  supabase.from = (() => { throw new Error('stubbed'); }) as any;
+  try {
+    const res = response(); await enrollStudy({ body: { userIds: [1], learningMinutes: null } } as any, res as any);
+    assert.equal(res.statusCode, 503);
+    const bad = response(); await enrollStudy({ body: { userIds: [1], learningMinutes: 'untimed' } } as any, bad as any);
+    assert.equal(bad.statusCode, 400);
+  } finally { supabase.from = original; }
+});
+
+test('export shows Untimed for a session without a learning time', () => {
+  const sessions = [{ ...session(8, 'P08', 'A'), learning_minutes: null }, session(10, 'P10', 'B')];
+  const sheet = studyWorkbook(sessions, [], summarize(sessions, [])).getWorksheet('Summary')!;
+  assert.equal(sheet.getRow(2).getCell(14).value, 'Untimed');
+  assert.equal(sheet.getRow(3).getCell(14).value, 30);
 });

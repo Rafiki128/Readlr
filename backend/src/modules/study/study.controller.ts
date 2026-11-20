@@ -47,8 +47,8 @@ export async function getStudyOverview(_req: Request, res: Response) {
 export async function enrollStudy(req: Request, res: Response) {
   const { userIds, learningMinutes } = req.body ?? {};
   if (!Array.isArray(userIds) || !userIds.length || userIds.length > 200 || userIds.some(id => validUserId(id) === null) || new Set(userIds).size !== userIds.length ||
-      !Number.isInteger(learningMinutes) || learningMinutes < 5 || learningMinutes > 120) {
-    res.status(400).json({ message: 'Choose learners and a learning time between 5 and 120 minutes.' }); return;
+      (learningMinutes !== null && (!Number.isInteger(learningMinutes) || learningMinutes < 5 || learningMinutes > 120))) {
+    res.status(400).json({ message: 'Choose learners and a learning time between 5 and 120 minutes, or untimed.' }); return;
   }
   try { res.json({ enrolled: await enroll(userIds, learningMinutes) }); } catch (error) { fail(res, error, 'Learners could not be enrolled.'); }
 }
@@ -119,7 +119,7 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
     const date = (v: string | null) => v ? new Date(v) : '';
     wide.addRow([p.participantCode, p.group, p.complete ? 'Yes' : 'No', p.taught.pre.correct, p.taught.post.correct, p.taught.post.correct - p.taught.pre.correct,
       p.transfer.pre.correct, p.transfer.post.correct, p.transfer.post.correct - p.transfer.pre.correct,
-      p.control.pre.correct, p.control.post.correct, p.control.post.correct - p.control.pre.correct, p.unscored, s.learning_minutes,
+      p.control.pre.correct, p.control.post.correct, p.control.post.correct - p.control.pre.correct, p.unscored, s.learning_minutes ?? 'Untimed',
       date(s.learning_started_at), date(s.posttest_started_at), date(s.finished_at)]);
   }
   for (const col of [15, 16, 17]) wide.getColumn(col).numFmt = 'yyyy-mm-dd hh:mm:ss';
