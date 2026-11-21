@@ -4,6 +4,7 @@ import { JOURNEY_CHANGED, localJourneys, readValleyCompleted, restoreJourney, ty
 import { getLearningSettings } from "../../hooks/learningSettings";
 import { markPracticeToday } from "./useLearningSettings";
 import { applyResetState, epochKey, preserveRewards } from '../components/progressReset';
+import { sendLearnerEvent } from "./learnerEvents";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 export function useJourneySync(learnerId: number | null, token: string | null, onProgress: (stage:number,count:number)=>void, userId?:number, onFrames?: (stage:number, frames:Array<{id:number;name:string;asset_key:string}>)=>void) {
@@ -14,6 +15,11 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
     const controller = new AbortController();
     let busy = false, again = false;
     const headers = { Authorization:`Bearer ${token}`, "Content-Type":"application/json" };
+    // Logs a resume only when saved server progress actually replaced this device's progress.
+    const restore = (remote: JourneySnapshot) => {
+      const restored = restoreJourney(learnerId, remote);
+      if (restored) sendLearnerEvent(token, "resume", { stage: restored.stage_number, completed: restored.completed });
+    };
     let verified = false;
     function frames(stage: number, saved: {unlocked_frames?: Array<{id:number;name:string;asset_key:string}>}) {
       window.dispatchEvent(new Event("readlr:frames-changed"));
@@ -52,7 +58,7 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
         if (!Array.isArray(resetData.stages)) throw new Error('Invalid reset state');
         const { changed: wasReset, epochs } = applyResetState(learnerId!, userId, resetData.stages);
         if (wasReset) { window.location.replace('/home'); return; }
-        for (const remote of data.journeys as JourneySnapshot[]) restoreJourney(learnerId!,remote);
+        for (const remote of data.journeys as JourneySnapshot[]) restore(remote);
         let failed = false;
         try {
           const response = await fetch(`${API}/progress/me`, {headers,signal:controller.signal});
@@ -78,7 +84,7 @@ export function useJourneySync(learnerId: number | null, token: string | null, o
             if (!(await permittedResult(result))) continue;
             const saved=await result.json();
             if (controller.signal.aborted) return;
-            restoreJourney(learnerId!,saved.journey);
+            restore(saved.journey);
             preserveRewards(learnerId!, {[local.stage_number]:saved.journey.completed});
             onProgress(local.stage_number,saved.journey.completed);
             frames(local.stage_number,saved);
