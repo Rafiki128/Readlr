@@ -3,7 +3,7 @@ import { supabase, unwrap } from '../../database/db.js';
 import { recognizeCvcWord } from '../audio/audio.service.js';
 import { surveyAssigned } from '../admin/survey.controller.js';
 import {
-  ALL_STUDY_WORDS, BLEND_ITEMS, STUDY_BOOKS, blendTranscriptionPrompt, categoryTotal, allocateGroups, finalScore, shuffled, studyTranscriptionPrompt, wordCategory,
+  ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_MAX_MS, FLUENCY_WORDS, STUDY_BOOKS, blendTranscriptionPrompt, categoryTotal, allocateGroups, finalScore, fluencyScore, shuffled, studyTranscriptionPrompt, wcpm, wordCategory,
   type CategoryKey, type ItemType, type StudyGroup, type StudyPhase, type WordCategory,
 } from './study.data.js';
 
@@ -13,6 +13,8 @@ export interface StudySession {
   user_id: number; participant_code: string; study_group: StudyGroup; phase: StudyPhase; learning_minutes: number | null;
   pretest_order: string[]; posttest_order: string[];
   pretest_blend_order: string[] | null; posttest_blend_order: string[] | null;
+  // Undefined until the one-minute reading migration is applied; null for sessions without Part 3.
+  pretest_fluency_order?: string[] | null; posttest_fluency_order?: string[] | null;
   learning_started_at: string | null; posttest_started_at: string | null; finished_at: string | null;
   created_at: string; updated_at: string;
 }
@@ -21,6 +23,11 @@ export interface StudyResponse {
   item_type: ItemType; prompt_replayed: boolean;
   recording_path: string | null; recording_type: string | null;
   app_result: string | null; app_transcript: string | null; teacher_score: string | null; created_at: string;
+}
+export interface StudyFluency {
+  id: string; user_id: number; phase: 'pretest' | 'posttest'; word_order: string[]; started_at: string | null; duration_ms: number | null;
+  recording_path: string | null; skipped: boolean; words_attempted: number | null; error_positions: number[] | null; words_correct: number | null;
+  scored_at: string | null; created_at: string;
 }
 export class StudyError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -32,23 +39,27 @@ export function learningEndsAt(session: Pick<StudySession, 'learning_started_at'
 /** Loads a learner's session and moves learning to posttest once the learning time has run out. */
 export async function getSession(userId: number): Promise<StudySession | null> {
   const session = unwrap(await supabase.from('readlr_study_sessions').select('*').eq('user_id', userId).maybeSingle()) as StudySession | null;
-  if (session?.phase === 'pretest' && !session.pretest_blend_order) return addBlendOrders(session);
+  if (session?.phase === 'pretest' && (!session.pretest_blend_order || session.pretest_fluency_order === null)) return addMissingParts(session);
   if (session?.phase === 'learning' && (learningEndsAt(session)?.getTime() ?? Infinity) <= Date.now()) return advance(session, 'learning', 'posttest');
   return session;
 }
 
-// Only sessions still in the pretest get blending, so every blending posttest has a pretest to compare with.
-async function addBlendOrders(session: StudySession): Promise<StudySession> {
-  const patch = { pretest_blend_order: shuffled(BLEND_ITEMS), posttest_blend_order: shuffled(BLEND_ITEMS), updated_at: new Date().toISOString() };
-  const rows = unwrap(await supabase.from('readlr_study_sessions').update(patch).eq('user_id', session.user_id).eq('phase', 'pretest').is('pretest_blend_order', null).select('*')) as StudySession[];
+// Only sessions still in the pretest get blending or one-minute reading, so every such posttest has a pretest to compare with.
+async function addMissingParts(session: StudySession): Promise<StudySession> {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (!session.pretest_blend_order) Object.assign(patch, { pretest_blend_order: shuffled(BLEND_ITEMS), posttest_blend_order: shuffled(BLEND_ITEMS) });
+  if (session.pretest_fluency_order === null) Object.assign(patch, { pretest_fluency_order: shuffled(FLUENCY_WORDS), posttest_fluency_order: shuffled(FLUENCY_WORDS) });
+  let query = supabase.from('readlr_study_sessions').update(patch).eq('user_id', session.user_id).eq('phase', 'pretest');
+  for (const column of ['pretest_blend_order', 'pretest_fluency_order']) if (column in patch) query = query.is(column, null);
+  const rows = unwrap(await query.select('*')) as StudySession[];
   return rows[0] ?? (unwrap(await supabase.from('readlr_study_sessions').select('*').eq('user_id', session.user_id).single()) as StudySession);
 }
 
-/** Printed words (Part 1) and blending items (Part 2) for one test; older sessions have no blending. */
+/** Printed words (Part 1), blending items (Part 2) and one-minute reading order (Part 3); older sessions lack the later parts. */
 function testItems(session: StudySession, phase: 'pretest' | 'posttest') {
   return phase === 'pretest'
-    ? { words: session.pretest_order, blends: session.pretest_blend_order ?? [] }
-    : { words: session.posttest_order, blends: session.posttest_blend_order ?? [] };
+    ? { words: session.pretest_order, blends: session.pretest_blend_order ?? [], fluency: session.pretest_fluency_order ?? [] }
+    : { words: session.posttest_order, blends: session.posttest_blend_order ?? [], fluency: session.posttest_fluency_order ?? [] };
 }
 
 async function advance(session: StudySession, from: StudyPhase, to: StudyPhase): Promise<StudySession> {
@@ -99,12 +110,23 @@ export async function studyReadingAccess(userId: number): Promise<null | { block
   return { books: STUDY_BOOKS[session.study_group] };
 }
 
-async function answeredWords(userId: number, phase: 'pretest' | 'posttest') {
-  const rows = unwrap(await supabase.from('readlr_study_responses').select('word').eq('user_id', userId).eq('phase', phase)) as Array<{ word: string }>;
-  return rows.map(row => row.word);
+type Progress = { answered: string[]; fluencyDone: boolean };
+/** Saved answers for one test; the Part 3 table is read only for sessions that have Part 3. */
+async function testProgress(session: StudySession, phase: 'pretest' | 'posttest'): Promise<Progress> {
+  const [answers, fluency] = await Promise.all([
+    supabase.from('readlr_study_responses').select('word').eq('user_id', session.user_id).eq('phase', phase),
+    testItems(session, phase).fluency.length ? supabase.from('readlr_study_fluency').select('id').eq('user_id', session.user_id).eq('phase', phase) : Promise.resolve(null),
+  ]);
+  return { answered: (unwrap(answers) as Array<{ word: string }>).map(row => row.word), fluencyDone: fluency ? (unwrap(fluency) as unknown[]).length > 0 : false };
 }
 
-export async function learnerView(session: StudySession | null, knownAnswered?: string[]) {
+/** A test is finished when Parts 1 and 2 are all answered and Part 3, if the session has it, is recorded or skipped. */
+function testComplete(session: StudySession, phase: 'pretest' | 'posttest', progress: Progress) {
+  const { words, blends, fluency } = testItems(session, phase);
+  return [...words, ...blends].every(item => progress.answered.includes(item)) && (!fluency.length || progress.fluencyDone);
+}
+
+export async function learnerView(session: StudySession | null, known?: Progress) {
   if (!session || session.phase === 'closed') return { active: false as const };
   const testPhase = session.phase === 'pretest' || session.phase === 'posttest' ? session.phase : null;
   return {
@@ -114,7 +136,7 @@ export async function learnerView(session: StudySession | null, knownAnswered?: 
     learningEndsAt: learningEndsAt(session)?.toISOString() ?? null,
     learningMinutes: session.learning_minutes,
     survey: session.phase === 'done' ? await surveyAssigned(session.user_id).catch(() => false) : false,
-    test: testPhase ? { phase: testPhase, ...testItems(session, testPhase), answered: knownAnswered ?? await answeredWords(session.user_id, testPhase) } : null,
+    test: testPhase ? { phase: testPhase, ...testItems(session, testPhase), ...(known ?? await testProgress(session, testPhase)) } : null,
   };
 }
 
@@ -150,9 +172,44 @@ export async function recordAnswer(userId: number, phase: unknown, word: unknown
   } else if (file) {
     queueAppScoring(inserted.data.id, word, file);
   }
-  const answered = await answeredWords(userId, session.phase);
-  if ([...words, ...blends].every(item => answered.includes(item))) return learnerView(await advance(session, session.phase, session.phase === 'pretest' ? 'learning' : 'done'));
-  return learnerView(session, answered);
+  return finishIfComplete(session, session.phase);
+}
+
+async function finishIfComplete(session: StudySession, phase: 'pretest' | 'posttest') {
+  const progress = await testProgress(session, phase);
+  if (testComplete(session, phase, progress)) return learnerView(await advance(session, phase, phase === 'pretest' ? 'learning' : 'done'));
+  return learnerView(session, progress);
+}
+
+/** Saves the Part 3 one-minute reading (or its skip); the stored length is capped at one minute. */
+export async function recordFluency(userId: number, phase: unknown, file: { buffer: Buffer; mimetype: string } | null, startedAt: unknown, durationMs: unknown) {
+  if (phase !== 'pretest' && phase !== 'posttest') throw new StudyError(400, 'Unknown test.');
+  let timing: { started_at: string | null; duration_ms: number | null } = { started_at: null, duration_ms: null };
+  if (file) {
+    const duration = Number(durationMs);
+    // A little slack over 60 s covers the recorder stopping late.
+    if (!Number.isInteger(duration) || duration < 0 || duration > 65_000) throw new StudyError(400, 'The reading time is not valid.');
+    if (typeof startedAt !== 'string' || Number.isNaN(Date.parse(startedAt))) throw new StudyError(400, 'The start time is not valid.');
+    timing = { started_at: new Date(startedAt).toISOString(), duration_ms: Math.min(duration, FLUENCY_MAX_MS) };
+  }
+  const path = file ? `${userId}/${phase}-fluency-${randomUUID()}.${extensionFor(file.mimetype)}` : null;
+  const [session, upload] = await Promise.all([
+    getSession(userId),
+    file && path ? supabase.storage.from(STUDY_BUCKET).upload(path, file.buffer, { contentType: file.mimetype, upsert: false }) : Promise.resolve(null),
+  ]);
+  const discard = async () => { if (path && !upload?.error) await supabase.storage.from(STUDY_BUCKET).remove([path]); };
+  if (!session || (session.phase !== 'pretest' && session.phase !== 'posttest')) { await discard(); throw new StudyError(409, 'This word game has finished.'); }
+  if (phase !== session.phase) { await discard(); throw new StudyError(409, 'This word game has moved on. Please wait a moment.'); }
+  const order = testItems(session, session.phase).fluency;
+  if (!order.length) { await discard(); throw new StudyError(400, 'This test has no reading part.'); }
+  if (upload?.error) throw new Error(`Recording upload failed: ${upload.error.message}`);
+  const inserted = await supabase.from('readlr_study_fluency').insert({ user_id: userId, phase: session.phase, word_order: order, ...timing, recording_path: path, skipped: !file });
+  if (inserted.error) {
+    if (path) await supabase.storage.from(STUDY_BUCKET).remove([path]);
+    // A retried upload after a dropped connection: the first reading stands.
+    if ((inserted.error as { code?: string }).code !== '23505') throw new Error(inserted.error.message);
+  }
+  return finishIfComplete(session, session.phase);
 }
 
 // --- Automatic speech scoring runs in the background so children never wait on it
@@ -207,9 +264,10 @@ async function readAll<T>(table: string, columns: string): Promise<T[]> {
 }
 
 export async function adminOverview() {
-  const [sessions, responses, learners] = await Promise.all([
+  const [sessions, responses, fluency, learners] = await Promise.all([
     readAll<StudySession>('readlr_study_sessions', '*'),
     readAll<Pick<StudyResponse, 'user_id' | 'phase' | 'teacher_score' | 'skipped' | 'app_result'>>('readlr_study_responses', 'user_id,phase,teacher_score,skipped,app_result,created_at'),
+    readAll<Pick<StudyFluency, 'user_id' | 'phase' | 'skipped' | 'scored_at'>>('readlr_study_fluency', 'user_id,phase,skipped,scored_at,created_at'),
     (async () => {
       const users = unwrap(await supabase.from('users').select('id,email').eq('role', 'learner')) as Array<{ id: number; email: string }>;
       const profiles = unwrap(await supabase.from('learner_profiles').select('user_id,name,study_participant')) as Array<{ user_id: number; name: string; study_participant: boolean }>;
@@ -221,19 +279,20 @@ export async function adminOverview() {
   const learnerById = new Map(learners.map(l => [l.id, l]));
   return {
     sessions: sessions.map(s => {
-      const own = responses.filter(r => r.user_id === s.user_id);
+      const own = [...responses, ...fluency].filter(r => r.user_id === s.user_id);
       return {
         userId: s.user_id, name: learnerById.get(s.user_id)?.name ?? 'Learner', participantCode: s.participant_code, group: s.study_group,
         phase: s.phase === 'learning' && (learningEndsAt(s)?.getTime() ?? Infinity) <= Date.now() ? 'posttest' : s.phase,
         learningMinutes: s.learning_minutes, learningEndsAt: learningEndsAt(s)?.toISOString() ?? null,
         pretestAnswered: own.filter(r => r.phase === 'pretest').length, posttestAnswered: own.filter(r => r.phase === 'posttest').length,
-        itemCount: s.pretest_order.length + (s.pretest_blend_order?.length ?? 0),
+        // Part 3 is one recording, so it counts as one item.
+        itemCount: s.pretest_order.length + (s.pretest_blend_order?.length ?? 0) + (s.pretest_fluency_order?.length ? 1 : 0),
         finishedAt: s.finished_at,
       };
     }).sort((a, b) => a.participantCode.localeCompare(b.participantCode)),
     eligible: learners.filter(l => l.studyParticipant && !enrolled.has(l.id)).map(({ id, name, email }) => ({ id, name, email })),
     notConsented: learners.filter(l => !l.studyParticipant && !enrolled.has(l.id)).length,
-    unscored: responses.filter(r => !r.skipped && r.teacher_score === null).length,
+    unscored: responses.filter(r => !r.skipped && r.teacher_score === null).length + fluency.filter(r => !r.skipped && r.scored_at === null).length,
     appPending: responses.filter(r => !r.skipped && r.app_result === null).length,
     groups: { A: sessions.filter(s => s.study_group === 'A').length, B: sessions.filter(s => s.study_group === 'B').length },
   };
@@ -252,6 +311,7 @@ export async function enroll(userIds: number[], learningMinutes: number | null) 
     participant_code: `P${String(++next).padStart(2, '0')}`,
     pretest_order: shuffled(ALL_STUDY_WORDS), posttest_order: shuffled(ALL_STUDY_WORDS),
     pretest_blend_order: shuffled(BLEND_ITEMS), posttest_blend_order: shuffled(BLEND_ITEMS),
+    pretest_fluency_order: shuffled(FLUENCY_WORDS), posttest_fluency_order: shuffled(FLUENCY_WORDS),
   }));
   unwrap(await supabase.from('readlr_study_sessions').insert(rows));
   return rows.length;
@@ -275,8 +335,8 @@ export async function updateSession(userId: number, action: unknown, group: unkn
 }
 
 export async function removeSession(userId: number) {
-  const paths = (unwrap(await supabase.from('readlr_study_responses').select('recording_path').eq('user_id', userId)) as Array<{ recording_path: string | null }>)
-    .map(row => row.recording_path).filter((path): path is string => !!path);
+  const [responses, fluency] = await Promise.all(['readlr_study_responses', 'readlr_study_fluency'].map(async table => unwrap(await supabase.from(table).select('recording_path').eq('user_id', userId)) as Array<{ recording_path: string | null }>));
+  const paths = [...responses, ...fluency].map(row => row.recording_path).filter((path): path is string => !!path);
   for (let i = 0; i < paths.length; i += 100) await supabase.storage.from(STUDY_BUCKET).remove(paths.slice(i, i + 100));
   unwrap(await supabase.from('readlr_study_sessions').delete().eq('user_id', userId));
 }
@@ -301,6 +361,32 @@ export async function recording(id: string) {
   return { type: row.recording_type ?? download.data.type ?? 'audio/webm', buffer: Buffer.from(await download.data.arrayBuffer()) };
 }
 
+/** Blind Part 3 queue: only the words in the order shown and the recording length, never the learner, group or test phase. */
+export async function fluencyScoringBatch() {
+  const rows = unwrap(await supabase.from('readlr_study_fluency').select('id,word_order,duration_ms').is('scored_at', null).eq('skipped', false).limit(1000)) as Array<Pick<StudyFluency, 'id' | 'word_order' | 'duration_ms'>>;
+  return { remaining: rows.length, items: shuffled(rows).slice(0, 5) };
+}
+
+/** Saves the teacher's marks for one reading, or clears them when marks is null. */
+export async function setFluencyScore(id: string, marks: { errors: unknown; lastReached: unknown } | null, adminId: number) {
+  const row = unwrap(await supabase.from('readlr_study_fluency').select('word_order').eq('id', id).eq('skipped', false).maybeSingle()) as Pick<StudyFluency, 'word_order'> | null;
+  if (!row) throw new StudyError(404, 'Recording not found.');
+  let patch: Record<string, unknown> = { words_attempted: null, error_positions: null, words_correct: null, scored_by: null, scored_at: null };
+  if (marks) {
+    try { patch = { ...fluencyScore(row.word_order.length, marks.errors, marks.lastReached), scored_by: adminId, scored_at: new Date().toISOString() }; }
+    catch (error) { throw new StudyError(400, (error as Error).message); }
+  }
+  unwrap(await supabase.from('readlr_study_fluency').update(patch).eq('id', id));
+}
+
+export async function fluencyRecording(id: string) {
+  const row = unwrap(await supabase.from('readlr_study_fluency').select('recording_path').eq('id', id).maybeSingle()) as { recording_path: string | null } | null;
+  if (!row?.recording_path) throw new StudyError(404, 'Recording not found.');
+  const download = await supabase.storage.from(STUDY_BUCKET).download(row.recording_path);
+  if (download.error || !download.data) throw new Error('Recording unavailable');
+  return { type: download.data.type || 'audio/webm', buffer: Buffer.from(await download.data.arrayBuffer()) };
+}
+
 export async function rescoreMissing() {
   const rows = unwrap(await supabase.from('readlr_study_responses').select('id,word').eq('skipped', false).or('app_result.is.null,app_result.eq.unavailable').limit(1000)) as Array<{ id: string; word: string }>;
   rows.forEach(row => queueAppScoring(row.id, row.word));
@@ -311,7 +397,13 @@ export async function rescoreMissing() {
 
 const bucketOf = (category: WordCategory): CategoryKey => category === 'taught' ? 'taught' : category === 'transfer' ? 'transfer' : 'control';
 
-export function summarize(sessions: StudySession[], responses: StudyResponse[]) {
+/** Part 3 result for one test; skipped, missing or unscored readings are null so they export as blanks. */
+function fluencyResult(row: StudyFluency | undefined) {
+  if (!row || row.skipped || row.scored_at === null || row.words_correct === null || row.words_attempted === null || row.duration_ms === null) return null;
+  return { wordsAttempted: row.words_attempted, wordsCorrect: row.words_correct, durationSeconds: Math.round(row.duration_ms / 100) / 10, wcpm: wcpm(row.words_correct, row.duration_ms) };
+}
+
+export function summarize(sessions: StudySession[], responses: StudyResponse[], fluency: StudyFluency[] = []) {
   const participants = sessions.map(session => {
     // Answers from an older word list (e.g. a pilot) are ignored rather than miscounted.
     const own = responses.filter(r => r.user_id === session.user_id && ALL_STUDY_WORDS.includes(r.word));
@@ -328,10 +420,13 @@ export function summarize(sessions: StudySession[], responses: StudyResponse[]) 
       const scores = blends.filter(r => r.phase === phase).map(finalScore);
       return { correct: scores.filter(s => s === 'correct').length, scored: scores.filter(s => s !== null).length, total: blendTotal };
     };
-    const partDone = (phase: 'pretest' | 'posttest') => own.filter(r => r.phase === phase).length === ALL_STUDY_WORDS.length && blends.filter(r => r.phase === phase).length === blendTotal;
+    const reading = (phase: 'pretest' | 'posttest') => fluency.find(r => r.user_id === session.user_id && r.phase === phase);
+    const partDone = (phase: 'pretest' | 'posttest') => own.filter(r => r.phase === phase).length === ALL_STUDY_WORDS.length && blends.filter(r => r.phase === phase).length === blendTotal
+      && (!session.pretest_fluency_order?.length || !!reading(phase));
     const complete = partDone('pretest') && partDone('posttest');
     return { participantCode: session.participant_code, group: session.study_group, phase: session.phase, complete, ...result,
       blend: { pre: blendScore('pretest'), post: blendScore('posttest') },
+      fluency: { pre: fluencyResult(reading('pretest')), post: fluencyResult(reading('posttest')) },
       unscored: [...own, ...blends].filter(r => finalScore(r) === null).length };
   });
   const comparable = responses.filter(r => ALL_STUDY_WORDS.includes(r.word) && !r.skipped && (r.teacher_score === 'correct' || r.teacher_score === 'incorrect') && (r.app_result === 'matched' || r.app_result === 'different'));
@@ -340,6 +435,6 @@ export function summarize(sessions: StudySession[], responses: StudyResponse[]) 
 }
 
 export async function loadResults() {
-  const [sessions, responses] = await Promise.all([readAll<StudySession>('readlr_study_sessions', '*'), readAll<StudyResponse>('readlr_study_responses', '*')]);
-  return { sessions, responses, summary: summarize(sessions.sort((a, b) => a.participant_code.localeCompare(b.participant_code)), responses) };
+  const [sessions, responses, fluency] = await Promise.all([readAll<StudySession>('readlr_study_sessions', '*'), readAll<StudyResponse>('readlr_study_responses', '*'), readAll<StudyFluency>('readlr_study_fluency', '*')]);
+  return { sessions, responses, fluency, summary: summarize(sessions.sort((a, b) => a.participant_code.localeCompare(b.participant_code)), responses, fluency) };
 }

@@ -3,12 +3,14 @@ import { Download, FlaskConical, Headphones, Play, RefreshCw, Undo2, UserPlus } 
 import { CLASSROOM_API } from '../hooks/useClassroom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from './ui/alert-dialog';
+import { StudyFluencyScoring } from './AdminStudyFluency';
 import './study.css';
 
 interface Session { userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
 interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number } }
 interface Counts { correct: number; scored: number; total: number }
-interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts }; blend: { pre: Counts; post: Counts } }
+interface Reading { wordsAttempted: number; wordsCorrect: number; durationSeconds: number; wcpm: number | null }
+interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts }; blend: { pre: Counts; post: Counts }; fluency: { pre: Reading | null; post: Reading | null } }
 interface Results { participants: Participant[]; agreement: { compared: number; agree: number; percent: number | null } }
 
 const PHASE_LABEL: Record<string, string> = { pretest: 'Pretest', learning: 'Learning', posttest: 'Posttest', done: 'Finished', closed: 'Back in normal app' };
@@ -26,6 +28,7 @@ function useApi(token: string) {
 
 export function AdminStudy({ token }: { token: string }) {
   const [tab, setTab] = useState('sessions');
+  const api = useApi(token);
   return <section className="admin-access-section" aria-labelledby="study-heading">
     <header className="admin-section-heading"><div><h2 id="study-heading" className="flex items-center gap-2"><FlaskConical size={20} />Pretest &amp; posttest study</h2>
       <p>Group A learns Books 1–3 (short i/e). Group B learns Books 1, 4–5 (short o/u). Everyone takes the same word test before and after.</p></div></header>
@@ -33,10 +36,12 @@ export function AdminStudy({ token }: { token: string }) {
       <TabsList aria-label="Study sections" className="admin-section-nav">
         <TabsTrigger value="sessions">Sessions</TabsTrigger>
         <TabsTrigger value="scoring">Scoring</TabsTrigger>
+        <TabsTrigger value="fluency">One-minute reading</TabsTrigger>
         <TabsTrigger value="results">Results</TabsTrigger>
       </TabsList>
       <TabsContent value="sessions" className="admin-section-panel"><StudySessions token={token} /></TabsContent>
       <TabsContent value="scoring" className="admin-section-panel"><StudyScoring token={token} /></TabsContent>
+      <TabsContent value="fluency" className="admin-section-panel"><StudyFluencyScoring api={api} /></TabsContent>
       <TabsContent value="results" className="admin-section-panel"><StudyResults token={token} /></TabsContent>
     </Tabs>
   </section>;
@@ -216,6 +221,8 @@ function StudyResults({ token }: { token: string }) {
   }
   if (!data) return <p className={error ? 'admin-error' : 'admin-muted'}>{error || 'Loading results...'}</p>;
   const complete = data.participants.filter(p => p.complete);
+  // WCPM gain counts only learners with both readings scored; skipped or unscored readings are left out, not treated as 0.
+  const readers = complete.filter(p => p.fluency.pre?.wcpm != null && p.fluency.post?.wcpm != null);
   return <div className="study-admin-grid">
     {error && <p role="alert" className="admin-control-notice is-error">{error}</p>}
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -229,10 +236,11 @@ function StudyResults({ token }: { token: string }) {
       <div className="study-stat"><strong>{mean(complete, p => p.transfer.post.correct - p.transfer.pre.correct)}</strong>Mean gain, transfer words (of {outOf(data.participants, p => p.transfer.pre.total)})</div>
       <div className="study-stat"><strong>{mean(complete, p => p.control.post.correct - p.control.pre.correct)}</strong>Mean gain, control words (of {outOf(data.participants, p => p.control.pre.total)})</div>
       <div className="study-stat"><strong>{mean(complete.filter(p => p.blend.pre.total), p => p.blend.post.correct - p.blend.pre.correct)}</strong>Mean gain, sound blending (of {outOf(data.participants.filter(p => p.blend.pre.total), p => p.blend.pre.total)})</div>
+      <div className="study-stat"><strong>{mean(readers, p => p.fluency.post!.wcpm! - p.fluency.pre!.wcpm!)}</strong>Mean gain, one-minute reading (WCPM, {readers.length} scored)</div>
       <div className="study-stat"><strong>{data.agreement.percent === null ? '–' : `${data.agreement.percent}%`}</strong>App agrees with teacher ({data.agreement.compared} compared)</div>
     </div>
     <p className="admin-muted">If the app teaches, taught and transfer gains should be clearly larger than control gains. Run the statistics (for example Wilcoxon signed-rank) on the exported file.</p>
-    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Group</th><th>Taught pre → post</th><th>Transfer pre → post</th><th>Control pre → post</th><th>Blending pre → post</th><th>Unscored</th></tr></thead><tbody>
+    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Group</th><th>Taught pre → post</th><th>Transfer pre → post</th><th>Control pre → post</th><th>Blending pre → post</th><th>Unscored</th><th>One-minute WCPM pre → post</th></tr></thead><tbody>
       {data.participants.map(p => <tr key={p.participantCode}>
         <td><strong>{p.participantCode}</strong>{!p.complete && <small className="admin-muted"> (in progress)</small>}</td><td>{p.group}</td>
         <td>{p.taught.pre.correct} → {p.taught.post.correct} <small className="admin-muted">/{p.taught.pre.total} ({pct(p.taught.pre)}% → {pct(p.taught.post)}%)</small></td>
@@ -240,6 +248,7 @@ function StudyResults({ token }: { token: string }) {
         <td>{p.control.pre.correct} → {p.control.post.correct} <small className="admin-muted">/{p.control.pre.total}</small></td>
         <td>{p.blend.pre.total ? <>{p.blend.pre.correct} → {p.blend.post.correct} <small className="admin-muted">/{p.blend.pre.total}</small></> : '–'}</td>
         <td>{p.unscored}</td>
+        <td>{p.fluency.pre?.wcpm ?? '–'} → {p.fluency.post?.wcpm ?? '–'}</td>
       </tr>)}
     </tbody></table></div>
   </div>;

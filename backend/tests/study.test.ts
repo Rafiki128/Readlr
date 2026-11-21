@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ALL_STUDY_WORDS, BLEND_ITEMS, STUDY_BOOKS, STUDY_WORDS, allocateGroups, blendTranscriptionPrompt, categoryTotal, finalScore, studyTranscriptionPrompt, wordCategory } from '../src/modules/study/study.data.js';
+import { ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_WORDS, STUDY_BOOKS, STUDY_WORDS, allocateGroups, blendTranscriptionPrompt, categoryTotal, finalScore, fluencyScore, studyTranscriptionPrompt, wcpm, wordCategory } from '../src/modules/study/study.data.js';
 import { READING_BANKS } from '../src/modules/evidence/reading-catalog.js';
 process.env.SUPABASE_URL = 'http://127.0.0.1:1'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-only';
-const { summarize, getSession, updateSession, learningEndsAt, recordAnswer } = await import('../src/modules/study/study.service.js');
+const { summarize, getSession, updateSession, learningEndsAt, recordAnswer, recordFluency, setFluencyScore } = await import('../src/modules/study/study.service.js');
 const { supabase } = await import('../src/database/db.js');
-const { enrollStudy, answerStudyWord, deleteStudySession, scoreResponse, studyWorkbook } = await import('../src/modules/study/study.controller.js');
+const { enrollStudy, answerStudyWord, deleteStudySession, scoreFluency, scoreResponse, studyWorkbook } = await import('../src/modules/study/study.controller.js');
 const response = () => ({ statusCode: 200, body: null as any, status(n: number) { this.statusCode = n; return this; }, json(d: any) { this.body = d; return this; }, setHeader() {} });
 
 test('instrument has 15 unique words; every set has two words per vowel except B transfer (one short u)', () => {
@@ -183,9 +183,12 @@ test('export shows Untimed for a session without a learning time', () => {
 
 const blendSession = (phase = 'pretest') => ({ ...session(11, 'P11', 'A'), phase, pretest_blend_order: [...BLEND_ITEMS], posttest_blend_order: [...BLEND_ITEMS] });
 
-// In-memory stand-in for the session and response queries used by recordAnswer; answers is the saved responses table.
-function stubStudyDb(row: any, answers: any[]) {
+// In-memory stand-in for the session, response and Part 3 queries; answers and readings are the saved tables.
+function stubStudyDb(row: any, answers: any[], readings: any[] = []) {
   const original = supabase.from;
+  // Recording uploads succeed without touching storage.
+  const originalStorage = supabase.storage;
+  (supabase as any).storage = { from: () => ({ upload: async () => ({ data: {}, error: null }), remove: async () => ({ data: [], error: null }) }) };
   supabase.from = ((table: string) => {
     let patch: Record<string, unknown> | null = null;
     let inserted: any = null;
@@ -201,6 +204,10 @@ function stubStudyDb(row: any, answers: any[]) {
         return { data: { id: `id-${answers.length}` }, error: null };
       },
       then: (resolve: (v: unknown) => unknown) => {
+        if (table === 'readlr_study_fluency') {
+          if (inserted) { readings.push(inserted); return resolve({ data: null, error: null }); }
+          return resolve({ data: readings.filter(a => a.phase === filters.phase), error: null });
+        }
         if (table === 'readlr_study_responses') return resolve({ data: answers.filter(a => a.phase === filters.phase), error: null });
         const hit = matches();
         if (hit && patch) Object.assign(row, patch);
@@ -209,7 +216,7 @@ function stubStudyDb(row: any, answers: any[]) {
     };
     return query;
   }) as any;
-  return () => { supabase.from = original; };
+  return () => { supabase.from = original; (supabase as any).storage = originalStorage; };
 }
 
 test('blending items are separate from the printed words and are blend category', () => {
@@ -292,13 +299,163 @@ test('export has item type, prompt replayed, and blending totals', () => {
   const responses = [answer(11, 'pretest', 'sit', 'correct'), { ...answer(11, 'pretest', 'gap', 'correct'), position: 15, prompt_replayed: true }, answer(11, 'posttest', 'gap', 'incorrect')];
   const book = studyWorkbook([s], responses, summarize([s], responses));
   const long = book.getWorksheet('Responses')!;
-  assert.deepEqual((long.getRow(1).values as unknown[]).slice(13), ['Item type', 'Prompt replayed']);
+  assert.deepEqual((long.getRow(1).values as unknown[]).slice(13, 15), ['Item type', 'Prompt replayed']);
   assert.deepEqual((long.getRow(2).values as unknown[]).slice(5, 8), ['sit', 'taught', 'No']);
   assert.deepEqual((long.getRow(2).values as unknown[]).slice(13), ['word', 'No']);
   assert.deepEqual((long.getRow(3).values as unknown[]).slice(4, 7), [16, 'gap', 'blend']);
   assert.deepEqual((long.getRow(3).values as unknown[]).slice(13), ['blend', 'Yes']);
   const wide = book.getWorksheet('Summary')!;
-  assert.deepEqual((wide.getRow(1).values as unknown[]).slice(18), ['Pre blending /10', 'Post blending /10', 'Gain blending']);
-  assert.deepEqual((wide.getRow(2).values as unknown[]).slice(18), [1, 0, -1]);
+  assert.deepEqual((wide.getRow(1).values as unknown[]).slice(18, 21), ['Pre blending /10', 'Post blending /10', 'Gain blending']);
+  assert.deepEqual((wide.getRow(2).values as unknown[]).slice(18, 21), [1, 0, -1]);
   assert.equal(wide.getRow(1).getCell(14).value, 'Learning minutes', 'existing summary columns keep their positions');
+});
+
+// --- One-minute word reading (Part 3)
+
+const readingSession = (phase = 'pretest') => ({ ...blendSession(phase), pretest_fluency_order: [...FLUENCY_WORDS], posttest_fluency_order: [...FLUENCY_WORDS].reverse() });
+const audio = { buffer: Buffer.from('audio'), mimetype: 'audio/webm' };
+const reading = (user_id: number, phase: 'pretest' | 'posttest', marks: Partial<{ words_attempted: number; words_correct: number; duration_ms: number; skipped: boolean; scored_at: string | null }>) =>
+  ({ id: `${user_id}-${phase}-reading`, user_id, phase, word_order: [...FLUENCY_WORDS], started_at: '2026-11-21T00:00:00Z', duration_ms: 60000, recording_path: 'x', skipped: false,
+    words_attempted: null, error_positions: [], words_correct: null, scored_at: '2026-11-21T01:00:00Z', created_at: '2026-11-21T00:01:00Z', ...marks }) as any;
+
+test('the one-minute list has 40 unique words and none are printed-word or blending items', () => {
+  assert.equal(FLUENCY_WORDS.length, 40);
+  assert.equal(new Set(FLUENCY_WORDS).size, 40);
+  for (const word of FLUENCY_WORDS) assert.ok(!ALL_STUDY_WORDS.includes(word) && !BLEND_ITEMS.includes(word), `${word} overlaps another part`);
+});
+
+test('the test does not move on until Part 3 is recorded or skipped', async () => {
+  const row = readingSession();
+  const answers: any[] = [...ALL_STUDY_WORDS, ...BLEND_ITEMS.slice(0, -1)].map(word => ({ phase: 'pretest', word }));
+  const readings: any[] = [];
+  const restore = stubStudyDb(row, answers, readings);
+  try {
+    const view = await recordAnswer(11, 'pretest', 'bud', null, 'blend');
+    assert.equal(row.phase, 'pretest', 'Parts 1 and 2 done but Part 3 missing');
+    assert.equal(view.active && view.test?.fluencyDone, false);
+    assert.deepEqual(view.active && view.test?.fluency, FLUENCY_WORDS);
+    await recordFluency(11, 'pretest', null, undefined, undefined);
+    assert.equal(row.phase, 'learning');
+    assert.deepEqual([readings[0].skipped, readings[0].recording_path, readings[0].duration_ms], [true, null, null]);
+    assert.deepEqual(readings[0].word_order, FLUENCY_WORDS);
+  } finally { restore(); }
+});
+
+test('Part 3 recorded first still waits for the last blending answer', async () => {
+  const row = readingSession('posttest');
+  const answers: any[] = [...ALL_STUDY_WORDS, ...BLEND_ITEMS.slice(0, -1)].map(word => ({ phase: 'posttest', word }));
+  const readings: any[] = [];
+  const restore = stubStudyDb(row, answers, readings);
+  try {
+    await recordFluency(11, 'posttest', audio, '2026-11-21T00:00:00Z', '42000');
+    assert.equal(row.phase, 'posttest');
+    assert.deepEqual(readings[0].word_order, [...FLUENCY_WORDS].reverse(), 'posttest uses its own order');
+    await recordAnswer(11, 'posttest', 'bud', null, 'blend');
+    assert.equal(row.phase, 'done');
+  } finally { restore(); }
+});
+
+test('Part 3 duration is capped at one minute and invalid timing is refused', async () => {
+  const row = readingSession();
+  const readings: any[] = [];
+  const restore = stubStudyDb(row, [], readings);
+  try {
+    for (const duration of ['70000', '-1', 'abc', '1.5']) await assert.rejects(recordFluency(11, 'pretest', audio, '2026-11-21T00:00:00Z', duration), { status: 400 });
+    await assert.rejects(recordFluency(11, 'pretest', audio, 'not a date', '30000'), { status: 400 });
+    await assert.rejects(recordFluency(11, 'posttest', audio, '2026-11-21T00:00:00Z', '30000'), { status: 409 });
+    assert.equal(readings.length, 0);
+    await recordFluency(11, 'pretest', audio, '2026-11-21T00:00:00Z', '64000');
+    assert.equal(readings[0].duration_ms, 60000);
+    assert.equal(readings[0].started_at, '2026-11-21T00:00:00.000Z');
+    assert.match(readings[0].recording_path, /^11\/pretest-fluency-[0-9a-f-]+\.webm$/);
+  } finally { restore(); }
+});
+
+test('Part 3 is refused for sessions without it', async () => {
+  const restore = stubStudyDb(blendSession(), [], []);
+  try { await assert.rejects(recordFluency(11, 'pretest', null, undefined, undefined), { status: 400 }); } finally { restore(); }
+});
+
+test('Part 3 orders are added lazily only to sessions still in the pretest', async () => {
+  const pre = { ...blendSession('pretest'), pretest_fluency_order: null, posttest_fluency_order: null };
+  let restore = stubStudyDb(pre, []);
+  try {
+    const loaded = await getSession(11);
+    assert.deepEqual([...loaded!.pretest_fluency_order!].sort(), [...FLUENCY_WORDS].sort());
+    assert.deepEqual([...loaded!.posttest_fluency_order!].sort(), [...FLUENCY_WORDS].sort());
+    assert.deepEqual(loaded!.pretest_blend_order, BLEND_ITEMS, 'existing blending order is kept');
+  } finally { restore(); }
+  for (const phase of ['learning', 'posttest', 'done']) {
+    const later = { ...blendSession(phase), learning_minutes: null, pretest_fluency_order: null, posttest_fluency_order: null };
+    restore = stubStudyDb(later, []);
+    try { assert.equal((await getSession(11))!.posttest_fluency_order, null, `no Part 3 added in ${phase}`); } finally { restore(); }
+  }
+});
+
+test('WCPM is words correct per minute of reading, rounded to one decimal', () => {
+  assert.equal(wcpm(30, 60000), 30);
+  assert.equal(wcpm(20, 45000), 26.7);
+  assert.equal(wcpm(0, 60000), 0);
+  assert.equal(wcpm(5, 0), null);
+});
+
+test('Part 3 scoring: last word reached must be at or after every error', () => {
+  assert.deepEqual(fluencyScore(40, [7, 3], 25), { words_attempted: 25, error_positions: [3, 7], words_correct: 23 });
+  assert.deepEqual(fluencyScore(40, [25], 25), { words_attempted: 25, error_positions: [25], words_correct: 24 });
+  assert.deepEqual(fluencyScore(40, [], 0), { words_attempted: 0, error_positions: [], words_correct: 0 });
+  for (const [errors, last] of [[[30], 25], [[3, 3], 10], [[0], 10], [[1.5], 10], ['3', 10], [[], 41], [[], -1], [[], undefined]] as const) {
+    assert.throws(() => fluencyScore(40, errors, last), RangeError, `errors ${JSON.stringify(errors)}, last ${last}`);
+  }
+});
+
+test('teacher scoring validates marks before saving and stores server-computed totals', async () => {
+  const res = response(); await scoreFluency({ params: { id: 'nope' }, body: {} } as any, res as any); assert.equal(res.statusCode, 400);
+  const original = supabase.from;
+  const patches: any[] = [];
+  supabase.from = (() => {
+    const query: any = { select: () => query, eq: () => query, update: (p: any) => { patches.push(p); return query; },
+      maybeSingle: async () => ({ data: { word_order: [...FLUENCY_WORDS] }, error: null }), then: (resolve: (v: unknown) => unknown) => resolve({ data: null, error: null }) };
+    return query;
+  }) as any;
+  try {
+    await assert.rejects(setFluencyScore('id', { errors: [30], lastReached: 25 }, 1), { status: 400 });
+    assert.equal(patches.length, 0);
+    await setFluencyScore('id', { errors: [2, 9], lastReached: 31 }, 5);
+    assert.deepEqual([patches[0].words_attempted, patches[0].words_correct, patches[0].error_positions, patches[0].scored_by], [31, 29, [2, 9], 5]);
+    await setFluencyScore('id', null, 5);
+    assert.deepEqual([patches[1].words_attempted, patches[1].scored_at], [null, null], 'undo clears the marks');
+  } finally { supabase.from = original; }
+});
+
+test('summary and export add Part 3 columns at the end; skipped or unscored readings stay blank', () => {
+  const scored = readingSession('done');
+  const blank = { ...readingSession('done'), user_id: 14, participant_code: 'P14' };
+  const full = (user: number) => (['pretest', 'posttest'] as const).flatMap(phase => [...ALL_STUDY_WORDS, ...BLEND_ITEMS].map(w => answer(user, phase, w, 'correct')));
+  const responses = [...full(11), ...full(14)];
+  const readings = [
+    reading(11, 'pretest', { words_attempted: 30, words_correct: 27 }), reading(11, 'posttest', { words_attempted: 40, words_correct: 39, duration_ms: 50000 }),
+    reading(14, 'pretest', { skipped: true, recording_path: null, duration_ms: null, scored_at: null }), reading(14, 'posttest', { scored_at: null }),
+  ];
+  const summary = summarize([scored, blank], responses, readings);
+  assert.deepEqual(summary.participants[0].fluency.post, { wordsAttempted: 40, wordsCorrect: 39, durationSeconds: 50, wcpm: 46.8 });
+  assert.deepEqual(summary.participants[1].fluency, { pre: null, post: null });
+  assert.equal(summary.participants[0].complete, true);
+  assert.equal(summarize([scored], responses, readings.slice(0, 1)).participants[0].complete, false, 'posttest reading missing');
+
+  const book = studyWorkbook([scored, blank], responses, summary, readings);
+  const wide = book.getWorksheet('Summary')!;
+  assert.equal(wide.getRow(1).getCell(20).value, 'Gain blending', 'existing summary columns keep their positions');
+  assert.deepEqual((wide.getRow(1).values as unknown[]).slice(21), ['Pre words attempted', 'Post words attempted', 'Pre words correct', 'Post words correct', 'Pre duration (s)', 'Post duration (s)', 'Pre WCPM', 'Post WCPM', 'Gain WCPM']);
+  assert.deepEqual((wide.getRow(2).values as unknown[]).slice(21), [30, 40, 27, 39, 60, 50, 27, 46.8, 19.8]);
+  for (let col = 21; col <= 29; col++) assert.ok(!wide.getRow(3).getCell(col).value, `P14 column ${col} is blank, not 0`);
+
+  const long = book.getWorksheet('Responses')!;
+  assert.deepEqual((long.getRow(1).values as unknown[]).slice(15), ['Words attempted', 'Words correct', 'Duration (s)', 'WCPM']);
+  const fluencyRows = long.getRows(2, long.rowCount - 1)!.filter(r => r.getCell(13).value === 'fluency');
+  assert.equal(fluencyRows.length, 4);
+  const p11post = fluencyRows.find(r => r.getCell(1).value === 'P11' && r.getCell(3).value === 'posttest')!;
+  assert.deepEqual((p11post.values as unknown[]).slice(15), [40, 39, 50, 46.8]);
+  const p14pre = fluencyRows.find(r => r.getCell(1).value === 'P14' && r.getCell(3).value === 'pretest')!;
+  assert.equal(p14pre.getCell(7).value, 'Yes');
+  for (let col = 15; col <= 18; col++) assert.ok(!p14pre.getCell(col).value, 'skipped reading is blank');
 });

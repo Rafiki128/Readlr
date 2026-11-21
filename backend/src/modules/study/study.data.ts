@@ -1,7 +1,7 @@
 // Pretest/posttest instrument for the classroom validation study.
 // Each group's transfer words use only letters that group is taught and never
 // appear in the app, so gains on them show decoding rather than memorized words.
-export const STUDY_VERSION = 'readlr-study-v4-15-blend10';
+export const STUDY_VERSION = 'readlr-study-v5-15-blend10-orf40';
 export type StudyGroup = 'A' | 'B';
 export type StudyPhase = 'pretest' | 'learning' | 'posttest' | 'done' | 'closed';
 export type WordSet = 'taught' | 'transfer';
@@ -23,6 +23,26 @@ export const ALL_STUDY_WORDS = (['A', 'B'] as const).flatMap(group => [...STUDY_
 // Part 2 sound blending: Milo says each sound and the child says the whole word; same items for both groups and tests.
 export const BLEND_ITEMS = ['gap', 'nap', 'wed', 'vet', 'rib', 'fig', 'jot', 'rod', 'hum', 'bud'];
 export type ItemType = 'word' | 'blend';
+
+// Part 3 one-minute word reading: the same 40 words in both tests, shuffled per run, read in one recording.
+export const FLUENCY_WORDS = ['mat', 'sat', 'cap', 'map', 'bag', 'hat', 'van', 'wax', 'sad', 'fan', 'met', 'let', 'net', 'wet', 'web', 'jet', 'lit', 'fin', 'tin', 'bin',
+  'win', 'kid', 'kit', 'zip', 'top', 'hop', 'fox', 'dog', 'log', 'bun', 'hut', 'mud', 'bus', 'rug', 'dug', 'cub', 'tub', 'cup', 'yam', 'sob'];
+export const FLUENCY_MAX_MS = 60_000;
+
+/** Words correct per minute, rounded to one decimal; null when there is no timed reading. */
+export function wcpm(wordsCorrect: number, durationMs: number): number | null {
+  return durationMs > 0 ? Math.round(wordsCorrect / (durationMs / 60_000) * 10) / 10 : null;
+}
+
+/** Teacher marks for one reading: error positions and last word reached are 1-based; 0 means no words read. */
+export function fluencyScore(wordCount: number, errors: unknown, lastReached: unknown) {
+  if (!Number.isInteger(lastReached) || (lastReached as number) < 0 || (lastReached as number) > wordCount) throw new RangeError('Choose the last word reached.');
+  const last = lastReached as number;
+  if (!Array.isArray(errors) || errors.some(p => !Number.isInteger(p) || p < 1) || new Set(errors).size !== errors.length) throw new RangeError('Error marks are not valid.');
+  if (errors.some(p => p > last)) throw new RangeError('The last word reached must be at or after every word marked wrong.');
+  const positions = [...errors as number[]].sort((a, b) => a - b);
+  return { words_attempted: last, error_positions: positions, words_correct: last - positions.length };
+}
 
 // Reading Chronicles chapters each group may open during the learning phase.
 export const STUDY_BOOKS: Record<StudyGroup, string[]> = { A: ['gate', 'lanterns', 'market'], B: ['gate', 'garden', 'bridge'] };
