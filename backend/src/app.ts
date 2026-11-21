@@ -36,6 +36,7 @@ const authController = new AuthController(authService);
 app.use('/api/auth', createAuthRouter(authController));
 app.use('/api/admin', adminRoutes);
 app.use('/api/audio', audioRoutes);
+app.use('/api/evidence', evidenceRoutes);
 app.use('/health', healthRoutes);
 app.use('/api/learner', learnerRoutes);
 app.use('/api/settings', settingsRoutes);

@@ -1,5 +1,6 @@
 import { bridgeStorageKey } from './stageTwoContent';
 import { cvcStorageKey } from './cvcContent';
+import { resetLearnerBookStops } from '../../hooks/learnerCurriculumState';
 
 export interface ResetStage { stage_number: number; epoch: number; earned_completed: number }
 export const epochKey = (learner: number) => `readlr_reset_epochs_${learner}`;
@@ -11,6 +12,9 @@ function read(key: string): Record<number, number> {
     return Object.fromEntries(Object.entries(value).filter(([stage, count]) =>
       ['1','2','3'].includes(stage) && Number.isInteger(count) && (count as number) >= 0).map(([stage,count])=>[Number(stage),Number(count)]));
   } catch { return {}; }
+}
+export function readResetEpoch(learner: number, stage: number): number {
+  return read(epochKey(learner))[stage] ?? 0;
 }
 export function earnedProgress(learner?: number | null): Record<number, number> {
   return learner ? read(rewardKey(learner)) : {};
@@ -26,6 +30,7 @@ export function applyResetState(learner: number, user: number, stages: ResetStag
   const key = `readlr_progress_user_${user}`;
   const progress = read(key);
   preserveRewards(learner, Object.fromEntries(stages.map(s => [s.stage_number, s.earned_completed])));
+  const fullRestart = [1,2,3].every(stage => stages.some(row => row.stage_number === stage));
   let changed = false;
   for (const row of stages) {
     if (row.epoch > (epochs[row.stage_number] ?? 0)) {
@@ -41,6 +46,7 @@ export function applyResetState(learner: number, user: number, stages: ResetStag
     }
   }
   if (changed) {
+    if (fullRestart) resetLearnerBookStops(learner);
     // Write epochs last so other tabs reload only after their shared caches are cleared.
     localStorage.setItem(key, JSON.stringify(progress));
     localStorage.setItem(epochKey(learner), JSON.stringify(epochs));

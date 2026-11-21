@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, LockKeyhole, BookOpen, ArrowRight, Sparkles, Flag, MapPin, Star } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, LockKeyhole, ArrowRight, Sparkles, Flag, MapPin, Star } from 'lucide-react';
 import { LandmarkArt } from './AdventureArt';
 import { ReadingWorldBackdrop } from './ReadingWorldBackdrop';
 import { CHRONICLES } from './chronicleContent';
@@ -26,6 +26,22 @@ interface Props {
   onOpenBook:(index:number)=>void; onOpenCamp:()=>void;
   onProgress?:()=>void; onStickers?:()=>void; onSounds?:()=>void; onAchievements?:()=>void;
 }
+
+function OpenBookCtaIcon() {
+  return (
+    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border-2 border-white/90 bg-[#fff1bd] shadow-[0_2px_0_#b96c05]" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="28" height="28" fill="none" focusable="false">
+        <path d="M4.5 8.2c4.3-1 8.2.1 11.5 3v15c-3.4-2.2-7.2-3.1-11.5-2.2V8.2Z" fill="#fff1bc" stroke="#8752b7" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M27.5 8.2c-4.3-1-8.2.1-11.5 3v15c3.4-2.2 7.2-3.1 11.5-2.2V8.2Z" fill="#fffdf4" stroke="#8752b7" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M16 11.2v15" stroke="#e49a18" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M7.3 12.2c2.4-.45 4.5-.1 6.5.9M7.3 16c2.3-.35 4.4-.05 6.5.8" stroke="#7546c8" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M18.2 13.1c2-.95 4.1-1.3 6.5-.9M18.2 16.9c2.1-.85 4.2-1.15 6.5-.8" stroke="#139889" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="m23.4 6.2.6-1.4.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6Z" fill="#ffd45b" stroke="#c0770d" strokeWidth=".8"/>
+      </svg>
+    </span>
+  );
+}
+
 export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialIndex,onFocusBook,onOpenBook,onOpenCamp,curriculumState=emptyLearnerCurriculumState(),completedBooks=[]}:Props) {
   const cached=learnerId?readReadingAccessSnapshot(learnerId):null;
   const storedFocus=readReadingCarouselFocus(learnerId);
@@ -159,7 +175,7 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
           </button>;
         })}</div>
       </div>
-      <div className="book-carousel-footer" aria-live="polite"><span className="sr-only">Book {index+1} of 10</span>{unlockMessage&&<span className="book-unlock-message"><Sparkles/>{unlockMessage}</span>}<div className="home-pager"><button className="carousel-arrow carousel-arrow--prev" aria-label="Previous book" disabled={opening||transition.leaving||index===0} onClick={()=>focusBook(index-1)}><ChevronLeft/></button>{campFirst?<button className="world-primary" disabled={opening||transition.leaving} onClick={()=>goTo('camp',onOpenCamp)}><Sparkles/>Start at Learning Camp <ArrowRight/></button>:<button className="world-primary" disabled={!unlocked} onClick={openBook}>{unlocked?<BookOpen/>:<LockKeyhole/>}{unlocked?completed.includes(chapter.id)?'Read again':'Open this book':blocked?'Adventure is paused':loadingBooks?'Loading books...':status?'Book access unavailable':index===0?'Visit Learning Camp to begin':`Finish Book ${index} to unlock`} {unlocked&&<ArrowRight/>}</button>}<button className="carousel-arrow carousel-arrow--next" aria-label="Next book" disabled={opening||transition.leaving||index===9} onClick={()=>focusBook(index+1)}><ChevronRight/></button></div>{status&&<p role="status">{status} <button disabled={loadingBooks} onClick={()=>setRetry(value=>value+1)}>Retry</button></p>}</div>
+      <div className="book-carousel-footer" aria-live="polite"><span className="sr-only">Book {index+1} of 10</span>{unlockMessage&&<span className="book-unlock-message"><Sparkles/>{unlockMessage}</span>}<div className="home-pager"><button className="carousel-arrow carousel-arrow--prev" aria-label="Previous book" disabled={opening||transition.leaving||index===0} onClick={()=>focusBook(index-1)}><ChevronLeft/></button>{campFirst?<button className="world-primary" disabled={opening||transition.leaving} onClick={()=>goTo('camp',onOpenCamp)}><Sparkles/>Start at Learning Camp <ArrowRight/></button>:<button className="world-primary" disabled={!unlocked} onClick={openBook}>{unlocked?<OpenBookCtaIcon/>:<LockKeyhole/>}{unlocked?completed.includes(chapter.id)?'Read again':'Open this book':blocked?'Adventure is paused':loadingBooks?'Loading books...':status?'Book access unavailable':index===0?'Visit Learning Camp to begin':`Finish Book ${index} to unlock`} {unlocked&&<ArrowRight size={20} strokeWidth={2.5}/>}</button>}<button className="carousel-arrow carousel-arrow--next" aria-label="Next book" disabled={opening||transition.leaving||index===9} onClick={()=>focusBook(index+1)}><ChevronRight/></button></div>{status&&<p role="status">{status} <button disabled={loadingBooks} onClick={()=>setRetry(value=>value+1)}>Retry</button></p>}</div>
     </section>
     <button type="button" className="home-trail-hint" onClick={()=>document.getElementById('home-reading-trail')?.scrollIntoView({behavior:'smooth',block:'center'})}><MapPin aria-hidden="true"/>My reading trail<ChevronDown aria-hidden="true"/></button>
     </div>

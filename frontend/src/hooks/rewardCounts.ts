@@ -19,16 +19,25 @@ export function rewardCounts(state: LearnerCurriculumState, completedBooks: stri
 }
 
 export type RewardKind = "stickers" | "awards";
+export type RewardCounts = { stickers: number; awards: number };
 const seenKey = (learnerId: number) => `readlr_rewards_seen_v1_${learnerId}`;
 
 /** The counts the learner had when they last opened the Sticker Book and Awards pages. */
-export function readSeenRewards(learnerId: number): { stickers: number; awards: number } | null {
+export function readSeenRewards(learnerId: number): RewardCounts | null {
   try {
     const value = JSON.parse(localStorage.getItem(seenKey(learnerId)) ?? "null");
     return value && typeof value.stickers === "number" && typeof value.awards === "number" ? value : null;
   } catch { return null; }
 }
 
-export function saveSeenRewards(learnerId: number, seen: { stickers: number; awards: number }) {
+export function advanceSeenRewards(stored: RewardCounts | null, counts: RewardCounts, currentScreen: string): RewardCounts {
+  const baseline = stored ?? counts;
+  return {
+    stickers: currentScreen === "sticker-book" ? Math.max(baseline.stickers, counts.stickers) : baseline.stickers,
+    awards: currentScreen === "achievements" ? Math.max(baseline.awards, counts.awards) : baseline.awards,
+  };
+}
+
+export function saveSeenRewards(learnerId: number, seen: RewardCounts) {
   try { localStorage.setItem(seenKey(learnerId), JSON.stringify(seen)); } catch { /* The sparkle simply shows again next time. */ }
 }

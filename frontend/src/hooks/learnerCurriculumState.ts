@@ -73,6 +73,13 @@ export function saveLearnerCurriculumState(learnerId:number,state:LearnerCurricu
   if(notify&&typeof window!=='undefined')window.dispatchEvent(new CustomEvent(CURRICULUM_STATE_CHANGED,{detail:{learnerId}}));
   return next;
 }
+export function resetLearnerBookStops(learnerId:number) {
+  localStorage.removeItem(`readlr_aral_guided_v1_${learnerId}`);
+  localStorage.removeItem(`readlr_first_reward_v1_${learnerId}`);
+  localStorage.setItem(`readlr_aral_carousel_v1_${learnerId}`,'0');
+  const state=readLearnerCurriculumState(learnerId);
+  return saveLearnerCurriculumState(learnerId,{...state,guidedStops:[],carouselFocus:0},false);
+}
 export function patchLearnerCurriculumState(learnerId:number,patch:Partial<LearnerCurriculumState>) {
   return saveLearnerCurriculumState(learnerId,{...readLearnerCurriculumState(learnerId),...patch});
 }

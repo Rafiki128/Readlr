@@ -17,11 +17,14 @@ export interface SurveyData {version:string;questions:{id:number;en:string;ceb:s
 // Rating faces from a gentle frown (1) to a big smile (5).
 const mouths=['M22 46Q32 38 42 46','M23 44Q32 41 41 44','M23 43H41','M21 39Q32 49 43 39',''];
 function Face({value}:{value:number}) {
-  return <svg viewBox="0 0 64 64" aria-hidden="true" className="survey-face-art">
-    <circle cx="32" cy="32" r="28" fill="#ffd966" stroke="#f6bf43" strokeWidth="3"/>
-    {value===5?<path d="M19 28q5-6 10 0M35 28q5-6 10 0" fill="none" stroke="#785365" strokeWidth="3.5" strokeLinecap="round"/>:<><circle cx={24} cy={value===1?29:27} r="3.4" fill="#785365"/><circle cx={40} cy={value===1?29:27} r="3.4" fill="#785365"/></>}
-    {value>=4&&<><circle cx="16" cy="38" r="4.5" fill="#f592b4" opacity=".7"/><circle cx="48" cy="38" r="4.5" fill="#f592b4" opacity=".7"/></>}
-    {value===5?<path d="M20 37Q32 55 44 37Z" fill="#785365"/>:<path d={mouths[value-1]} fill="none" stroke="#785365" strokeWidth="3.5" strokeLinecap="round"/>}
+  return <svg viewBox="0 0 64 64" aria-hidden="true" className={`survey-face-art survey-face-${value}`}>
+    <circle className="survey-face-shape" cx="32" cy="32" r="28" fill="#ffd966" stroke="#f6bf43" strokeWidth="3"/>
+    {value===5?<path className="survey-face-eye" d="M19 28q5-6 10 0M35 28q5-6 10 0" fill="none" stroke="#785365" strokeWidth="3.5" strokeLinecap="round"/>:<>
+      <circle className="survey-face-eye" cx={24} cy={value===1?29:27} r="3.4" fill="#785365"/>
+      <circle className="survey-face-eye" cx={40} cy={value===1?29:27} r="3.4" fill="#785365"/>
+    </>}
+    {value>=4&&<><circle className="survey-face-cheek" cx="16" cy="38" r="4.5" fill="#f592b4" opacity=".7"/><circle className="survey-face-cheek" cx="48" cy="38" r="4.5" fill="#f592b4" opacity=".7"/></>}
+    {value===5?<path className="survey-face-mouth" d="M20 37Q32 55 44 37Z" fill="#785365"/>:<path className="survey-face-mouth" d={mouths[value-1]} fill="none" stroke="#785365" strokeWidth="3.5" strokeLinecap="round"/>}
   </svg>;
 }
 // Each answer choice reuses the picture Readlr already shows for that place.
@@ -39,6 +42,9 @@ export function StudentSurvey({token,userId,onBack}:{token:string;userId:number;
   const [busy,setBusy]=useState(false);
   const [done,setDone]=useState(false);
   const [retry,setRetry]=useState(0);
+  const [choicesReady,setChoicesReady]=useState(false);
+  const [guidedChoice,setGuidedChoice]=useState(-1);
+  const guideRun=useRef(0);
   const heading=useRef<HTMLHeadingElement>(null);
   const voice=useRef<HTMLAudioElement|null>(null);
   const spoken=useRef<Promise<void>>(Promise.resolve());
@@ -78,18 +84,46 @@ export function StudentSurvey({token,userId,onBack}:{token:string;userId:number;
   // Milo reads each screen aloud as it appears.
   useEffect(()=>{
     if(!data)return;
+    const run=++guideRun.current;
+    setGuidedChoice(-1);
+    setChoicesReady(false);
     if(done){if(!data.submittedAt)say(`${lang}/thank-you`);return;}
-    say(step===-1?'welcome':step===14?`${lang}/all-done`:`${lang}/q${String(step+1).padStart(2,'0')}`);
+    if(step===-1){setChoicesReady(true);say('welcome');return;}
+    if(step===14){setChoicesReady(true);say(`${lang}/all-done`);return;}
+    const prompt=`${lang}/q${String(step+1).padStart(2,'0')}`;
+    void say(prompt).then(async()=>{
+      if(run!==guideRun.current)return;
+      if(step===0){
+        for(let i=0;i<5;i++){
+          if(run!==guideRun.current)return;
+          setGuidedChoice(i);
+          await say(`${lang}/face-${i+1}`);
+          await new Promise(resolve=>window.setTimeout(resolve,220));
+        }
+        if(run===guideRun.current)setGuidedChoice(-1);
+      }
+      if(run===guideRun.current)setChoicesReady(true);
+    });
+    return()=>{guideRun.current++;};
   },[data,step,done,lang]);
   function answer(value:Answer){setAnswers(a=>a.map((old,i)=>i===step?value:old));}
-  function choose(language:Lang){setLang(language);setStep(0);}
+  function choose(language:Lang){
+    voice.current?.pause();
+    setChoicesReady(false);
+    setGuidedChoice(-1);
+    setLang(language);
+    setStep(0);
+    // Start this statement synchronously from the language button's user gesture.
+    // The step effect reuses the same audio instead of restarting it.
+    void say(`${language}/q01`);
+  }
   async function submit(){
     if(!data||busy)return;setBusy(true);setError('');
     try{const r=await fetch(`${CLASSROOM_API}/admin/survey/me`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({version:data.version,language:lang,answers}),signal:AbortSignal.timeout(15000)});const d=await r.json();if(!r.ok)throw new Error(d.message);setDone(true);}
     // The child sees a gentle line; the technical reason stays in the console for grown-ups.
     catch(e){console.warn('Survey could not be sent:',e);setError(t("Milo couldn't send it yet. Let's try again!",'Wala pa nakapadala si Milo. Sulayi pag-usab!'));}finally{setBusy(false);}
   }
-  const hover=(file:string)=>(e:PointerEvent)=>{if(e.pointerType==='mouse')say(file);};
+  const hover=(file:string)=>(e:PointerEvent)=>{if(e.pointerType==='mouse'&&choicesReady&&guidedChoice<0)void say(file);};
   const q=data?.questions[step];
   return <div className="survey-world"><ReadingWorldBackdrop welcome/><main className="student-survey">
     {error&&<div className="survey-error" role="alert">{error}{!data&&<button onClick={()=>setRetry(n=>n+1)}>Try again / Sulayi pag-usab</button>}</div>}
@@ -102,8 +136,8 @@ export function StudentSurvey({token,userId,onBack}:{token:string;userId:number;
       step===14?<section className="survey-finish"><div className="survey-mascot"><CharacterCompanion state="celebrating" size={150}/></div><h1 ref={heading} tabIndex={-1}>{t('All done!','Human na!')}</h1><p>{t('Tap Send to give your answers to Milo.','Pindota ang Ipadala aron ihatag kang Milo ang imong mga tubag.')}</p><footer className="survey-actions"><button className="survey-back" onClick={()=>setStep(13)}><ArrowLeft size={20}/>{t('Go back','Balik')}</button><button className="survey-primary survey-send" disabled={busy} onClick={submit}>{busy?t('Sending...','Gipadala...'):t('Send','Ipadala')}<Check size={28}/></button></footer></section>:
       q&&<section className="survey-question" key={q.id} style={{'--tone':tones[step%tones.length]} as CSSProperties}><div className="survey-dots" role="progressbar" aria-valuemin={1} aria-valuemax={14} aria-valuenow={step+1} aria-label={t(`Question ${step+1} of 14`,`Pangutana ${step+1} sa 14`)}>{answers.map((_,i)=><span key={i} className={i<step?'is-done':i===step?'is-current':''}/>)}</div>
       <div className="survey-ask"><span className="survey-ask-milo"><CharacterCompanion state="idle" size={96}/></span><h1 ref={heading} tabIndex={-1} id="survey-question-title">{q[lang]}</h1><HearMiloButton className="survey-hear" onClick={()=>{voice.current?.pause();say(`${lang}/q${String(step+1).padStart(2,'0')}`);}}/></div>
-      <fieldset className={q.kind==='rating'?'survey-faces':'survey-choices'} aria-labelledby="survey-question-title">
-      {q.kind==='rating'?data.scale.map((labels,i)=><label key={i} className={answers[step]===i+1?'selected':''} onPointerEnter={hover(`${lang}/face-${i+1}`)}><input type="radio" name={`q${q.id}`} value={i+1} checked={answers[step]===i+1} onChange={()=>pick(i+1,`${lang}/face-${i+1}`)}/><Face value={i+1}/><span>{labels[lang==='en'?0:1]}</span></label>):data.choices[q.id].map(([value,en,ceb])=><label key={value} className={answers[step]===value?'selected':''} onPointerEnter={hover(`${lang}/choice-${slug(en)}`)}><input type="radio" name={`q${q.id}`} value={value} checked={answers[step]===value} onChange={()=>pick(value,`${lang}/choice-${slug(en)}`)}/><span className="survey-choice-art" aria-hidden="true">{choiceArt[value]}</span><span>{lang==='en'?en:ceb}</span></label>)}
+      <fieldset className={q.kind==='rating'?'survey-faces':'survey-choices'} aria-labelledby="survey-question-title" aria-busy={!choicesReady} disabled={!choicesReady}>
+      {q.kind==='rating'?data.scale.map((labels,i)=><label key={i} className={`${answers[step]===i+1?'selected':''}${guidedChoice===i?' is-guided':''}`} onPointerEnter={hover(`${lang}/face-${i+1}`)}><input type="radio" name={`q${q.id}`} value={i+1} checked={answers[step]===i+1} onChange={()=>pick(i+1,`${lang}/face-${i+1}`)}/><Face value={i+1}/><span>{labels[lang==='en'?0:1]}</span></label>):data.choices[q.id].map(([value,en,ceb])=><label key={value} className={`${answers[step]===value?'selected':''}${guidedChoice===data.choices[q.id].findIndex(choice=>choice[0]===value)?' is-guided':''}`} onPointerEnter={hover(`${lang}/choice-${slug(en)}`)}><input type="radio" name={`q${q.id}`} value={value} checked={answers[step]===value} onChange={()=>pick(value,`${lang}/choice-${slug(en)}`)}/><span className="survey-choice-art" aria-hidden="true">{choiceArt[value]}</span><span>{lang==='en'?en:ceb}</span></label>)}
       </fieldset><footer className="survey-actions"><button className="survey-back" onClick={()=>setStep(step-1)}><ArrowLeft size={20}/>{t('Back','Balik')}</button><button className="survey-skip" onClick={()=>{answer(null);setStep(step+1);}}>{t('Skip','Laktawi')}</button><button className="survey-primary" disabled={answers[step]===null} onClick={()=>setStep(step+1)}>{t('Next','Sunod')}<ArrowRight size={20}/></button></footer></section>}
     </>}
   </main></div>;

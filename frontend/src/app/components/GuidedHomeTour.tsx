@@ -71,7 +71,7 @@ export function GuidedHomeTour({onFinish,learnerId,completedByStage={},userName=
     const index=controls.indexOf(document.activeElement as HTMLElement);
     event.preventDefault();controls[(index+(event.shiftKey?-1:1)+controls.length)%controls.length]?.focus();
   }}>
-    <header className="guided-tour__header"><span><Compass size={22}/><strong>Readlr</strong><small>Your first adventure</small></span><button className="guided-tour__skip" onClick={()=>{sound.stop();onFinish(true);}}>Skip tour</button></header>
+    <header className="guided-tour__header"><span><Compass size={22}/><strong className="readlr-wordmark">Readlr</strong><small>Your first adventure</small></span><button className="guided-tour__skip" onClick={()=>{sound.stop();onFinish(true);}}>Skip tour</button></header>
     {exploring?<><div className="guided-tour__explore">
       {step===0&&<UnifiedDashboard learnerId={learnerId} userName={userName} completedByStage={completedByStage} onBack={advance}/>}
       {step===1&&<StickerBookView completedByStage={completedByStage} onBack={advance}/>}

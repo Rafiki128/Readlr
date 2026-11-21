@@ -40,7 +40,7 @@ export function WelcomeScreen({ onStart, userName }: WelcomeScreenProps) {
         className="welcome-invitation"
       >
         <div inert={transition.leaving}>
-          <div className="welcome-brand"><img src="/readlr-mark.svg" alt=""/><span>Readlr</span><small>THE READING CHRONICLES</small></div>
+          <div className="welcome-brand"><img src="/readlr_logo_mark.svg" alt=""/><span className="readlr-wordmark">Readlr</span><small>THE READING CHRONICLES</small></div>
           <CharacterCompanion state="encouraging" gesture="wave" size={180}/>
 
           <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight mb-3">

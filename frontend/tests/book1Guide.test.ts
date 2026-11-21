@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BOOK1_GUIDE_SKIPPED, BOOK1_GUIDE_STEPS, guideKey, guideProgress, nextGuideStep, type GuideStepId } from '../src/app/components/book1GuideSteps.ts';
+import { BOOK1_GUIDE_SKIPPED, BOOK1_GUIDE_STEPS, guideKey, guideProgress, guideSkippedKey, nextGuideStep, type GuideStepId } from '../src/app/components/book1GuideSteps.ts';
 
 const step = (id: GuideStepId) => BOOK1_GUIDE_STEPS.find(item => item.id === id)!;
 const onScreen = (...ids: GuideStepId[]) => (selector: string) => ids.some(id => step(id).target === selector);
@@ -44,6 +44,14 @@ test('saved flags become progress', () => {
   assert.equal(progress.skipped, true);
   assert.equal(guideKey('mic'), 'book1-guide:mic');
   assert.equal(BOOK1_GUIDE_SKIPPED, 'book1-guide:skipped');
+});
+
+test('a progress reset starts a fresh Book 1 tour without forgetting the prior tour', () => {
+  const activities = { 'book1-guide:hear': true, [BOOK1_GUIDE_SKIPPED]: true };
+  assert.equal(guideProgress(activities, 1).done.size, 0);
+  assert.equal(guideProgress(activities, 1).skipped, false);
+  assert.equal(guideKey('hear', 1), 'book1-guide:1:hear');
+  assert.equal(guideSkippedKey(1), 'book1-guide:1:skipped');
 });
 
 test('the next step is the first unfinished one on screen', () => {

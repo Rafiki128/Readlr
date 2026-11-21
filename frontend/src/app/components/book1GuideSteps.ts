@@ -25,12 +25,16 @@ export const BOOK1_GUIDE_STEPS: readonly GuideStep[] = [
 
 export const BOOK1_GUIDE_SKIPPED = 'book1-guide:skipped';
 
-export function guideKey(id: GuideStepId): string {
-  return `book1-guide:${id}`;
+export function guideKey(id: GuideStepId, epoch = 0): string {
+  return epoch > 0 ? `book1-guide:${epoch}:${id}` : `book1-guide:${id}`;
 }
 
-export function guideProgress(activities: Readonly<Record<string, boolean>>): { done: Set<GuideStepId>; skipped: boolean } {
-  return { done: new Set(BOOK1_GUIDE_STEPS.filter(item => activities[guideKey(item.id)]).map(item => item.id)), skipped: Boolean(activities[BOOK1_GUIDE_SKIPPED]) };
+export function guideSkippedKey(epoch = 0): string {
+  return epoch > 0 ? `book1-guide:${epoch}:skipped` : BOOK1_GUIDE_SKIPPED;
+}
+
+export function guideProgress(activities: Readonly<Record<string, boolean>>, epoch = 0): { done: Set<GuideStepId>; skipped: boolean } {
+  return { done: new Set(BOOK1_GUIDE_STEPS.filter(item => activities[guideKey(item.id, epoch)]).map(item => item.id)), skipped: Boolean(activities[guideSkippedKey(epoch)]) };
 }
 
 // The first unfinished step whose control is on screen, so steps follow the child's own route.

@@ -152,3 +152,54 @@ export function saveGuidedRoundStep(learnerId:number,chapter:string,state:Guided
 export function clearGuidedRoundStep(learnerId:number,chapter:string) {
   localStorage.removeItem(roundKey(learnerId,chapter));
 }
+
+export function resetLocalReadingBook(learnerId:number,chapterId:string) {
+  const chapterIndex=READING_CHAPTERS.findIndex(chapter=>chapter.id===chapterId);
+  if(chapterIndex<0)return;
+  const state=readLearnerCurriculumState(learnerId);
+  const prefix=`${chapterId}:`;
+  const legacyGate=chapterId==='gate'?new Set(['mango','apple','top','blend','games','check','gate:mango','gate:apple','gate:top','gate:blend','gate:games','gate:check']):null;
+  const guidedStops=state.guidedStops.filter(stop=>!stop.startsWith(prefix)&&!(legacyGate?.has(stop)));
+  localStorage.setItem(guidedKey(learnerId),JSON.stringify(guidedStops));
+  if(chapterId==='gate')localStorage.removeItem('readlr_first_reward_v1_'+learnerId);
+  localStorage.removeItem(blendKey(learnerId,chapterIndex));
+  localStorage.removeItem(roundKey(learnerId,chapterId));
+  for(const activity of ['listen','response','continuation','lesson','practice','challenge'])clearGuidedActivity(learnerId,chapterId,activity);
+  const completed=readLocalReadingProgress(learnerId).filter(id=>{
+    const index=READING_CHAPTERS.findIndex(chapter=>chapter.id===id);
+    return index>=0&&index<chapterIndex;
+  });
+  localStorage.setItem(key(learnerId),JSON.stringify(completed));
+  const snapshot=readReadingAccessSnapshot(learnerId);
+  if(snapshot){
+    saveReadingAccessSnapshot(learnerId,{
+      completed:completed,
+      available:availableLocalReadingChapters(completed),
+      openChallenges:snapshot.openChallenges,
+    });
+  }
+  localStorage.removeItem(unlockTransitionKey(learnerId));
+  patchLearnerCurriculumState(learnerId,{guidedStops,carouselFocus:chapterIndex});
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent('readlr:reading-reset-complete',{detail:{learnerId,scope:'book',chapter:chapterId}}));
+}
+
+export function resetLocalReadingChallenge(learnerId:number,chapterId:string,stop:string) {
+  if(!READING_CHAPTERS.some(chapter=>chapter.id===chapterId)||!stop)return;
+  const chapterIndex=READING_CHAPTERS.findIndex(chapter=>chapter.id===chapterId);
+  const stopId=`${chapterId}:${stop}`;
+  const state=readLearnerCurriculumState(learnerId);
+  const guidedStops=state.guidedStops.filter(value=>value!==stopId&&(chapterId!=='gate'||!['mango','apple','top'].includes(stop)||value!==stop));
+  localStorage.setItem(guidedKey(learnerId),JSON.stringify(guidedStops));
+  if(stop==='blend')localStorage.removeItem(blendKey(learnerId,chapterIndex));
+  if(stop==='games')localStorage.removeItem(roundKey(learnerId,chapterId));
+  if(stop==='check'){
+    const completed=readLocalReadingProgress(learnerId).filter(id=>id!==chapterId);
+    localStorage.setItem(key(learnerId),JSON.stringify(completed));
+  }
+  if(chapterId==='gate'&&['mango','apple','top'].includes(stop)){
+    const remaining=guidedStops.some(value=>value.endsWith(`:${stop}`)||value===stop);
+    if(!remaining)localStorage.removeItem('readlr_first_reward_v1_'+learnerId);
+  }
+  patchLearnerCurriculumState(learnerId,{guidedStops});
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent('readlr:reading-reset-complete',{detail:{learnerId,scope:'challenge',chapter:chapterId,stop}}));
+}

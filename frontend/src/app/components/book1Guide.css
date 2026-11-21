@@ -6,9 +6,10 @@
 .book1-guide__ring{position:fixed;border:4px solid var(--sun);border-radius:14px;box-shadow:0 0 0 6px var(--tint-yellow);pointer-events:none}
 .book1-guide__hand{position:fixed;width:44px;height:44px;color:#fff;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.45))}
 .book1-guide__hand svg{width:44px;height:44px;fill:var(--accent);stroke:#fff}
-.book1-guide__bubble{position:fixed;width:min(320px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 56px 12px 12px;border-radius:16px;background:#fffdf5;color:#1F2430;border:3px solid var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:auto}
+.book1-guide__bubble{position:fixed;width:min(320px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:58px 12px 12px;border-radius:16px;background:#fffdf5;color:#1F2430;border:3px solid var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:auto}
 .book1-guide__bubble p{flex:1 1 140px;margin:0;font-size:18px;line-height:1.35;font-weight:600}
 .book1-guide__ok{min-width:48px;min-height:48px;display:inline-flex;align-items:center;gap:6px;padding:0 16px;border-radius:12px;border:0;background:var(--accent);color:#fff;font-weight:600}
-.book1-guide__skip{position:absolute;top:6px;right:6px;width:48px;height:48px;display:grid;place-items:center;border-radius:12px;border:1px solid var(--hairline-strong);background:#fff;color:#4B5266}
+.book1-guide__skip{position:absolute;top:6px;right:6px;min-width:88px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:0 10px;border-radius:12px;border:1px solid var(--hairline-strong);background:#fff;color:#4B5266;font-size:13px;font-weight:600;white-space:nowrap}
 .book1-guide-again{position:fixed;z-index:900;left:max(16px,env(safe-area-inset-left,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));min-height:48px;display:inline-flex;align-items:center;gap:8px;padding:0 16px;border-radius:24px;border:2px solid var(--accent);background:#fffdf5;color:var(--accent);font-weight:600}
-.book1-guide-again svg,.book1-guide__ok svg,.book1-guide__skip svg{width:20px;height:20px}
+.book1-guide-again svg,.book1-guide__ok svg{width:20px;height:20px}
+.book1-guide__skip svg{width:16px;height:16px}

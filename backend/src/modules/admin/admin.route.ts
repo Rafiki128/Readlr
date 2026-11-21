@@ -4,7 +4,7 @@ import { handleGetLearners, handleSetStudyParticipant } from './admin.controller
 import { getClassroom,saveClassroom,getMyClassroom,heartbeat } from './classroom.controller.js';
 import { resetProgress } from '../progress/reset.controller.js';
 import { listRecovery, approveRecovery } from '../auth/recovery.controller.js';
-import { getSurvey,submitSurvey,getSurveyAssignments,assignSurvey,listSurveyResponses,exportSurvey } from './survey.controller.js';
+import { getSurvey,submitSurvey,getSurveyAssignments,assignSurvey,listSurveyResponses,exportSurvey,resetSurvey } from './survey.controller.js';
 
 import { getLearnerReadingDetail } from './learner-reading.controller.js';
 
@@ -15,6 +15,7 @@ router.get('/survey/assignments',authMiddleware,requireRole('admin'),getSurveyAs
 router.put('/survey/assignments',authMiddleware,requireRole('admin'),assignSurvey);
 router.get('/survey/responses',authMiddleware,requireRole('admin'),listSurveyResponses);
 router.get('/survey/export',authMiddleware,requireRole('admin'),exportSurvey);
+router.post('/survey/reset',authMiddleware,requireRole('admin'),resetSurvey);
 
 router.get('/learners/:id/reading', authMiddleware, requireRole('admin'), getLearnerReadingDetail);
 router.get('/learners', authMiddleware, requireRole('admin'), handleGetLearners);
