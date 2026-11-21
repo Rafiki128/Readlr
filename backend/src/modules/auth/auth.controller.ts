@@ -10,6 +10,8 @@ import { recordLearnerEvent } from '../learner/learner.events.js';
 export const CONSENT_VERSION = 'guardian-consent-v1';
 // Five wrong passwords lock account deletion for 15 minutes.
 export const deletePasswordLimit = createLimiter(5, 15 * 60_000, 'Too many wrong passwords. Please wait 15 minutes.');
+// Prevents duplicate callback hits from reusing a single-use Facebook authorization code.
+const facebookCodeRedirects = new Map<string, Promise<string>>();
 
 function getFacebookCallbackUrl(): string {
   const callbackUrl = process.env.FACEBOOK_CALLBACK_URL?.trim();
@@ -402,79 +404,91 @@ export class AuthController {
     }
 
     try {
-      const clientId = process.env.FACEBOOK_APP_ID?.trim();
-      const clientSecret = process.env.FACEBOOK_APP_SECRET?.trim();
-      if (!clientId || !clientSecret) {
-        throw new Error('Facebook credentials are missing on the server.');
+      let redirectPromise = facebookCodeRedirects.get(code);
+
+      if (!redirectPromise) {
+        redirectPromise = (async () => {
+          const clientId = process.env.FACEBOOK_APP_ID?.trim();
+          const clientSecret = process.env.FACEBOOK_APP_SECRET?.trim();
+          if (!clientId || !clientSecret) {
+            throw new Error('Facebook credentials are missing on the server.');
+          }
+          const redirectUri = getFacebookCallbackUrl();
+
+          const tokenUrl = new URL('https://graph.facebook.com/v19.0/oauth/access_token');
+          tokenUrl.search = new URLSearchParams({
+            client_id: clientId,
+            redirect_uri: redirectUri,
+            client_secret: clientSecret,
+            code,
+          }).toString();
+
+          const tokenResponse = await fetch(tokenUrl);
+          const tokenData: unknown = await tokenResponse.json().catch(() => null);
+          if (!tokenResponse.ok) {
+            console.error('Facebook token exchange response:', {
+              status: tokenResponse.status,
+              redirectUri,
+              body: tokenData,
+            });
+            throw new Error('Facebook token exchange failed.');
+          }
+
+          if (
+            !tokenData ||
+            typeof tokenData !== 'object' ||
+            !('access_token' in tokenData) ||
+            typeof tokenData.access_token !== 'string' ||
+            !tokenData.access_token
+          ) {
+            throw new Error('No access token received from Facebook.');
+          }
+
+          const profileUrl = new URL('https://graph.facebook.com/me');
+          profileUrl.search = new URLSearchParams({
+            fields: 'id,name,email',
+            access_token: tokenData.access_token,
+          }).toString();
+
+          const profileResponse = await fetch(profileUrl);
+          const profileData: unknown = await profileResponse.json().catch(() => null);
+          if (!profileResponse.ok) {
+            console.error('Facebook profile lookup response:', {
+              status: profileResponse.status,
+              body: profileData,
+            });
+            throw new Error('Facebook profile lookup failed.');
+          }
+
+          if (
+            !profileData ||
+            typeof profileData !== 'object' ||
+            !('email' in profileData) ||
+            typeof profileData.email !== 'string' ||
+            !profileData.email.trim()
+          ) {
+            return `${frontendUrl}?error=NoEmailAttachedToFacebook`;
+          }
+
+          const email = profileData.email.trim().toLowerCase();
+          const name = 'name' in profileData && typeof profileData.name === 'string' && profileData.name.trim()
+            ? profileData.name.trim()
+            : email.split('@')[0];
+
+          const user = await this.authService.findOrCreateFacebookUser(email, name);
+          const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
+
+          return `${frontendUrl}?token=${token}`;
+        })();
+
+        facebookCodeRedirects.set(code, redirectPromise);
+        setTimeout(() => facebookCodeRedirects.delete(code), 60_000);
       }
-      const redirectUri = getFacebookCallbackUrl();
 
-      const tokenUrl = new URL('https://graph.facebook.com/v19.0/oauth/access_token');
-      tokenUrl.search = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        client_secret: clientSecret,
-        code,
-      }).toString();
-
-      const tokenResponse = await fetch(tokenUrl);
-      const tokenData: unknown = await tokenResponse.json().catch(() => null);
-      if (!tokenResponse.ok) {
-        console.error('Facebook token exchange response:', {
-          status: tokenResponse.status,
-          redirectUri,
-          body: tokenData,
-        });
-        throw new Error('Facebook token exchange failed.');
-      }
-
-      if (
-        !tokenData ||
-        typeof tokenData !== 'object' ||
-        !('access_token' in tokenData) ||
-        typeof tokenData.access_token !== 'string' ||
-        !tokenData.access_token
-      ) {
-        throw new Error('No access token received from Facebook.');
-      }
-
-      const profileUrl = new URL('https://graph.facebook.com/me');
-      profileUrl.search = new URLSearchParams({
-        fields: 'id,name,email',
-        access_token: tokenData.access_token,
-      }).toString();
-
-      const profileResponse = await fetch(profileUrl);
-      const profileData: unknown = await profileResponse.json().catch(() => null);
-      if (!profileResponse.ok) {
-        console.error('Facebook profile lookup response:', {
-          status: profileResponse.status,
-          body: profileData,
-        });
-        throw new Error('Facebook profile lookup failed.');
-      }
-
-      if (
-        !profileData ||
-        typeof profileData !== 'object' ||
-        !('email' in profileData) ||
-        typeof profileData.email !== 'string' ||
-        !profileData.email.trim()
-      ) {
-        res.redirect(`${frontendUrl}?error=NoEmailAttachedToFacebook`);
-        return;
-      }
-
-      const email = profileData.email.trim().toLowerCase();
-      const name = 'name' in profileData && typeof profileData.name === 'string' && profileData.name.trim()
-        ? profileData.name.trim()
-        : email.split('@')[0];
-
-      const user = await this.authService.findOrCreateFacebookUser(email, name);
-      const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
-
-      res.redirect(`${frontendUrl}?token=${token}`);
+      const targetUrl = await redirectPromise;
+      res.redirect(targetUrl);
     } catch (error) {
+      facebookCodeRedirects.delete(code);
       console.error('Facebook OAuth Error:', error);
       res.redirect(`${frontendUrl}?error=AuthenticationFailed`);
     }
