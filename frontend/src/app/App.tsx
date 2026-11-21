@@ -343,7 +343,15 @@ function AppContent() {
   const showJourneyFrames = useCallback((stageId:number, frames:UnlockedFrame[]) => setStageComplete({stageId,frames}), []);
   useJourneySync(user?.role === "learner" ? learnerId : null, token, updateJourneyProgress, user?.id, showJourneyFrames);
   useEvidenceSync(user?.role === "learner" ? learnerId : null, token);
-  useEffect(()=>{ if(user?.role === "learner" && token) sendAppOpenOnce(token, user.id); },[user?.role, user?.id, token]);
+  useEffect(()=>{
+    if(user?.role !== "learner" || !token) return;
+    // Re-checked when the tab is shown again, so a tab left open overnight sends app_open on the next Manila day.
+    const check = () => { if(document.visibilityState === "visible") sendAppOpenOnce(token, user.id); };
+    check();
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => { window.removeEventListener("focus", check); document.removeEventListener("visibilitychange", check); };
+  },[user?.role, user?.id, token]);
   const curriculumState = useLearnerCurriculumState(learnerId, token);
   const [worldTourOpen,setWorldTourOpen]=useState(false);
   const [replayCampOrientation,setReplayCampOrientation]=useState(false);
