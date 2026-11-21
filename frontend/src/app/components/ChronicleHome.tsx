@@ -8,6 +8,7 @@ import { CharacterCompanion } from './CharacterCompanion';
 import { loadReadingProgress, loadDevelopmentReadingProgress } from '../../hooks/readingCheckpoints';
 import { devicePracticeNotice } from '../../hooks/readingProgressError';
 import { useWorldExit } from './useWorldExit';
+import { useSwipe } from '../../hooks/swipe';
 import { consumeReadingBookUnlock, readReadingAccessSnapshot, readReadingCarouselFocus, saveReadingAccessSnapshot, saveReadingCarouselFocus, type ReadingBookUnlockTransition } from '../../hooks/readingLocalProgress';
 import { curriculumUnlocks, DEV_UNLOCK_ALL, emptyLearnerCurriculumState, type LearnerCurriculumState } from '../../hooks/learnerCurriculumState';
 import './chronicleWorld.css';
@@ -100,6 +101,7 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
     saveReadingCarouselFocus(learnerId,safe);
     onFocusBook?.(safe);
   };
+  const swipe=useSwipe(step=>{if(!opening&&!transition.leaving)focusBook(index+step);});
   useEffect(()=>{
     if(reviewMode||learnerId===null||learnerId===undefined)return;
     if(!unlockHandoff.current)unlockHandoff.current=consumeReadingBookUnlock(learnerId);
@@ -165,7 +167,7 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
     <div className="home-stage">
     <section className="chronicle-carousel" aria-label="Adventure books" aria-roledescription="carousel" onKeyDown={event=>{if(opening)return;if(event.key==='ArrowLeft'){event.preventDefault();focusBook(index-1);}if(event.key==='ArrowRight'){event.preventDefault();focusBook(index+1);}}}>
       <h2 className="sr-only">{chapter.title}</h2>
-      <div className="book-carousel-stage"><div className="home-guide"><CharacterCompanion state={opening?'celebrating':miloNodding?'encouraging':'idle'} gesture={miloWave||campFirst?'wave':'point'} lookAt={miloLook} size={150}/><HearMiloButton className="home-guide-hear" onClick={sayBook}/></div>
+      <div className="book-carousel-stage" {...swipe}><div className="home-guide"><CharacterCompanion state={opening?'celebrating':miloNodding?'encouraging':'idle'} gesture={miloWave||campFirst?'wave':'point'} lookAt={miloLook} size={150}/><HearMiloButton className="home-guide-hear" onClick={sayBook}/></div>
         <div className="book-carousel-track">{CHRONICLES.map((entry,i)=>{
           const distance=i-index;
           if(distance!==0)return null; // one book at a time

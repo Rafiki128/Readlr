@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useSwipe } from '../../hooks/swipe';
 import './stickerAlbum.css';
 import './chroniclePages.css';
 
@@ -27,6 +28,7 @@ export function ChroniclePages({pages,title,initialPage=0,onPageChange}:{pages:R
     // Hold the current page height so the book does not collapse while the leaf turns.
     busy.current=true;setTurnHeight(stack.current?.offsetHeight??null);setTurning({from:page,to,direction:to>page?1:-1});
   }
+  const swipe=useSwipe(step=>turn(page+step));
   useEffect(()=>{
     if(initialPage!==page&&!turning)turn(initialPage);
   },[initialPage,page,turning,pages.length,reduced]);
@@ -55,7 +57,7 @@ export function ChroniclePages({pages,title,initialPage=0,onPageChange}:{pages:R
     </div>;
   }
   return <section ref={volume} className={`chronicle-volume ${turning?'is-turning':''}`} aria-label={`${title} book`}>
-    <div className={`album-binding ${small?'single-page':''}`} aria-busy={!!turning}>
+    <div className={`album-binding ${small?'single-page':''}`} aria-busy={!!turning} {...swipe}>
       <div className="album-paper-stack" ref={stack} style={turning&&turnHeight?{minHeight:turnHeight}:undefined}>
         {turning?.direction===1&&<div className="chronicle-turn-sparkles" aria-hidden="true">{Array.from({length:9},(_,index)=><i key={index}/>)}</div>}
         {turning?<div className="chronicle-static-spread">

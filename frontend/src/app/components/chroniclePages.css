@@ -25,6 +25,8 @@
 .chronicle-volume .album-paper-stack:after{content:'';position:absolute;left:50%;top:0;bottom:0;width:18px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#53645620,transparent);pointer-events:none;z-index:4}
 .chronicle-volume .single-page .album-paper-stack:after{display:none}
 .chronicle-volume .album-turning-leaf{will-change:transform}
+/* Horizontal swipes turn the page; vertical drags still scroll the page. */
+.chronicle-volume .album-binding,.chronicle-volume .album-binding *{touch-action:pan-y}
 .chronicle-volume .album-leaf-front,.chronicle-volume .album-leaf-back{box-shadow:0 0 18px #263e4626}
 .chronicle-volume[aria-label] .chronicle-half .chronicle-page{overflow:hidden}
 .chronicle-page{height:100%;background:#fffef8;overflow:auto;color:#2d4444}

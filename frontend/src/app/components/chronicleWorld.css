@@ -118,8 +118,13 @@ main.chronicle-home>.chronicle-home-scene::after{content:"";position:absolute;le
 /* Turning to another book: the new book swings in from the side the learner is heading toward. */
 .chronicle-book.is-turn-next{animation:book-turn-next .5s cubic-bezier(.2,.8,.3,1)}
 .chronicle-book.is-turn-prev{animation:book-turn-prev .5s cubic-bezier(.2,.8,.3,1)}
-@keyframes book-turn-next{from{opacity:0;transform:translateX(110px) rotateY(-55deg)}to{opacity:1;transform:translateX(0) rotateY(-7deg)}}
-@keyframes book-turn-prev{from{opacity:0;transform:translateX(-110px) rotateY(40deg)}to{opacity:1;transform:translateX(0) rotateY(-7deg)}}
+@keyframes book-turn-next{from{opacity:0;transform:translateX(110px) rotateY(-55deg)}to{opacity:1;transform:none}}
+@keyframes book-turn-prev{from{opacity:0;transform:translateX(-110px) rotateY(40deg)}to{opacity:1;transform:none}}
+/* A resting book stays flat (2D) so tablets draw it sharp at its scaled size; 3D is used only while it moves. */
+.chronicle-book.is-current:not(.is-turn-next,.is-turn-prev,.is-opening,.is-unlocking){transform:none;transform-style:flat}
+.chronicle-book.is-current:not(.is-turn-next,.is-turn-prev,.is-opening,.is-unlocking):hover{transform:translateY(-7px)}
+/* Horizontal swipes change the book; vertical drags still scroll the page. */
+.book-carousel-stage{touch-action:pan-y}
 @media(prefers-reduced-motion:reduce){.chronicle-book.is-turn-next,.chronicle-book.is-turn-prev{animation:none}}
 /* One row under the book: previous arrow, open button, next arrow. */
 .home-pager{display:flex;align-items:center;justify-content:center;gap:18px;max-width:100%}
