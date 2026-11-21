@@ -14,13 +14,22 @@ export function sendLearnerEvent(token: string, eventType: "app_open" | "resume"
   } catch { /* Logging is optional. */ }
 }
 
-/** Sends app_open once per browser session per learner, not on every render or poll. */
-export function sendAppOpenOnce(token: string, userId: number, storage: Storage = sessionStorage, send: Send = fetch) {
+/** Calendar date in Asia/Manila as YYYY-MM-DD; en-CA formats dates in that order. */
+export function manilaDate(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+// Used when session storage is blocked, so focus re-checks still send at most once per day.
+const sentInMemory = new Map<string, string>();
+
+/** Sends app_open once per browser session per learner per Manila day, so a tab left open overnight counts again. */
+export function sendAppOpenOnce(token: string, userId: number, storage: Storage = sessionStorage, send: Send = fetch, now = new Date()) {
   const key = `readlr_app_open_${userId}`;
-  try {
-    if (storage.getItem(key)) return false;
-    storage.setItem(key, "1");
-  } catch { /* Without session storage it still sends; the caller reruns only when the learner or token changes. */ }
+  const today = manilaDate(now);
+  let sentOn: string | null;
+  try { sentOn = storage.getItem(key); } catch { sentOn = sentInMemory.get(key) ?? null; }
+  if (sentOn === today) return false;
+  try { storage.setItem(key, today); } catch { sentInMemory.set(key, today); }
   sendLearnerEvent(token, "app_open", undefined, send);
   return true;
 }
