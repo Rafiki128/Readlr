@@ -5,6 +5,8 @@ import {
   StudyError, adminOverview, enroll, fluencyRecording, fluencyScoringBatch, getSession, learnerView, loadResults, recordAnswer, recordFluency, recording, removeSession,
   rescoreMissing, scoringBatch, setFluencyScore, setScore, updateSession, type StudyFluency, type StudyResponse, type StudySession,
 } from './study.service.js';
+import { FOOTER, type GoalRow, type SmartGoalsReport } from './smart-goals.js';
+import { loadSmartGoals, manilaDate } from './smart-goals.loader.js';
 
 const userIdOf = (req: Request) => (req as Request & { userId: number }).userId;
 function fail(res: Response, error: unknown, fallback: string) {
@@ -133,7 +135,7 @@ export async function getStudyResults(_req: Request, res: Response) {
   try { res.json((await loadResults()).summary); } catch (error) { fail(res, error, 'Results could not load.'); }
 }
 
-export function studyWorkbook(sessions: StudySession[], responses: StudyResponse[], summary: Awaited<ReturnType<typeof loadResults>>['summary'], fluency: StudyFluency[] = []) {
+export function studyWorkbook(sessions: StudySession[], responses: StudyResponse[], summary: Awaited<ReturnType<typeof loadResults>>['summary'], fluency: StudyFluency[] = [], smart?: SmartGoalsReport) {
   const book = new ExcelJS.Workbook();
   book.creator = 'Readlr';
   const codeOf = new Map(sessions.map(s => [s.user_id, s]));
@@ -201,14 +203,59 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
     tab.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF087F73' } };
     tab.columns.forEach(col => { col.width = tab === notes ? 60 : 16; });
   }
+  if (smart) smartGoalsSheet(book, smart);
   return book;
+}
+
+const STATUS_FILL: Partial<Record<GoalRow['status'], string>> = { 'Met': 'FFC6EFCE', 'Not met': 'FFFFC7CE', 'Pending': 'FFFFEB9C', 'Not measured': 'FFD9D9D9' };
+
+/** SMART Goals sheet: summary block, Section A and B goal tables, paired statistics, and the interpretation footer. */
+function smartGoalsSheet(book: ExcelJS.Workbook, smart: SmartGoalsReport) {
+  const sheet = book.addWorksheet('SMART Goals');
+  const round = (x: number | null | undefined, places: number) => x === null || x === undefined ? '' : Math.round(x * 10 ** places) / 10 ** places;
+  const header = (values: string[]) => {
+    const row = sheet.addRow(values);
+    row.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    row.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF087F73' } }; });
+  };
+  const title = (text: string) => { sheet.addRow([text]).font = { bold: true }; };
+  sheet.addRow(['Export date', manilaDate(new Date().toISOString())]);
+  sheet.addRow(['Instrument version', STUDY_VERSION]);
+  sheet.addRow(['Completed learners', smart.completed]);
+  sheet.addRow(['Unscored items', smart.unscored]);
+  sheet.addRow(['Excluded codes', smart.excludedCodes.join(', ') || 'None']);
+  sheet.addRow(['Targets', 'Targets fixed before data collection.']);
+  for (const [label, rows] of [['Section A: Doc 05 success criteria', smart.sectionA], ['Section B: Proposal SMART objectives (GO1-GO3)', smart.sectionB]] as const) {
+    sheet.addRow([]);
+    title(label);
+    header(['Objective', 'Indicator', 'Formula', 'Target', 'Result', 'N', 'Status', 'Note']);
+    for (const goal of rows) {
+      const row = sheet.addRow([goal.objective, goal.indicator, goal.formula, goal.target, goal.result, goal.n ?? '', goal.status, goal.note]);
+      const fill = STATUS_FILL[goal.status];
+      if (fill) row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
+    }
+  }
+  sheet.addRow([]);
+  title('Paired statistics (completed learners with both values; Wilcoxon normal approximation without continuity correction, r = z / sqrt(non-zero pairs))');
+  header(['Measure', 'N', 'Pre mean', 'Pre median', 'Post mean', 'Post median', 'Mean difference', 'Median difference', 'Min difference', 'Max difference',
+    'Positive', 'Zero', 'Negative', 'Wilcoxon W+', 'Wilcoxon z', 'Wilcoxon p (two-sided)', 'Effect size r', 't', 'df', 't-test p (two-sided)', 'Cohen\'s dz', 'Note']);
+  for (const p of smart.paired) {
+    sheet.addRow([p.measure, p.n, round(p.pre.mean, 1), round(p.pre.median, 1), round(p.post.mean, 1), round(p.post.median, 1),
+      round(p.difference.mean, 1), round(p.difference.median, 1), round(p.difference.min, 1), round(p.difference.max, 1), p.positive, p.zero, p.negative,
+      round(p.wilcoxon?.w, 1), round(p.wilcoxon?.z, 3), round(p.wilcoxon?.p, 4), round(p.wilcoxon?.r, 3),
+      round(p.tTest?.t, 3), p.tTest?.df ?? '', round(p.tTest?.p, 4), round(p.tTest?.dz, 3), p.note]);
+  }
+  sheet.addRow([]);
+  sheet.addRow([FOOTER]).font = { italic: true };
+  [28, 40, 40, 18, 44, 8, 14, 50].forEach((width, i) => { sheet.getColumn(i + 1).width = width; });
+  sheet.eachRow(row => { row.alignment = { wrapText: true, vertical: 'top' }; });
 }
 
 export async function exportStudy(_req: Request, res: Response) {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const { sessions, responses, fluency, summary } = await loadResults();
-    const buffer = await studyWorkbook(sessions, responses, summary, fluency).xlsx.writeBuffer();
+    const buffer = await studyWorkbook(sessions, responses, summary, fluency, await loadSmartGoals(sessions, responses, fluency)).xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="readlr-study-${new Date().toISOString().slice(0, 10)}.xlsx"`);
     res.send(Buffer.from(buffer));

@@ -2,6 +2,7 @@ import type { Request,Response } from 'express';
 import ExcelJS from 'exceljs';
 import { supabase,unwrap } from '../../database/db.js';
 import { SURVEY_VERSION,questions,choices,scale,validateSubmission } from './survey.data.js';
+import { resetTargets,STUDY_CLASS_BLOCKED,STUDY_RESET_BLOCKED,STUDY_SKIPPED } from '../study/study-reset-guard.js';
 
 export async function surveyAssigned(userId:number) {
   const row=unwrap(await supabase.from('survey_assignment').select('*').eq('id',1).single());
@@ -30,11 +31,17 @@ export async function resetSurvey(req:Request,res:Response) {
     res.status(400).json({message:'Select a learner or class and type RESET.'}); return;
   }
   try {
-    const removed=unwrap(await supabase.rpc('reset_student_survey',{
-      p_actor:(req as any).userId,p_target:target==='class'?null:target,
-    }));
-    if(!Number.isInteger(removed)||removed<0){res.status(503).json({message:'The survey reset could not be confirmed.'});return;}
-    res.json({success:true,removed,message:`Reset ${removed} submitted survey response${removed===1?'':'s'}.`});
+    const targets=await resetTargets(target);
+    if(!targets.length){res.status(409).json({message:target==='class'?STUDY_CLASS_BLOCKED:STUDY_RESET_BLOCKED});return;}
+    // Resets each remaining target in turn; a class without study learners stays one call.
+    let removed=0;
+    for(const t of targets){
+      const n=unwrap(await supabase.rpc('reset_student_survey',{p_actor:(req as any).userId,p_target:t}));
+      if(!Number.isInteger(n)||n<0){res.status(503).json({message:'The survey reset could not be confirmed.'});return;}
+      removed+=n;
+    }
+    const skipped=target==='class'&&targets[0]!==null?STUDY_SKIPPED:'';
+    res.json({success:true,removed,message:`Reset ${removed} submitted survey response${removed===1?'':'s'}.${skipped}`});
   } catch {unavailable(res);}
 }
 export async function getSurveyAssignments(_req:Request,res:Response) {
