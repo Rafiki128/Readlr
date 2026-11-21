@@ -4,6 +4,7 @@ import { useCvcRecorder } from '../../hooks/useCvcRecorder';
 import { CLASSROOM_API } from '../hooks/useClassroom';
 import type { StudyState } from '../hooks/useStudySession';
 import { StudyBlendIntro, StudyBlendItem } from './StudyBlendItem';
+import { StudyFluency } from './StudyFluency';
 import './study.css';
 
 type Status = 'ready' | 'recording' | 'saved';
@@ -25,6 +26,7 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
   const [pending, setPending] = useState(0);
   const [offline, setOffline] = useState(false);
   const [blendStarted, setBlendStarted] = useState(false);
+  const [fluencySent, setFluencySent] = useState(false);
   const queue = useRef<Answer[]>([]);
   const uploading = useRef(false);
   const latest = useRef<StudyState | null>(null);
@@ -40,6 +42,9 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
   const part: Answer['itemType'] = remaining.length ? 'word' : 'blend';
   const word = remaining[0] ?? remainingBlends[0];
   const number = test.words.length - remaining.length + 1;
+  // Part 3 (one-minute reading) follows Part 2 in sessions that have it.
+  const fluency = test.fluency ?? [];
+  const needsFluency = fluency.length > 0 && !test.fluencyDone && !fluencySent;
 
   async function upload(answer: Answer): Promise<'ok' | 'drop' | 'retry'> {
     const form = new FormData();
@@ -132,6 +137,12 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
       </div>
       <button className="study-primary" disabled={!micChecked || status === 'recording'} onClick={() => { setStarted(true); setMessage(''); }}>Start the word game</button>
     </section>;
+  }
+
+  if (!word && needsFluency) {
+    // Answers still uploading will return the newer state, so only an idle queue takes this one.
+    const saved = (state: StudyState) => { setFluencySent(true); if (queue.current.length) latest.current = state; else onUpdate(state); };
+    return <StudyFluency token={token} phase={test.phase} words={fluency} onSaved={saved} onRefused={onRefresh} />;
   }
 
   if (!word) {

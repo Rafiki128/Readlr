@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
-import { ALL_STUDY_WORDS, BLEND_ITEMS, STUDY_BOOKS, categoryTotal, STUDY_VERSION, STUDY_WORDS, finalScore, wordCategory } from './study.data.js';
+import { ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_WORDS, STUDY_BOOKS, categoryTotal, STUDY_VERSION, STUDY_WORDS, finalScore, wcpm, wordCategory } from './study.data.js';
 import {
-  StudyError, adminOverview, enroll, getSession, learnerView, loadResults, recordAnswer, recording, removeSession,
-  rescoreMissing, scoringBatch, setScore, updateSession, type StudyResponse, type StudySession,
+  StudyError, adminOverview, enroll, fluencyRecording, fluencyScoringBatch, getSession, learnerView, loadResults, recordAnswer, recordFluency, recording, removeSession,
+  rescoreMissing, scoringBatch, setFluencyScore, setScore, updateSession, type StudyFluency, type StudyResponse, type StudySession,
 } from './study.service.js';
 
 const userIdOf = (req: Request) => (req as Request & { userId: number }).userId;
@@ -38,6 +38,17 @@ export async function answerStudyWord(req: Request, res: Response) {
     // Refused answers leave the learner unable to finish a test, so they are always logged.
     if (error instanceof StudyError) console.warn(`Study answer refused for user ${userIdOf(req)} (word ${req.body?.word}, phase ${req.body?.phase}): ${error.message}`);
     fail(res, error, 'Your answer could not be saved. Please try again.');
+  }
+}
+
+export async function answerStudyFluency(req: Request, res: Response) {
+  const skip = req.body?.skip === 'true';
+  if (!skip && !req.file?.size) { res.status(400).json({ message: 'A recording is required.' }); return; }
+  try {
+    res.json(await recordFluency(userIdOf(req), req.body?.phase, skip ? null : { buffer: req.file!.buffer, mimetype: req.file!.mimetype }, req.body?.started_at, req.body?.duration_ms));
+  } catch (error) {
+    if (error instanceof StudyError) console.warn(`Study reading refused for user ${userIdOf(req)} (phase ${req.body?.phase}): ${error.message}`);
+    fail(res, error, 'Your reading could not be saved. Please try again.');
   }
 }
 
@@ -91,6 +102,28 @@ export async function getRecording(req: Request, res: Response) {
   } catch (error) { fail(res, error, 'The recording could not load.'); }
 }
 
+export async function getFluencyScoringBatch(_req: Request, res: Response) {
+  res.setHeader('Cache-Control', 'no-store');
+  try { res.json(await fluencyScoringBatch()); } catch (error) { fail(res, error, 'Readings could not load.'); }
+}
+
+export async function scoreFluency(req: Request, res: Response) {
+  if (!uuid.test(String(req.params.id))) { res.status(400).json({ message: 'Invalid recording.' }); return; }
+  const marks = req.body?.marks;
+  try { await setFluencyScore(String(req.params.id), marks ? { errors: marks.errors, lastReached: marks.lastReached } : null, userIdOf(req)); res.json({ success: true }); }
+  catch (error) { fail(res, error, 'The score could not be saved.'); }
+}
+
+export async function getFluencyRecording(req: Request, res: Response) {
+  if (!uuid.test(String(req.params.id))) { res.status(400).json({ message: 'Invalid recording.' }); return; }
+  try {
+    const file = await fluencyRecording(String(req.params.id));
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Type', file.type);
+    res.send(file.buffer);
+  } catch (error) { fail(res, error, 'The recording could not load.'); }
+}
+
 export async function rescoreStudy(_req: Request, res: Response) {
   try { res.json({ queued: await rescoreMissing() }); } catch (error) { fail(res, error, 'App scoring could not start.'); }
 }
@@ -100,13 +133,14 @@ export async function getStudyResults(_req: Request, res: Response) {
   try { res.json((await loadResults()).summary); } catch (error) { fail(res, error, 'Results could not load.'); }
 }
 
-export function studyWorkbook(sessions: StudySession[], responses: StudyResponse[], summary: Awaited<ReturnType<typeof loadResults>>['summary']) {
+export function studyWorkbook(sessions: StudySession[], responses: StudyResponse[], summary: Awaited<ReturnType<typeof loadResults>>['summary'], fluency: StudyFluency[] = []) {
   const book = new ExcelJS.Workbook();
   book.creator = 'Readlr';
   const codeOf = new Map(sessions.map(s => [s.user_id, s]));
   const long = book.addWorksheet('Responses');
   // New columns are appended so existing column positions stay the same for earlier analysis files.
-  long.addRow(['Participant', 'Group', 'Test', 'Position', 'Word', 'Category', 'Skipped', 'App result', 'App transcript', 'Teacher score', 'Final score (1/0)', 'Answered (UTC)', 'Item type', 'Prompt replayed']);
+  long.addRow(['Participant', 'Group', 'Test', 'Position', 'Word', 'Category', 'Skipped', 'App result', 'App transcript', 'Teacher score', 'Final score (1/0)', 'Answered (UTC)', 'Item type', 'Prompt replayed',
+    'Words attempted', 'Words correct', 'Duration (s)', 'WCPM']);
   for (const r of [...responses].sort((a, b) => (codeOf.get(a.user_id)?.participant_code ?? '').localeCompare(codeOf.get(b.user_id)?.participant_code ?? '') || a.phase.localeCompare(b.phase) * -1 || a.position - b.position)) {
     const session = codeOf.get(r.user_id);
     if (!session || (!ALL_STUDY_WORDS.includes(r.word) && !BLEND_ITEMS.includes(r.word))) continue;
@@ -115,12 +149,21 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
       r.app_result ?? '', r.app_transcript ?? '', r.teacher_score ?? '', score === null ? '' : score === 'correct' ? 1 : 0, new Date(r.created_at),
       r.item_type, r.prompt_replayed ? 'Yes' : 'No']);
   }
+  // Part 3 adds one row per test after that participant's items; unscored or skipped readings stay blank.
+  for (const f of [...fluency].sort((a, b) => (codeOf.get(a.user_id)?.participant_code ?? '').localeCompare(codeOf.get(b.user_id)?.participant_code ?? '') || a.phase.localeCompare(b.phase) * -1)) {
+    const session = codeOf.get(f.user_id);
+    if (!session) continue;
+    const scored = !f.skipped && f.scored_at !== null && f.words_correct !== null && f.duration_ms !== null;
+    long.addRow([session.participant_code, session.study_group, f.phase, '', '', 'fluency', f.skipped ? 'Yes' : 'No', '', '', '', '', new Date(f.created_at), 'fluency', '',
+      ...(scored ? [f.words_attempted, f.words_correct, Math.round(f.duration_ms! / 100) / 10, wcpm(f.words_correct!, f.duration_ms!) ?? ''] : ['', '', '', ''])]);
+  }
   long.getColumn(12).numFmt = 'yyyy-mm-dd hh:mm:ss';
   const wide = book.addWorksheet('Summary');
   // Totals differ by group (B has 3 transfer words), so headers name both.
   const outOf = (key: 'taught' | 'transfer' | 'control') => categoryTotal('A', key) === categoryTotal('B', key) ? `/${categoryTotal('A', key)}` : `(A /${categoryTotal('A', key)}, B /${categoryTotal('B', key)})`;
   wide.addRow(['Participant', 'Group', 'Complete', `Pre taught ${outOf('taught')}`, `Post taught ${outOf('taught')}`, 'Gain taught', `Pre transfer ${outOf('transfer')}`, `Post transfer ${outOf('transfer')}`, 'Gain transfer', `Pre control ${outOf('control')}`, `Post control ${outOf('control')}`, 'Gain control', 'Unscored items', 'Learning minutes', 'Learning started (UTC)', 'Posttest started (UTC)', 'Finished (UTC)',
-    `Pre blending /${BLEND_ITEMS.length}`, `Post blending /${BLEND_ITEMS.length}`, 'Gain blending']);
+    `Pre blending /${BLEND_ITEMS.length}`, `Post blending /${BLEND_ITEMS.length}`, 'Gain blending',
+    'Pre words attempted', 'Post words attempted', 'Pre words correct', 'Post words correct', 'Pre duration (s)', 'Post duration (s)', 'Pre WCPM', 'Post WCPM', 'Gain WCPM']);
   for (const p of summary.participants) {
     const s = sessions.find(x => x.participant_code === p.participantCode)!;
     const date = (v: string | null) => v ? new Date(v) : '';
@@ -129,7 +172,11 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
       p.control.pre.correct, p.control.post.correct, p.control.post.correct - p.control.pre.correct, p.unscored, s.learning_minutes ?? 'Untimed',
       date(s.learning_started_at), date(s.posttest_started_at), date(s.finished_at),
       // Sessions enrolled before blending stay blank rather than showing 0.
-      ...(p.blend.pre.total ? [p.blend.pre.correct, p.blend.post.correct, p.blend.post.correct - p.blend.pre.correct] : ['', '', ''])]);
+      ...(p.blend.pre.total ? [p.blend.pre.correct, p.blend.post.correct, p.blend.post.correct - p.blend.pre.correct] : ['', '', '']),
+      // Skipped, missing or unscored readings stay blank rather than showing 0.
+      p.fluency.pre?.wordsAttempted ?? '', p.fluency.post?.wordsAttempted ?? '', p.fluency.pre?.wordsCorrect ?? '', p.fluency.post?.wordsCorrect ?? '',
+      p.fluency.pre?.durationSeconds ?? '', p.fluency.post?.durationSeconds ?? '', p.fluency.pre?.wcpm ?? '', p.fluency.post?.wcpm ?? '',
+      p.fluency.pre?.wcpm != null && p.fluency.post?.wcpm != null ? Math.round((p.fluency.post.wcpm - p.fluency.pre.wcpm) * 10) / 10 : '']);
   }
   for (const col of [15, 16, 17]) wide.getColumn(col).numFmt = 'yyyy-mm-dd hh:mm:ss';
   const notes = book.addWorksheet('Notes');
@@ -142,6 +189,7 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
     notes.addRow([`Group ${g} transfer words`, STUDY_WORDS[g].transfer.join(', ')]);
   }
   notes.addRow(['Blending items', `${BLEND_ITEMS.join(', ')} (Part 2: Milo says each sound, the learner says the whole word; practice item mat is not recorded)`]);
+  notes.addRow(['One-minute reading', `${FLUENCY_WORDS.join(', ')} (Part 3: the same 40 words in a new random order each test, read aloud in one recording of up to 60 s). Teacher-scored only. Words attempted = position of the last word reached; words correct = attempted minus words marked wrong; WCPM = words correct / (duration s / 60), 1 decimal.`]);
   notes.addRow(['Categories', 'taught/transfer are the learner\'s own group words; control-taught/control-transfer are the other group\'s words (not studied by this learner); blend is a Part 2 sound-blending item.']);
   notes.addRow(['Final score', 'Teacher score when available, otherwise the app result (matched = 1, different = 0). Skipped = 0. Unclear or unscored items are blank.']);
   notes.addRow(['Teacher scoring', 'Blind: the scorer heard each recording without the learner, group, or test phase.']);
@@ -159,8 +207,8 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
 export async function exportStudy(_req: Request, res: Response) {
   res.setHeader('Cache-Control', 'no-store');
   try {
-    const { sessions, responses, summary } = await loadResults();
-    const buffer = await studyWorkbook(sessions, responses, summary).xlsx.writeBuffer();
+    const { sessions, responses, fluency, summary } = await loadResults();
+    const buffer = await studyWorkbook(sessions, responses, summary, fluency).xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="readlr-study-${new Date().toISOString().slice(0, 10)}.xlsx"`);
     res.send(Buffer.from(buffer));
