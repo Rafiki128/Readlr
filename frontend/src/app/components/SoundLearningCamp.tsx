@@ -167,19 +167,19 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
   
   const sentenceArray = sentence.split(' ');
   const isFind=phase==='find';
-  // Milo reads each new lesson message aloud; short status lines while recording stay silent.
-  useMiloInstruction(['Getting your microphone ready...','Milo is checking...'].includes(message)?undefined:message===card.cue&&phrases[card.word]?`${phrases[card.word]} ${card.cue}`:message);
+  // Milo reads each new lesson message aloud; short status lines and the finish phase are handled separately.
+  useMiloInstruction(
+    phase === 'finish' || ['Getting your microphone ready...', 'Milo is checking...'].includes(message)
+      ? undefined
+      : message === card.cue && phrases[card.word]
+        ? `${phrases[card.word]} ${card.cue}`
+        : message
+  );
 
   useEffect(()=>{live.current=true;return()=>{live.current=false;request.current?.abort();recorder.stop();sound.stop();if(window.speechSynthesis)window.speechSynthesis.cancel();};},[]);
   useEffect(()=>()=>{if(clip)URL.revokeObjectURL(clip);},[clip]);
   
   function finishLesson(){if(finished.current)return;finished.current=true;sound.stop();if(window.speechSynthesis)window.speechSynthesis.cancel();onFinish();}
-  
-  useEffect(()=>{
-    if(phase!=='finish')return;
-    const timer=window.setTimeout(finishLesson,1700);
-    return()=>window.clearTimeout(timer);
-  },[phase]);
 
   // A word plays its Pronounce recording and a phrase its narration recording; anything not recorded uses the computer voice.
   const speakText = async (text: string): Promise<void> => {
@@ -187,6 +187,25 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
     try { await sound.narrateText({ file: text.trim().includes(' ') || !word ? '' : `Pronounce${word.toUpperCase()}.wav`, text }); }
     catch { /* Stopped, or no voice available: the sequence carries on. */ }
   };
+
+  useEffect(() => {
+    if (phase !== 'finish') return;
+    let cancelled = false;
+
+    const narrateAndFinish = async () => {
+      await speakText(message);
+      await new Promise((r) => window.setTimeout(r, 800));
+      if (!cancelled && live.current) {
+        finishLesson();
+      }
+    };
+
+    void narrateAndFinish();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, message]);
 
   const playBuildSequence = async (isReplay = false) => {
     if (isReplay) {
