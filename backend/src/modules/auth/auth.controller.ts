@@ -12,7 +12,7 @@ export const CONSENT_VERSION = 'guardian-consent-v1';
 export const deletePasswordLimit = createLimiter(5, 15 * 60_000, 'Too many wrong passwords. Please wait 15 minutes.');
 
 function getFacebookCallbackUrl(): string {
-  const callbackUrl = process.env.FACEBOOK_CALLBACK_URL;
+  const callbackUrl = process.env.FACEBOOK_CALLBACK_URL?.trim();
   if (callbackUrl) return callbackUrl.replace(/\/+$/, '');
   if (process.env.NODE_ENV === 'production') {
     throw new Error('FACEBOOK_CALLBACK_URL is required in production.');
@@ -21,7 +21,7 @@ function getFacebookCallbackUrl(): string {
 }
 
 function getBackendUrl(req: Request): string {
-  const backendUrl = process.env.BACKEND_URL;
+  const backendUrl = process.env.BACKEND_URL?.trim();
   if (backendUrl) return backendUrl.replace(/\/+$/, '');
   if (process.env.NODE_ENV === 'production') {
     throw new Error('BACKEND_URL is required in production.');
@@ -34,7 +34,7 @@ function getBackendUrl(req: Request): string {
 }
 
 function getFrontendUrl(): string {
-  const frontendUrl = process.env.FRONTEND_URL;
+  const frontendUrl = process.env.FRONTEND_URL?.trim();
   if (frontendUrl) return frontendUrl.replace(/\/+$/, '');
   if (process.env.NODE_ENV === 'production') {
     throw new Error('FRONTEND_URL is required in production.');
@@ -262,14 +262,14 @@ export class AuthController {
       return;
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
     if (!clientId || !clientSecret) {
       console.error('Google OAuth Error: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing.');
       res.redirect(`${frontendUrl}?error=GoogleAuthNotConfigured`);
-      return; 
-}
+      return;
+    }
 
     let redirectUri: string;
     try {
@@ -311,8 +311,8 @@ export class AuthController {
     }
 
     try {
-      const clientId = process.env.GOOGLE_CLIENT_ID;
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
       if (!clientId || !clientSecret) {
         throw new Error('Google OAuth credentials are missing on the server.');
       }
@@ -360,7 +360,7 @@ export class AuthController {
       return;
     }
 
-    const clientId = process.env.FACEBOOK_APP_ID;
+    const clientId = process.env.FACEBOOK_APP_ID?.trim();
     if (!clientId) {
       console.error('Facebook OAuth Error: FACEBOOK_APP_ID is missing.');
       res.redirect(`${frontendUrl}?error=FacebookAuthNotConfigured`);
@@ -402,8 +402,8 @@ export class AuthController {
     }
 
     try {
-      const clientId = process.env.FACEBOOK_APP_ID;
-      const clientSecret = process.env.FACEBOOK_APP_SECRET;
+      const clientId = process.env.FACEBOOK_APP_ID?.trim();
+      const clientSecret = process.env.FACEBOOK_APP_SECRET?.trim();
       if (!clientId || !clientSecret) {
         throw new Error('Facebook credentials are missing on the server.');
       }
@@ -416,9 +416,17 @@ export class AuthController {
         client_secret: clientSecret,
         code,
       }).toString();
+
       const tokenResponse = await fetch(tokenUrl);
-      if (!tokenResponse.ok) throw new Error('Facebook token exchange failed.');
-      const tokenData: unknown = await tokenResponse.json();
+      const tokenData: unknown = await tokenResponse.json().catch(() => null);
+      if (!tokenResponse.ok) {
+        console.error('Facebook token exchange response:', {
+          status: tokenResponse.status,
+          redirectUri,
+          body: tokenData,
+        });
+        throw new Error('Facebook token exchange failed.');
+      }
 
       if (
         !tokenData ||
@@ -435,9 +443,16 @@ export class AuthController {
         fields: 'id,name,email',
         access_token: tokenData.access_token,
       }).toString();
+
       const profileResponse = await fetch(profileUrl);
-      if (!profileResponse.ok) throw new Error('Facebook profile lookup failed.');
-      const profileData: unknown = await profileResponse.json();
+      const profileData: unknown = await profileResponse.json().catch(() => null);
+      if (!profileResponse.ok) {
+        console.error('Facebook profile lookup response:', {
+          status: profileResponse.status,
+          body: profileData,
+        });
+        throw new Error('Facebook profile lookup failed.');
+      }
 
       if (
         !profileData ||
