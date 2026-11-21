@@ -22,11 +22,11 @@ export function Landing({ onGetStarted, onSignIn }: LandingProps) {
       >
         <div className="mb-8">
           <img
-            src="/readlr-mark.svg"
-            alt="Readlr"
-            className="w-24 h-24 rounded-3xl mx-auto mb-6 shadow-[0_18px_40px_-18px_rgba(79,70,229,0.6)]"
+            src="/readlr_main_logo.svg"
+            alt=""
+            className="w-44 h-44 md:w-52 md:h-52 rounded-3xl object-contain mx-auto mb-4"
           />
-          <h1 className="text-5xl md:text-6xl text-[var(--ink)] mb-3 tracking-tight font-bold">Readlr</h1>
+          <h1 className="readlr-wordmark text-5xl md:text-6xl text-[var(--ink)] mb-3 font-bold">Readlr</h1>
           <p className="text-lg text-[var(--ink-soft)] max-w-xl mx-auto">
             A gamified phonetics companion that helps Grade 1 learners read English with confidence.
           </p>

@@ -42,6 +42,20 @@ test('reset validates confirmation and scopes the atomic reset to the authentica
       assert.equal(res.body.affected, 2);
       assert.deepEqual(calls.at(-1), {name: 'reset_learning_progress',args: {p_actor: 7,p_target: target === 'class' ? null : target,p_stages: [1,3]}});
     }
+    const restart = response();
+    await resetProgress({ userId: 7, body: {target: 11,scope:'learning-progress',confirmation:'RESET'} } as any, restart as any);
+    assert.equal(restart.statusCode, 200);
+    assert.deepEqual(calls.at(-1), {name: 'reset_learning_progress',args: {p_actor: 7,p_target: 11,p_stages: [1,2,3]}});
+    assert.match(restart.body.message, /All gameplay levels, completed book stops, and book checkpoints restarted/);
+    const granular = response();
+    await resetProgress({ userId: 7, body: {target: 11,scope:'challenge',chapter:'gate',stop:'mango',confirmation:'RESET'} } as any, granular as any);
+    assert.equal(granular.statusCode, 200);
+    assert.deepEqual(calls.at(-1), {name: 'reset_reading_progress_granular',args: {p_actor: 7,p_target: 11,p_scope:'challenge',p_chapter:'gate',p_stop:'mango'}});
+    supabase.rpc = (async () => ({data: 0,error: null})) as any;
+    const unmatched = response();
+    await resetProgress({ userId: 7, body: {target: 11,scope:'reading-checkpoints',confirmation:'RESET'} } as any, unmatched as any);
+    assert.equal(unmatched.statusCode, 404);
+    assert.match(unmatched.body.message, /No matching learner profile/);
     supabase.rpc = (async () => ({data: null,error: {message: 'Unavailable'}})) as any;
     const res = response();
     await resetProgress({ userId: 7, body: {target: 'class',stages: [1],confirmation: 'RESET'} } as any, res as any);

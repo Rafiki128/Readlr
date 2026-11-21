@@ -25,7 +25,7 @@ const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms 
 
 /** Full-screen study flow that replaces the normal learner app while a validation session is running. */
 export function StudySession({ token, userId, learnerId, study, surveyAssigned, onUpdate, onRefresh, onLogout }: Props) {
-  const header = <header className="study-header"><span><Star size={18} /> Readlr</span><button onClick={onLogout} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button></header>;
+  const header = <header className="study-header"><span className="readlr-wordmark"><Star size={18} /> Readlr</span><button onClick={onLogout} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button></header>;
   if (study.phase === 'learning') return <StudyLearning learnerId={learnerId} study={study} onRefresh={onRefresh} header={header} />;
   if (study.phase === 'done') return <StudyDone token={token} userId={userId} surveyAssigned={surveyAssigned || study.survey === true} header={header} />;
   if (!study.test) return <main className="study-shell">{header}<section className="study-card"><p>Getting ready...</p></section></main>;

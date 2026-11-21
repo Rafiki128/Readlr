@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import {validateSubmission,SURVEY_VERSION,questions,choices} from '../src/modules/admin/survey.data.js';
 process.env.SUPABASE_URL='http://127.0.0.1:1';process.env.SUPABASE_SERVICE_ROLE_KEY='test-only';
 const {supabase}=await import('../src/database/db.js');
-const {submitSurvey,assignSurvey,surveyWorkbook}=await import('../src/modules/admin/survey.controller.js');
+const {submitSurvey,assignSurvey,resetSurvey,surveyWorkbook}=await import('../src/modules/admin/survey.controller.js');
 const valid=()=>({version:SURVEY_VERSION,language:'ceb',answers:[...Array(12).fill(3),'characters','nothing']});
 const response=()=>({statusCode:200,body:null as any,status(n:number){this.statusCode=n;return this;},json(d:any){this.body=d;return this;}});
 test('questionnaire matches 12 ratings and two single choices, and permits skips',()=>{
@@ -23,6 +23,17 @@ test('assignment rejects invalid input and handles concurrent admin writes',asyn
   const original=supabase.rpc;let count=0;
   supabase.rpc=(async()=>{count++;return {data:false,error:null};}) as any;
   try{let res=response();await assignSurvey({body:{target:'class',enabled:null,revision:0}} as any,res as any);assert.equal(res.statusCode,400);assert.equal(count,0);res=response();await assignSurvey({userId:1,body:{target:'class',enabled:true,revision:0}} as any,res as any);assert.equal(res.statusCode,409);}finally{supabase.rpc=original;}
+});
+test('admin survey reset is scoped and requires confirmation',async()=>{
+  const original=supabase.rpc;let args:any;
+  supabase.rpc=(async(_:string,a:any)=>{args=a;return {data:2,error:null};}) as any;
+  try{
+    let res=response();await resetSurvey({userId:1,body:{target:'class',confirmation:'NO'}} as any,res as any);
+    assert.equal(res.statusCode,400);assert.equal(args,undefined);
+    res=response();await resetSurvey({userId:1,body:{target:'class',confirmation:'RESET'}} as any,res as any);
+    assert.equal(res.statusCode,200);assert.deepEqual(args,{p_actor:1,p_target:null});
+    assert.match(res.body.message,/2 submitted survey responses/);
+  }finally{supabase.rpc=original;}
 });
 test('Excel roundtrip preserves numeric ratings, skipped blanks, and untrusted text as strings',async()=>{
   const blank=surveyWorkbook([{user_id:3,name:'New',section:null,language:'en',submitted_at:'2026-11-15T00:00:00Z',answers:Array(14).fill(null)}]);

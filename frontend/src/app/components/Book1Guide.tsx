@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Pointer, RotateCcw, ThumbsUp, X } from 'lucide-react';
-import { BOOK1_GUIDE_SKIPPED, BOOK1_GUIDE_STEPS, guideKey, guideProgress, nextGuideStep, type GuideStep, type GuideStepId } from './book1GuideSteps';
+import { BOOK1_GUIDE_STEPS, guideKey, guideProgress, guideSkippedKey, nextGuideStep, type GuideStep, type GuideStepId } from './book1GuideSteps';
 import { CharacterCompanion } from './CharacterCompanion';
 import { GrownUpConfirm } from './GrownUpConfirm';
 import { HearMiloButton, useMiloInstruction } from './MiloSays';
 import { patchLearnerCurriculumState, readLearnerCurriculumState } from '../../hooks/learnerCurriculumState';
+import { readResetEpoch } from './progressReset';
 import './book1Guide.css';
 
 type Box = { left: number; top: number; right: number; bottom: number };
@@ -29,8 +30,8 @@ function targets(step: GuideStep): Element[] {
 
 const centre = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; };
 
-function saved(learnerId: number, save: boolean) {
-  return save ? guideProgress(readLearnerCurriculumState(learnerId).guidedActivities) : { done: new Set<GuideStepId>(), skipped: false };
+function saved(learnerId: number, save: boolean, epoch: number) {
+  return save ? guideProgress(readLearnerCurriculumState(learnerId).guidedActivities, epoch) : { done: new Set<GuideStepId>(), skipped: false };
 }
 
 function remember(learnerId: number, key: string) {
@@ -38,7 +39,8 @@ function remember(learnerId: number, key: string) {
 }
 
 export function Book1Guide({ learnerId, save }: { learnerId: number; save: boolean }) {
-  const [progress, setProgress] = useState(() => saved(learnerId, save));
+  const [resetEpoch] = useState(() => readResetEpoch(learnerId, 3));
+  const [progress, setProgress] = useState(() => saved(learnerId, save, resetEpoch));
   const [replay, setReplay] = useState(false);
   const [step, setStep] = useState<GuideStep | null>(null);
   const [box, setBox] = useState<Box | null>(null);
@@ -71,7 +73,7 @@ export function Book1Guide({ learnerId, save }: { learnerId: number; save: boole
   function finish(id: GuideStepId) {
     setProgress(current => ({ ...current, done: new Set([...current.done, id]) }));
     setStep(null); setBox(null); stable.current = null;
-    if (keep) remember(learnerId, guideKey(id));
+    if (keep) remember(learnerId, guideKey(id, resetEpoch));
   }
 
   // The real action finishes the step: a tap inside the control, or the expected result appearing.
@@ -94,7 +96,7 @@ export function Book1Guide({ learnerId, save }: { learnerId: number; save: boole
   function skip() {
     setConfirm(false); setStep(null); setBox(null);
     setProgress(current => ({ ...current, skipped: true }));
-    if (keep) remember(learnerId, BOOK1_GUIDE_SKIPPED);
+    if (keep) remember(learnerId, guideSkippedKey(resetEpoch));
   }
 
   const finished = progress.skipped || BOOK1_GUIDE_STEPS.every(item => progress.done.has(item.id));
@@ -130,7 +132,7 @@ export function Book1Guide({ learnerId, save }: { learnerId: number; save: boole
         <p>{step.line}</p>
         <HearMiloButton onClick={say} />
         {!step.interactive && <button type="button" className="book1-guide__ok" disabled={!heard} onClick={() => finish(step.id)}><ThumbsUp aria-hidden="true" />OK</button>}
-        <button type="button" className="book1-guide__skip" onClick={() => setConfirm(true)} aria-label="Skip the guide"><X aria-hidden="true" /></button>
+        <button type="button" className="book1-guide__skip" onClick={() => setConfirm(true)} aria-label="Skip the guide"><X aria-hidden="true" /><span>Skip tour</span></button>
       </div>
       <GrownUpConfirm open={confirm} question="Skip the guide?" confirmLabel="Yes" onConfirm={skip} onCancel={() => setConfirm(false)} />
     </div>

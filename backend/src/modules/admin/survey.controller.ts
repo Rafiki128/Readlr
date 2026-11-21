@@ -24,6 +24,19 @@ export async function submitSurvey(req:Request,res:Response) {
     res.json({success:true});
   } catch {unavailable(res);}
 }
+export async function resetSurvey(req:Request,res:Response) {
+  const {target,confirmation}=req.body??{};
+  if (confirmation!=='RESET' || !(target==='class'||Number.isSafeInteger(target)&&target>0)) {
+    res.status(400).json({message:'Select a learner or class and type RESET.'}); return;
+  }
+  try {
+    const removed=unwrap(await supabase.rpc('reset_student_survey',{
+      p_actor:(req as any).userId,p_target:target==='class'?null:target,
+    }));
+    if(!Number.isInteger(removed)||removed<0){res.status(503).json({message:'The survey reset could not be confirmed.'});return;}
+    res.json({success:true,removed,message:`Reset ${removed} submitted survey response${removed===1?'':'s'}.`});
+  } catch {unavailable(res);}
+}
 export async function getSurveyAssignments(_req:Request,res:Response) {
   res.setHeader('Cache-Control','no-store');
   try {res.json(unwrap(await supabase.from('survey_assignment').select('*').eq('id',1).single()));} catch {unavailable(res);}

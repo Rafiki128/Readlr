@@ -20,9 +20,10 @@
 .survey-question fieldset{animation:survey-arrive .3s ease-out .2s both}.survey-ask-milo{display:block;width:96px;flex-shrink:0}.survey-ask h1{margin:0;max-width:620px;font-size:38px;line-height:1.25}
 .milo-says-replay.survey-hear{width:56px;height:56px;margin:0}.milo-says-replay.survey-hear svg{width:28px;height:28px}
 .survey-question fieldset{border:0;padding:0;margin:0}.survey-question input{position:absolute;opacity:0;pointer-events:none}
+.survey-question fieldset[aria-busy="true"]{opacity:.72;pointer-events:none}
 .survey-faces{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 .survey-faces label,.survey-choices label{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;cursor:pointer;background:var(--card);border:2px solid var(--hairline-strong);border-bottom-width:5px;border-radius:16px;padding:16px 8px;font-weight:600;line-height:1.3;transition:transform .15s,border-color .15s,opacity .15s}
-.survey-faces label{min-height:170px}.survey-face-art{width:84px;height:84px}
+.survey-faces label{min-height:170px}.survey-face-art{width:84px;height:84px;transform-origin:50% 50%;transform-box:fill-box;overflow:visible}
 @media(hover:hover){.survey-faces label:hover,.survey-choices label:hover{transform:scale(1.08);z-index:1;box-shadow:0 10px 20px var(--hairline-strong)}}
 .survey-faces label:active,.survey-choices label:active{transform:scale(.96)}
 .survey-faces label:nth-of-type(1){--face:#8556d1}.survey-faces label:nth-of-type(2){--face:#3f78e0}.survey-faces label:nth-of-type(3){--face:#24976a}.survey-faces label:nth-of-type(4){--face:#d9861f}.survey-faces label:nth-of-type(5){--face:#e0538b}
@@ -40,5 +41,24 @@
 @keyframes survey-flip{from{opacity:0;transform:rotateY(-90deg)}to{opacity:1;transform:rotateY(0)}}
 @keyframes survey-pop{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1.08)}}
 .survey-faces label.selected .survey-face-art,.survey-choices label.selected .survey-choice-art{transform:scale(1.08)}
+@media(hover:hover){
+  .survey-faces label:hover .survey-face-1{animation:survey-face-very-sad .55s ease-in-out both}
+  .survey-faces label:hover .survey-face-2{animation:survey-face-a-little .58s ease-in-out both}
+  .survey-faces label:hover .survey-face-3{animation:survey-face-okay .5s ease-in-out both}
+  .survey-faces label:hover .survey-face-4{animation:survey-face-like .52s cubic-bezier(.25,.75,.25,1) both}
+  .survey-faces label:hover .survey-face-5{animation:survey-face-really-like .62s cubic-bezier(.25,.75,.25,1.15) both}
+  .survey-faces label:hover .survey-face-4 .survey-face-cheek,
+  .survey-faces label:hover .survey-face-5 .survey-face-cheek{animation:survey-cheek-gentle .62s ease-out both}
+  .survey-choices label:hover .survey-choice-art{animation:survey-choice-bounce .48s cubic-bezier(.2,.85,.35,1)}
+}
+.survey-faces label.is-guided,.survey-choices label.is-guided{transform:scale(1.1);z-index:2;border-color:var(--tone,#087f73);box-shadow:0 0 0 6px color-mix(in srgb,var(--tone,#087f73) 18%,transparent),0 14px 28px rgba(31,36,48,.18)}
+.survey-faces label.is-guided .survey-face-art,.survey-choices label.is-guided .survey-choice-art{animation:survey-pop .38s ease-out 2}
+@keyframes survey-face-very-sad{0%,100%{transform:translateY(0) rotate(0) scale(1)}35%{transform:translateY(3px) rotate(-2deg) scale(.99)}70%{transform:translateY(2px) rotate(1deg) scale(.995)}}
+@keyframes survey-face-a-little{0%,100%{transform:rotate(0) translateX(0)}30%{transform:rotate(-3deg) translateX(-2px)}65%{transform:rotate(3deg) translateX(2px)}}
+@keyframes survey-face-okay{0%,100%{transform:translateY(0) scale(1)}38%{transform:translateY(3px) scale(.99)}72%{transform:translateY(-1px) scale(1.01)}}
+@keyframes survey-face-like{0%,100%{transform:translateY(0) scale(1)}45%{transform:translateY(-5px) scale(1.04)}70%{transform:translateY(-2px) scale(1.02)}}
+@keyframes survey-face-really-like{0%,100%{transform:translateY(0) rotate(0) scale(1)}28%{transform:translateY(-5px) rotate(-3deg) scale(1.04)}58%{transform:translateY(-7px) rotate(3deg) scale(1.06)}82%{transform:translateY(-3px) rotate(-1deg) scale(1.03)}}
+@keyframes survey-cheek-gentle{0%,100%{transform:scale(1);opacity:.7}45%{transform:scale(1.08);opacity:.9}}
+@keyframes survey-choice-bounce{0%,100%{transform:translateY(0) rotate(0)}35%{transform:translateY(-9px) rotate(-3deg)}70%{transform:translateY(-3px) rotate(3deg)}}
 @media(max-width:600px){.survey-world{padding:12px 8px 24px}.student-survey{padding:16px 12px 28px;border-radius:20px}.student-survey h1{font-size:23px}.survey-welcome h1 span{font-size:18px}.survey-languages button{min-height:120px;font-size:21px}.survey-ask{flex-wrap:wrap;gap:8px 16px;padding:16px}.survey-ask h1{order:3;flex-basis:100%;text-align:center;font-size:28px}.survey-faces{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.survey-faces label{grid-column:span 2;min-height:130px;font-size:13px}.survey-faces label:nth-of-type(4){grid-column:2/span 2}.survey-face-art{width:64px;height:64px}.survey-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.survey-choices label{min-height:136px;font-size:14px}.survey-choice-art{width:68px;height:68px}.survey-actions{gap:4px}.survey-primary{padding:12px 18px}.survey-send{padding:16px 32px;font-size:22px}}
 @media(prefers-reduced-motion:reduce){.survey-send,.survey-languages button,.survey-faces label,.survey-choices label,.survey-ask,.survey-question fieldset{transition:none;animation:none}.survey-languages button:hover,.survey-faces label:hover,.survey-choices label:hover,.survey-faces label:active,.survey-choices label:active{transform:none}.survey-faces label.selected .survey-face-art,.survey-choices label.selected .survey-choice-art{animation:none}}

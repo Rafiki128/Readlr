@@ -314,6 +314,7 @@ function AppContent() {
   const studySession = useStudySession(token, isAuthenticated && user?.role === 'learner');
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
+  const [completedBooksLoadedFor, setCompletedBooksLoadedFor] = useState<number | null>(null);
   const [stickerReward, setStickerReward] = useState<TrailReward | StickerReward | null>(null);
   const [stageComplete, setStageComplete] = useState<{ stageId: number; frames: UnlockedFrame[] } | null>(null);
   const [journeyActivityOpen, setJourneyActivityOpen] = useState(false);
@@ -376,9 +377,15 @@ function AppContent() {
     if(locked)setCurrentScreen(curriculumState.state.campOrientationStep<3?'learning-camp':'stage-selection');
   },[currentScreen,curriculumState.loading,curriculumState.state.campOrientationStep,featureAccess.progress,featureAccess.stickers,featureAccess.sounds,featureAccess.achievements]);
   useEffect(()=>{
-    if(!learnerId||user?.role!=="learner")return;
+    if(!learnerId||user?.role!=="learner"){
+      setCompletedBooks([]);
+      setCompletedBooksLoadedFor(null);
+      return;
+    }
     const controller=new AbortController();
-    void loadReadingProgress(controller.signal).then(progress=>setCompletedBooks(progress.completed)).catch(()=>{});
+    void loadReadingProgress(controller.signal).then(progress=>setCompletedBooks(progress.completed)).catch(()=>{}).finally(()=>{
+      if(!controller.signal.aborted)setCompletedBooksLoadedFor(learnerId);
+    });
     return()=>controller.abort();
   },[learnerId,user?.role,currentScreen]);
   const [hasCheckedLearnerProfile, setHasCheckedLearnerProfile] = useState(false);
@@ -736,7 +743,7 @@ function AppContent() {
   }
 
   const classroomMessage = user?.role === 'learner' && !classroom.error ? <ClassroomMessage key={user.id} userId={user.id} policy={classroom.policy} /> : null;
-  if (currentScreen === 'survey' && token && user?.role === 'learner') return <><NavigationHeader userName={learnerName} userAvatar={learnerAvatar} currentScreen="survey" onNavigate={handleNavigate} onLogout={handleBackToRoleSelect} surveyAssigned={classroom.surveyAssigned} learningCampEnabled featureAccess={featureAccess} learnerId={learnerId} rewardState={{ state: curriculumState.state, completedBooks }}/><StudentSurvey key={user.id} token={token} userId={user.id} onBack={handleBackToStages}/></>;
+  if (currentScreen === 'survey' && token && user?.role === 'learner') return <><NavigationHeader userName={learnerName} userAvatar={learnerAvatar} currentScreen="survey" onNavigate={handleNavigate} onLogout={handleBackToRoleSelect} surveyAssigned={classroom.surveyAssigned} learningCampEnabled featureAccess={featureAccess} learnerId={learnerId} rewardState={{ state: curriculumState.state, completedBooks}} rewardsReady={!!learnerId&&!curriculumState.loading&&completedBooksLoadedFor===learnerId}/><StudentSurvey key={user.id} token={token} userId={user.id} onBack={handleBackToStages}/></>;
   const allClassroomStagesUnlocked = classroom.policy?.mode === 'stages' &&
     [1, 2, 3].every(stage => classroom.policy?.stages?.includes(stage));
   const classroomBlocksCurrentScreen=!!classroom.policy&&(
@@ -769,6 +776,7 @@ function AppContent() {
           featureAccess={featureAccess}
           learnerId={learnerId}
           rewardState={{ state: curriculumState.state, completedBooks }}
+          rewardsReady={!!learnerId&&!curriculumState.loading&&completedBooksLoadedFor===learnerId}
         />
       )}
 

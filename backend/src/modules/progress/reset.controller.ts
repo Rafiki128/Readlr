@@ -12,18 +12,56 @@ export async function getResetState(req: Request, res: Response) {
 }
 
 export async function resetProgress(req: Request, res: Response) {
-  const { target, confirmation, scope } = req.body;
-  if (scope !== undefined && scope !== 'reading-checkpoints') { res.status(400).json({message:'Choose a valid restart scope.'}); return; }
-  const stages = scope === 'reading-checkpoints' ? [3] : req.body.stages;
-  if (!(target === 'class' || (Number.isInteger(target) && target > 0)) ||
+  const { target, confirmation, scope, chapter, stop } = req.body;
+  if (scope !== undefined && !['reading-checkpoints', 'learning-progress', 'book', 'challenge'].includes(scope)) { res.status(400).json({message:'Choose a valid restart scope.'}); return; }
+  if (['book','challenge'].includes(scope) && (typeof chapter !== 'string' || !chapter)) {
+    res.status(400).json({ message: 'Select a book to reset.' }); return;
+  }
+  if (scope === 'challenge' && (typeof stop !== 'string' || !stop)) {
+    res.status(400).json({ message: 'Select a challenge or stop to reset.' }); return;
+  }
+  if (['book','challenge'].includes(scope)) {
+    if (!(target === 'class' || (Number.isInteger(target) && target > 0)) || confirmation !== 'RESET') {
+      res.status(400).json({ message: 'Select the learner or class and type RESET.' }); return;
+    }
+  }
+  const stages = scope === 'reading-checkpoints' ? [3] : scope === 'learning-progress' ? [1,2,3] : req.body.stages;
+  if (!['book','challenge'].includes(scope) && (!(target === 'class' || (Number.isInteger(target) && target > 0)) ||
       !Array.isArray(stages) || stages.length < 1 || stages.length > 3 ||
-      stages.some(s => ![1,2,3].includes(s)) || new Set(stages).size !== stages.length || confirmation !== 'RESET') {
+      stages.some(s => ![1,2,3].includes(s)) || new Set(stages).size !== stages.length || confirmation !== 'RESET')) {
     res.status(400).json({ message: 'Select the learner or class, select stages, and type RESET.' }); return;
   }
   try {
+    if (scope === 'book' || scope === 'challenge') {
+      const affected = unwrap(await supabase.rpc('reset_reading_progress_granular', {
+        p_actor: (req as any).userId, p_target: target === 'class' ? null : target,
+        p_scope: scope, p_chapter: chapter, p_stop: scope === 'challenge' ? stop : null,
+      }));
+      if (typeof affected !== 'number' || !Number.isInteger(affected) || affected < 0) throw new Error('Reset returned an invalid learner count');
+      if (affected === 0) { res.status(404).json({ message: 'No matching learner profile was found. No progress was reset.' }); return; }
+      const chapterName = chapter;
+      const message = scope === 'book'
+        ? `The ${chapterName} book restarted for ${affected} learner(s). Other books and rewards stay saved.`
+        : `${stop} restarted in ${chapterName} for ${affected} learner(s). Other challenges stay saved.`;
+      res.json({ affected, message }); return;
+    }
     const affected = unwrap(await supabase.rpc('reset_learning_progress', {
       p_actor: (req as any).userId, p_target: target === 'class' ? null : target, p_stages: stages,
     }));
-    res.json({ affected, message: scope === 'reading-checkpoints' ? `Book checkpoints restarted for ${affected} learner(s). Guided practice and access overrides stay saved.` : `Reset saved for ${affected} learner(s). Earned rewards are preserved.` });
-  } catch { res.status(503).json({ message: 'Reset was not confirmed. Check the reset migration and refresh progress before retrying.' }); }
+    if (typeof affected !== 'number' || !Number.isInteger(affected) || affected < 0) {
+      throw new Error('Reset returned an invalid learner count');
+    }
+    if (affected === 0) {
+      res.status(404).json({ message: 'No matching learner profile was found. No progress was reset.' }); return;
+    }
+    const message = scope === 'reading-checkpoints'
+      ? `Book checkpoints restarted for ${affected} learner(s). Guided practice and access overrides stay saved.`
+      : scope === 'learning-progress'
+        ? `All gameplay levels, completed book stops, and book checkpoints restarted for ${affected} learner(s). Activity details, rewards, and access settings stay saved.`
+        : `Reset saved for ${affected} learner(s). Earned rewards are preserved.`;
+    res.json({ affected, message });
+  } catch (error) {
+    console.error('Progress reset failed:', error);
+    res.status(503).json({ message: 'Reset was not confirmed. Check the reset migration and refresh progress before retrying.' });
+  }
 }

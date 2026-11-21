@@ -16,7 +16,7 @@ import { recognizeCvc } from '../../hooks/recognizeCvc';
 import { usePracticeSession } from '../../hooks/usePracticeSession';
 import { createEvidenceAttempt, queueEvidenceAttempt, type EvidenceResult } from '../../hooks/evidenceRecords';
 import { loadReadingProgress, loadDevelopmentReadingProgress, startReadingCheckpoint, checkReadingWord, retryReadingWord, checkReadingMeaning, skipReadingCheckpoint, skipReadingMeaning, type ReadingCheckpoint } from '../../hooks/readingCheckpoints';
-import { availableLocalReadingChapters, clearGuidedRoundStep, completeLocalReadingChapter, queueReadingBookUnlock, readGuidedActivity, readGuidedReadingStops, readGuidedRoundStep, readLocalReadingProgress, readReadingAccessSnapshot, saveGuidedActivity, saveGuidedReadingStop, saveGuidedRoundStep, saveReadingAccessSnapshot, saveReadingCarouselFocus } from '../../hooks/readingLocalProgress';
+import { availableLocalReadingChapters, clearGuidedRoundStep, completeLocalReadingChapter, queueReadingBookUnlock, readGuidedActivity, readGuidedReadingStops, readGuidedRoundStep, readLocalReadingProgress, readReadingAccessSnapshot, resetLocalReadingBook, resetLocalReadingChallenge, saveGuidedActivity, saveGuidedReadingStop, saveGuidedRoundStep, saveReadingAccessSnapshot, saveReadingCarouselFocus } from '../../hooks/readingLocalProgress';
 import './readingJourney.css';
 import { devicePracticeNotice, ReadingServiceError } from '../../hooks/readingProgressError';
 import { SoundOrchard, LetterTrain, VoiceRail } from './FirstGateGames';
@@ -67,6 +67,23 @@ export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onB
   const transitionTimers=useRef<number[]>([]);
   const activityFinishing=useRef(false);
   const selected=READING_CHAPTERS[chapter];
+  useEffect(()=>{
+    const applyReset=(event:Event)=>{
+      const detail=(event as CustomEvent<{scope?:'all'|'book'|'challenge';chapter?:string;stop?:string}>).detail;
+      if(detail.scope==='book'&&detail.chapter)resetLocalReadingBook(learnerId,detail.chapter);
+      if(detail.scope==='challenge'&&detail.chapter&&detail.stop)resetLocalReadingChallenge(learnerId,detail.chapter,detail.stop);
+      if(detail.scope==='all'){
+        setVisited([]);
+        setPracticed(false);
+      }else{
+        setVisited(readGuidedReadingStops(learnerId));
+        setPracticed(stopVisited(readGuidedReadingStops(learnerId),'games'));
+        setCompleted(readLocalReadingProgress(learnerId));
+      }
+    };
+    window.addEventListener('readlr:admin-progress-reset',applyReset);
+    return()=>window.removeEventListener('readlr:admin-progress-reset',applyReset);
+  },[learnerId,selected.id]);
   const stopKey=(stopId:string)=>`${selected.id}:${stopId}`;
   const stopVisited=(entries:string[],stopId:string)=>entries.includes(stopKey(stopId))||(selected.id==='gate'&&entries.includes(stopId));
   const chapterVisited=[...chronicleSounds(chapter).map(card=>card.word),'blend','games'].filter(stopId=>stopVisited(visited,stopId));

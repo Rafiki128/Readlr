@@ -65,7 +65,7 @@ export function ChildSetup({ token, onDone, onLogout }: ChildSetupProps) {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="welcome-invitation w-full"
       >
-        <div className="welcome-brand"><img src="/readlr-mark.svg" alt=""/><span>Readlr</span><small>THE READING CHRONICLES</small></div>
+        <div className="welcome-brand"><img src="/readlr_logo_mark.svg" alt=""/><span className="readlr-wordmark">Readlr</span><small>THE READING CHRONICLES</small></div>
         {/* Inner column keeps every control inside the card's gold side lines. */}
         <div className="mx-auto w-full max-w-md px-8">
         <div className="flex items-center justify-center gap-3">

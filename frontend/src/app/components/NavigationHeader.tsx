@@ -6,7 +6,7 @@ import { GrownUpConfirm } from "./GrownUpConfirm";
 import { useFrames } from "../hooks/useFrames";
 import { AvatarFrame } from "./AvatarFrame";
 import "./kidHeader.css";
-import { readSeenRewards, rewardCounts, saveSeenRewards, type RewardKind } from "../../hooks/rewardCounts";
+import { advanceSeenRewards, readSeenRewards, rewardCounts, saveSeenRewards, type RewardKind } from "../../hooks/rewardCounts";
 import { miloNod } from "../../hooks/miloReactions";
 import type { LearnerCurriculumState } from "../../hooks/learnerCurriculumState";
 
@@ -21,6 +21,7 @@ interface NavigationHeaderProps {
   featureAccess?:{progress:boolean;stickers:boolean;sounds:boolean;achievements:boolean};
   learnerId?: number | null;
   rewardState?: { state: LearnerCurriculumState; completedBooks: string[] };
+  rewardsReady: boolean;
 }
 
 // art is the same illustration the place uses elsewhere in the reading world.
@@ -37,6 +38,7 @@ export function NavigationHeader({
   featureAccess={progress:true,stickers:true,sounds:true,achievements:true},
   learnerId,
   rewardState,
+  rewardsReady,
 }: NavigationHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -54,15 +56,18 @@ export function NavigationHeader({
   const navButtons = useRef<Partial<Record<string, HTMLButtonElement | null>>>({});
   const flown = useRef<{ stickers: number; awards: number } | null>(null);
   useEffect(() => {
-    if (!learnerId || !counts) return;
+    if (!learnerId || !counts || !rewardsReady) {
+      setSeen(null);
+      return;
+    }
     // Rewards a learner already had before this feature are treated as seen.
-    const stored = readSeenRewards(learnerId) ?? counts;
-    const next = { stickers: currentScreen === "sticker-book" ? counts.stickers : Math.min(stored.stickers, counts.stickers), awards: currentScreen === "achievements" ? counts.awards : Math.min(stored.awards, counts.awards) };
-    if (!readSeenRewards(learnerId) || next.stickers !== stored.stickers || next.awards !== stored.awards) saveSeenRewards(learnerId, next);
+    const stored = readSeenRewards(learnerId);
+    const next = advanceSeenRewards(stored, counts, currentScreen);
+    if (!stored || next.stickers !== stored.stickers || next.awards !== stored.awards) saveSeenRewards(learnerId, next);
     setSeen(next);
-  }, [learnerId, counts?.stickers, counts?.awards, currentScreen]);
+  }, [learnerId, counts?.stickers, counts?.awards, currentScreen, rewardsReady]);
   useEffect(() => {
-    if (!learnerId || !counts || !seen) return;
+    if (!learnerId || !counts || !seen || !rewardsReady) return;
     const key = `readlr_rewards_flown_v1_${learnerId}`;
     if (!flown.current) { try { flown.current = JSON.parse(sessionStorage.getItem(key) ?? "null") ?? seen; } catch { flown.current = seen; } }
     const kind: RewardKind | null = counts.stickers > flown.current!.stickers && counts.stickers > seen.stickers ? "stickers" : counts.awards > flown.current!.awards && counts.awards > seen.awards ? "awards" : null;
@@ -74,8 +79,8 @@ export function NavigationHeader({
     setFlying({ kind, x: target.left + target.width / 2 - window.innerWidth / 2, y: target.top + target.height / 2 - window.innerHeight / 2 });
     const done = window.setTimeout(() => setFlying(null), 1500);
     return () => window.clearTimeout(done);
-  }, [learnerId, counts?.stickers, counts?.awards, seen]);
-  const isNew = (id: string) => !!counts && !!seen && (id === "sticker-book" ? counts.stickers > seen.stickers : id === "achievements" ? counts.awards > seen.awards : false);
+  }, [learnerId, counts?.stickers, counts?.awards, seen, rewardsReady]);
+  const isNew = (id: string) => rewardsReady && !!counts && !!seen && (id === "sticker-book" ? counts.stickers > seen.stickers : id === "achievements" ? counts.awards > seen.awards : false);
 
   useEffect(() => () => { if (hintTimer.current !== null) window.clearTimeout(hintTimer.current); }, []);
   useEffect(() => { setMenuOpen(false); setLockedHint(""); }, [currentScreen]);
@@ -139,8 +144,8 @@ export function NavigationHeader({
         >
           <div className="kid-header-row">
             <button className="kid-logo" onClick={() => onNavigate("stage-selection")} aria-label="Readlr home">
-              <img src="/readlr-mark.svg" alt="" className="w-10 h-10 rounded-lg" />
-              <span className="kid-logo-text">Readlr</span>
+              <img src="/readlr_logo_mark.svg" alt="" className="kid-logo-mark rounded-xl object-contain" />
+              <span className="kid-logo-text readlr-wordmark">Readlr</span>
             </button>
 
             <nav className="kid-nav" aria-label="Places to visit">
@@ -232,9 +237,9 @@ export function NavigationHeader({
               onClick={() => onNavigate("stage-selection")}
               className="flex items-center gap-2.5 cursor-pointer"
             >
-              <img src="/readlr-mark.svg" alt="Readlr" className="w-9 h-9 rounded-lg" />
+              <img src="/readlr_logo_mark.svg" alt="Readlr" className="w-11 h-11 rounded-xl object-contain" />
               <div className="hidden sm:block leading-tight">
-                <h1 className="text-lg text-[var(--ink)]">Readlr</h1>
+                <h1 className="readlr-wordmark text-xl font-semibold text-[var(--ink)]">Readlr</h1>
                 <p className="text-[10px] uppercase tracking-wider text-[var(--ink-muted)]">Learn to Read</p>
               </div>
             </motion.div>

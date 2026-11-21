@@ -37,6 +37,12 @@
 .admin-reset-stages legend { font-weight: 600; margin-bottom: 12px; }
 .admin-reset-tools label { cursor: pointer; }
 .admin-reset-tools input[type=checkbox] { width: 18px; height: 18px; min-height: 0; flex-shrink: 0; accent-color: #7850bb; }
+.admin-reset-tools input[type=radio] { width: 18px; height: 18px; min-height: 0; flex-shrink: 0; accent-color: #7850bb; }
+.admin-reset-picker,
+.admin-reset-pickers { display: grid; gap: 8px; margin: 10px 0 14px 50px; font-size: 12px; font-weight: 600; }
+.admin-reset-pickers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-reset-picker select,
+.admin-reset-pickers select { width: 100%; margin-top: 6px; padding: 9px 10px; border: 1px solid #d6cfdf; border-radius: 7px; background: white; color: var(--ink); }
 .admin-reset-all { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; font-weight: 600; }
 .admin-reset-all span { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--ink-soft); }
 .admin-reset-stage-list { display: grid; gap: 8px; }
@@ -72,6 +78,8 @@
   .admin-reset-actions { align-items: stretch; flex-direction: column; }
 }
 .admin-reset-confirmation { display: block; width: 100%; padding: 12px; background: white; border: 1px solid #cfc4db; border-radius: 6px; margin-top: 8px; }
+.admin-survey-reset { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0; padding: 14px 16px; border: 1px solid #e4dfeb; border-radius: 10px; background: #fcfbfd; }
+.admin-survey-reset > div p { margin: 4px 0 0; color: var(--ink-soft); font-size: 12px; }
 .admin-confirm-dialog .admin-reset-submit { border-radius: 7px; padding: 10px 18px; background: #bf6500; color: white; }
 .admin-reset-submit:disabled { opacity: .5; cursor: not-allowed; }
 .admin-controls .admin-controls-layout { grid-template-columns: 260px minmax(0, 1fr); gap: 0; border-top: 1px solid #e4dfeb; margin-top: 20px; }

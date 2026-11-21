@@ -1,0 +1,12 @@
+@font-face {
+  font-family: "Etna Sans Serif";
+  src: url("/fonts/etna-free-font.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.readlr-wordmark {
+  font-family: "Etna Sans Serif", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.04em;
+}
