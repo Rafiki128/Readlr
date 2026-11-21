@@ -17,9 +17,7 @@ import studyRoutes from './modules/study/study.route.js';
 const app: Express = express();
 
 // Middleware
-if (config.nodeEnv === 'production') {
-  app.set('trust proxy', 1);
-}
+app.set('trust proxy', 1);
 
 app.use(cors({
   origin: config.corsOrigins,
@@ -44,7 +42,6 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/frames', framesRoutes);
-app.use('/api/evidence', evidenceRoutes);
 app.use('/api/study', studyRoutes);
 app.use('/api/characters', characterRouter);
 

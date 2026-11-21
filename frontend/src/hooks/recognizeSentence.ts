@@ -14,7 +14,7 @@ export async function recognizeSentence(
 
   try {
     // 2. Send the request to your Express backend API
-    const response = await fetch('http://localhost:3000/api/audio/evaluate-sentence', {
+    const response = await fetch('https://readlr-5w5b.onrender.com/api/audio/evaluate-sentence', {
       method: 'POST',
       body: formData,
       signal: signal, // Cancels the request if the user leaves the screen
