@@ -5,6 +5,7 @@ import { LoginRequest, RegisterRequest, AuthResponse, FacebookTokenResponse, Fac
 import { registrationRole } from './adminInvitation.js';
 import { createLimiter } from '../../middleware/rateLimit.js';
 import { isStrongPassword, PASSWORD_RULES_MESSAGE } from './passwordPolicy.js';
+import { recordLearnerEvent } from '../learner/learner.events.js';
 
 export const CONSENT_VERSION = 'guardian-consent-v1';
 // Five wrong passwords lock account deletion for 15 minutes.
@@ -114,6 +115,8 @@ export class AuthController {
 
       const user = await this.authService.login(email.trim().toLowerCase(), password);
       const token = this.authService.generateToken(user.id, user.email, user.role, user.authVersion);
+      // Not awaited: logging never delays or fails a login, and stores only the user id.
+      if (user.role === 'learner') void recordLearnerEvent(user.id, 'login');
 
       const response: AuthResponse = {
         success: true,

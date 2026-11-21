@@ -10,12 +10,16 @@ import {
   handleGetMyProfile,
   handleUpdateMyProfile,
 } from './learner.controller.js';
+import { handleLearnerEvent } from './learner.events.js';
 
 const router = Router();
 
 // Authenticated user's own profile
 router.get('/me', authMiddleware, handleGetMyProfile);
 router.put('/me', authMiddleware, handleUpdateMyProfile);
+
+// App-open and progress-restored events for the signed-in learner
+router.post('/me/events', authMiddleware, requireRole('learner'), handleLearnerEvent);
 
 // Child setup for a new learner account
 router.post('/profile', authMiddleware, requireRole('learner'), handleSaveProfile);

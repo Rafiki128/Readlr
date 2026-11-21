@@ -48,6 +48,7 @@ import { CurriculumAchievements } from './components/CurriculumAchievements';
 import { Help } from "./components/Help";
 import { ProfilePage } from "./components/ProfilePage";
 import { useDarkMode } from "./hooks/useDarkMode";
+import { sendAppOpenOnce } from "./hooks/learnerEvents";
 import { AdminDashboard } from "./components/AdminDashboard";
 
 // Password reset confirmation component import
@@ -342,6 +343,7 @@ function AppContent() {
   const showJourneyFrames = useCallback((stageId:number, frames:UnlockedFrame[]) => setStageComplete({stageId,frames}), []);
   useJourneySync(user?.role === "learner" ? learnerId : null, token, updateJourneyProgress, user?.id, showJourneyFrames);
   useEvidenceSync(user?.role === "learner" ? learnerId : null, token);
+  useEffect(()=>{ if(user?.role === "learner" && token) sendAppOpenOnce(token, user.id); },[user?.role, user?.id, token]);
   const curriculumState = useLearnerCurriculumState(learnerId, token);
   const [worldTourOpen,setWorldTourOpen]=useState(false);
   const [replayCampOrientation,setReplayCampOrientation]=useState(false);
