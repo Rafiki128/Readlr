@@ -22,6 +22,9 @@ test('reset validates confirmation and scopes the atomic reset to the authentica
   const original = supabase.rpc;
   const calls: any[] = [];
   supabase.rpc = (async (name: string, args: unknown) => { calls.push({name,args}); return {data: 2,error: null}; }) as any;
+  // No study learners, so the study reset guard leaves these resets unchanged.
+  const originalFrom = supabase.from, none: any = { select: () => none, then: (done: any) => done({ data: [], error: null }) };
+  supabase.from = (() => none) as any;
   try {
     for (const body of [
       { target: 'class', stages: [1], confirmation: '' },
@@ -61,7 +64,7 @@ test('reset validates confirmation and scopes the atomic reset to the authentica
     await resetProgress({ userId: 7, body: {target: 'class',stages: [1],confirmation: 'RESET'} } as any, res as any);
     assert.equal(res.statusCode, 503);
     assert.match(res.body.message, /not confirmed/);
-  } finally { supabase.rpc = original; }
+  } finally { supabase.rpc = original; supabase.from = originalFrom; }
 });
 function mockQueries(role: string, policy = open, overrides = {}, unavailable = false) {
   const original = supabase.from;
