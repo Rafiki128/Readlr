@@ -15,7 +15,7 @@ import { useCvcRecorder } from '../../hooks/useCvcRecorder';
 import { recognizeCvc } from '../../hooks/recognizeCvc';
 import { usePracticeSession } from '../../hooks/usePracticeSession';
 import { createEvidenceAttempt, queueEvidenceAttempt, type EvidenceResult } from '../../hooks/evidenceRecords';
-import { loadReadingProgress, loadDevelopmentReadingProgress, startReadingCheckpoint, checkReadingWord, retryReadingWord, checkReadingMeaning, skipReadingCheckpoint, skipReadingMeaning, type ReadingCheckpoint } from '../../hooks/readingCheckpoints';
+import { loadLearnerReadingProgress, loadDevelopmentReadingProgress, startReadingCheckpoint, checkReadingWord, retryReadingWord, checkReadingMeaning, skipReadingCheckpoint, skipReadingMeaning, type ReadingCheckpoint } from '../../hooks/readingCheckpoints';
 import { availableLocalReadingChapters, clearGuidedRoundStep, completeLocalReadingChapter, queueReadingBookUnlock, readGuidedActivity, readGuidedReadingStops, readGuidedRoundStep, readLocalReadingProgress, readReadingAccessSnapshot, resetLocalReadingBook, resetLocalReadingChallenge, saveGuidedActivity, saveGuidedReadingStop, saveGuidedRoundStep, saveReadingAccessSnapshot, saveReadingCarouselFocus } from '../../hooks/readingLocalProgress';
 import './readingJourney.css';
 import { devicePracticeNotice, ReadingServiceError } from '../../hooks/readingProgressError';
@@ -122,13 +122,10 @@ export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onB
     const cached=readReadingAccessSnapshot(learnerId);
     if(cached){setCompleted(cached.completed);setAvailable(cached.available);setOpenChallenges(cached.openChallenges);}
     const controller=new AbortController();
-    const refresh=()=>void loadReadingProgress(controller.signal).then(p=>{
+    const refresh=()=>void loadLearnerReadingProgress(learnerId,controller.signal).then(p=>{
       if(!controller.signal.aborted){
-        const local=import.meta.env.DEV?readLocalReadingProgress(learnerId):[];
-        const merged=[...new Set([...p.completed,...local])];
-        const nextAvailable=[...new Set([...p.available,...availableLocalReadingChapters(merged)])];
         const nextChallenges=p.openChallenges??[];setOpenStops(p.openStops??[]);
-        setCompleted(merged);setAvailable(nextAvailable);setOpenChallenges(nextChallenges);saveReadingAccessSnapshot(learnerId,{completed:merged,available:nextAvailable,openChallenges:nextChallenges});setDeviceProgress(false);setSaveError('');
+        setCompleted(p.completed);setAvailable(p.available);setOpenChallenges(nextChallenges);saveReadingAccessSnapshot(learnerId,{completed:p.completed,available:p.available,openChallenges:nextChallenges});setDeviceProgress(false);setSaveError('');
       }
     }).catch(async error=>{
       if(!controller.signal.aborted&&import.meta.env.DEV){try{const p=await loadDevelopmentReadingProgress(learnerId,controller.signal);if(controller.signal.aborted)return;setCompleted(p.completed);setAvailable(p.available);setOpenChallenges(p.openChallenges??[]);setOpenStops(p.openStops??[]);saveReadingAccessSnapshot(learnerId,{completed:p.completed,available:p.available,openChallenges:p.openChallenges??[]});setDeviceProgress(true);setSaveError(devicePracticeNotice(error));}catch{if(!controller.signal.aborted)setSaveError('Teacher access could not be verified. Please reconnect.');}}
@@ -142,21 +139,17 @@ export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onB
   if(round)return <div className={`chronicle-activity-shell ${activityLeaving?'is-completing':''}`}><div className="activity-exit-sparkles" aria-hidden="true">{[0,1,2,3,4,5,6,7].map(item=><i key={item}/>)}</div><div className="chronicle-activity-paper"><ReadingRound key={`${round.chapter.id}-${round.checkpoint}`} learnerId={learnerId} previewMode={previewMode} reviewMode={reviewMode} localMode={deviceProgress} chapter={round.chapter} checkpoint={round.checkpoint}
     onBack={()=>setRound(null)} onPractice={()=>setRound({chapter:round.chapter,checkpoint:false})} onComplete={(passed,deviceOnly=false)=>{
       const nextPracticed=practiceFinished||!round.checkpoint;
-      let nextCompleted=completed;
-      if(passed)nextCompleted=[...new Set([...completed,round.chapter.id])];
+      const nextCompleted=passed?[...new Set([...completed,round.chapter.id])]:completed;
       const nextVisited=round.checkpoint?visited:saveGuidedReadingStop(learnerId,stopKey('games'));
       const targetPage=pageAfterStop(round.checkpoint?'check':'games',nextVisited,nextPracticed,nextCompleted.includes(round.chapter.id));
+      if(passed){
+        if(!sandbox&&(deviceProgress||deviceOnly))completeLocalReadingChapter(learnerId,round.chapter.id);
+        const nextAvailable=[...new Set([...available,...availableLocalReadingChapters(nextCompleted)])];
+        setCompleted(nextCompleted);setAvailable(nextAvailable);
+        if(!sandbox)saveReadingAccessSnapshot(learnerId,{completed:nextCompleted,available:nextAvailable,openChallenges});
+      }
       finishActivity(round.checkpoint?'check':'games',()=>{
         if(!round.checkpoint){setPracticed(true);setVisited(nextVisited);}
-        if(passed){
-          const nextAvailable=[...new Set([...available,...availableLocalReadingChapters(nextCompleted)])];
-          setCompleted(nextCompleted);setAvailable(nextAvailable);
-          saveReadingAccessSnapshot(learnerId,{completed:nextCompleted,available:nextAvailable,openChallenges});
-        }
-        if((reviewMode||deviceProgress||deviceOnly)&&passed){
-          const local=reviewMode?nextCompleted:completeLocalReadingChapter(learnerId,round.chapter.id);
-          setCompleted(local);setAvailable(availableLocalReadingChapters(local));
-        }
       },targetPage);
     }}/></div></div>;
   return <div className="chronicle-journey-shell">

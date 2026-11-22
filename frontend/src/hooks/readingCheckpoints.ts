@@ -57,6 +57,14 @@ async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise
 }
 
 export const loadReadingProgress=(signal?:AbortSignal)=>request<ReadingProgress>('/evidence/me/reading-progress',undefined,signal);
+export async function loadLearnerReadingProgress(learnerId:number,signal?:AbortSignal):Promise<ReadingProgress> {
+  const progress=await loadReadingProgress(signal);
+  if(!import.meta.env.DEV)return progress;
+  const local=readLocalReadingProgress(learnerId);
+  const completed=[...new Set([...progress.completed,...local])];
+  const available=local.length?[...new Set([...progress.available,...availableLocalReadingChapters(local)])]:progress.available;
+  return {...progress,completed,available};
+}
 export const startReadingCheckpoint=(chapter:string,signal?:AbortSignal)=>request<ReadingCheckpoint>('/evidence/me/reading-checkpoints',{chapter},signal);
 export const skipReadingCheckpoint=(id:string,item:number,signal?:AbortSignal)=>request<ReadingCheckpoint>(`/evidence/me/reading-checkpoints/${id}/${item}/skip`,{},signal);
 export const checkReadingMeaning=(id:string,response:string,signal?:AbortSignal)=>request<ReadingCheckpoint>(`/evidence/me/reading-checkpoints/${id}/meaning`,{response},signal);

@@ -3,8 +3,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useJourneySync } from "./hooks/useJourneySync";
 import { useEvidenceSync } from "./hooks/useEvidenceSync";
 import { useLearnerCurriculumState } from "./hooks/useLearnerCurriculumState";
-import { curriculumUnlocks } from "../hooks/learnerCurriculumState";
-import { loadReadingProgress } from "../hooks/readingCheckpoints";
+import { curriculumUnlocks, hasBookOneOverride } from "../hooks/learnerCurriculumState";
+import { loadDevelopmentReadingProgress, loadLearnerReadingProgress } from "../hooks/readingCheckpoints";
 import { notifyJourneyChanged } from "./components/journeySync";
 import { useLearningSettings, markPracticeToday } from "./hooks/useLearningSettings";
 import { getLearningSettings } from "../hooks/learningSettings";
@@ -17,6 +17,7 @@ import { setBackgroundMusicLoggedIn } from "../hooks/backgroundMusic";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { StudentSurvey } from "./components/StudentSurvey";
 import { Landing } from "./components/Landing";
+import { ExperimentalLanding } from "./components/ExperimentalLanding";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ChildSetup } from "./components/ChildSetup";
 import { useFrames } from './hooks/useFrames';
@@ -175,6 +176,7 @@ const CVC_MAP: Record<number, { word: string }> = {
 type Screen =
   | "survey"
   | "landing"
+  | "landing-experimental"
   | "auth"
   | "welcome"
   | "stage-selection"
@@ -207,6 +209,7 @@ function parseAppPath(pathname: string): AppRouteState {
   const path = pathname.replace(/\/+$/, "") || "/";
 
   if (path === "/") return DEFAULT_ROUTE;
+  if (path === "/landing-experimental") return { screen: "landing-experimental" };
   if (path === "/login") return { screen: "auth", authMode: "login" };
   if (path === "/register") return { screen: "auth", authMode: "register" };
   if (path === "/profile/setup") return { screen: "welcome" };
@@ -250,6 +253,8 @@ function buildAppPath(screen: Screen, stageId: number, levelId: number, authMode
   switch (screen) {
     case "landing":
       return "/";
+    case "landing-experimental":
+      return "/landing-experimental";
     case "auth":
       return authMode === "login" ? "/login" : "/register";
     case "welcome":
@@ -370,7 +375,8 @@ function AppContent() {
     setCurrentScreen('learning-camp');
   };
   const [completedBooks,setCompletedBooks]=useState<string[]>([]);
-  const featureAccess=curriculumUnlocks(curriculumState.state,completedBooks);
+  const bookOneOverride=hasBookOneOverride(classroom.policy);
+  const featureAccess=curriculumUnlocks(curriculumState.state,completedBooks,bookOneOverride);
   useEffect(()=>{
     if(curriculumState.loading)return;
     const locked=(currentScreen==='dashboard'&&!featureAccess.progress)||(currentScreen==='sticker-book'&&!featureAccess.stickers)||(currentScreen==='phoneme-bank'&&!featureAccess.sounds)||(currentScreen==='achievements'&&!featureAccess.achievements);
@@ -383,7 +389,12 @@ function AppContent() {
       return;
     }
     const controller=new AbortController();
-    void loadReadingProgress(controller.signal).then(progress=>setCompletedBooks(progress.completed)).catch(()=>{}).finally(()=>{
+    void loadLearnerReadingProgress(learnerId,controller.signal).catch(error=>{
+      if(import.meta.env.DEV&&!controller.signal.aborted)return loadDevelopmentReadingProgress(learnerId,controller.signal);
+      throw error;
+    }).then(progress=>{
+      if(!controller.signal.aborted)setCompletedBooks(progress.completed);
+    }).catch(()=>{}).finally(()=>{
       if(!controller.signal.aborted)setCompletedBooksLoadedFor(learnerId);
     });
     return()=>controller.abort();
@@ -391,7 +402,7 @@ function AppContent() {
   const [hasCheckedLearnerProfile, setHasCheckedLearnerProfile] = useState(false);
   const [needsChildSetup, setNeedsChildSetup] = useState(false);
   const [isLevelJustCompleted, setIsLevelJustCompleted] = useState(false);
-  const publicScreens: Screen[] = ["landing", "auth", ...(import.meta.env.DEV ? ['reading-review' as const] : [])];
+  const publicScreens: Screen[] = ["landing", "landing-experimental", "auth", ...(import.meta.env.DEV ? ['reading-review' as const] : [])];
   const isPublicScreen = publicScreens.includes(currentScreen);
 
   useEffect(() => {
@@ -689,15 +700,18 @@ function AppContent() {
     setCurrentScreen("welcome");
   };
 
-  const noHeaderScreens = ["landing", "auth", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "vowel-power-complete"];
+  const noHeaderScreens = ["landing", "landing-experimental", "auth", "welcome", "story-scene", "chapter-bridge", "level-map", "game", "vowel-power-complete"];
   const showLearnerHeader = user?.role === "learner" && !noHeaderScreens.includes(currentScreen);
 
   if(currentScreen==='reading-review'&&import.meta.env.DEV) return <ReadingReview onBack={()=>setCurrentScreen(isAuthenticated?(user?.role==='admin'?'admin-learners':'stage-selection'):'landing')} onSignIn={!isAuthenticated?handleSignIn:undefined}/>;
 
+  if (currentScreen === "landing-experimental") {
+    return <ExperimentalLanding onGetStarted={() => setCurrentScreen("landing")} onSignIn={handleSignIn} onTeacher={handleSignIn} />;
+  }
+
   if (needsChildSetup && isAuthenticated && token && user?.role === "learner") {
     return <ChildSetup token={token} onDone={handleChildSetupDone} onLogout={handleBackToRoleSelect} />;
   }
-
   if (currentScreen === "landing") {
     return <Landing onGetStarted={handleGetStarted} onSignIn={handleSignIn} />;
   }
@@ -802,6 +816,7 @@ function AppContent() {
             completedByStage={completedByStage}
             curriculumState={curriculumState.state}
             completedBooks={completedBooks}
+            bookOneOverride={bookOneOverride}
           />
         )}
 

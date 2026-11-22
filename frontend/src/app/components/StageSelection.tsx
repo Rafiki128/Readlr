@@ -47,6 +47,7 @@ interface StageSelectionProps {
   onOpenLearningCamp?: () => void;
   curriculumState?:LearnerCurriculumState;
   completedBooks?:string[];
+  bookOneOverride?:boolean;
 }
 
 export function StageSelection({
@@ -64,6 +65,7 @@ export function StageSelection({
   onOpenLearningCamp,
   curriculumState,
   completedBooks=[],
+  bookOneOverride=false,
   completedByStage = { 1: 0, 2: 0, 3: 0 },
 }: StageSelectionProps) {
   const [readingCompleted,setReadingCompleted]=useState<number|null>(null);
@@ -120,7 +122,7 @@ export function StageSelection({
     color: string;
   }>;
 
-  if(expandedKingdom&&learningCampEnabled&&onOpenLearningCamp)return <ChronicleHome learnerId={learnerId} curriculumState={curriculumState} completedBooks={completedBooks} blocked={stages[2].locked} onOpenBook={index=>onSelectStage(3,index)} onOpenCamp={onOpenLearningCamp} onProgress={onViewProgress} onStickers={onViewStickers} onSounds={onViewPhonemeBank} onAchievements={onViewAchievements}/>;
+  if(expandedKingdom&&learningCampEnabled&&onOpenLearningCamp)return <ChronicleHome learnerId={learnerId} curriculumState={curriculumState} completedBooks={completedBooks} bookOneOverride={bookOneOverride} blocked={stages[2].locked} onOpenBook={index=>onSelectStage(3,index)} onOpenCamp={onOpenLearningCamp} onProgress={onViewProgress} onStickers={onViewStickers} onSounds={onViewPhonemeBank} onAchievements={onViewAchievements}/>;
 
   return (
     <div className="size-full bg-[var(--paper)] overflow-auto">

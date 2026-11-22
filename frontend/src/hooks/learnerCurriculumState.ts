@@ -85,11 +85,15 @@ export function patchLearnerCurriculumState(learnerId:number,patch:Partial<Learn
 }
 // Dev server only: VITE_UNLOCK_ALL=true opens every book, stop and feature for manual testing.
 export const DEV_UNLOCK_ALL=Boolean(import.meta.env?.DEV&&import.meta.env?.VITE_UNLOCK_ALL==='true');
-export const curriculumUnlocks=(state:LearnerCurriculumState,completedBooks:string[])=>({
+export function hasBookOneOverride(policy?:{readingUnlockThrough?:number;readingOpenChallenges?:number[]}|null) {
+  return (policy?.readingUnlockThrough??0)>=1||policy?.readingOpenChallenges?.includes(1)===true;
+}
+
+export const curriculumUnlocks=(state:LearnerCurriculumState,completedBooks:string[],bookOneOverride=false)=>({
   camp:DEV_UNLOCK_ALL||state.campOrientationStep>=3,
-  bookOne:DEV_UNLOCK_ALL||state.campOrientationStep>=3,
+  bookOne:DEV_UNLOCK_ALL||bookOneOverride||state.campOrientationStep>=3||completedBooks.includes('gate'),
   stickers:DEV_UNLOCK_ALL||completedBookOneStarterStops(state)>=3,
   sounds:DEV_UNLOCK_ALL||completedBookOneStarterStops(state)>=3,
-  progress:DEV_UNLOCK_ALL||completedBooks.includes('gate'),
-  achievements:DEV_UNLOCK_ALL||completedBooks.includes('gate'),
+  progress:DEV_UNLOCK_ALL||bookOneOverride||completedBooks.includes('gate'),
+  achievements:DEV_UNLOCK_ALL||bookOneOverride||completedBooks.includes('gate'),
 });

@@ -60,9 +60,9 @@ export const PasswordRecovery: React.FC<PasswordRecoveryProps> = ({ email: initi
           {/* Header */}
           <div className="mb-6 text-center">
             <img
-              src="/readlr-mark.svg"
+              src="/readlr_main_logo.svg"
               alt="Readlr"
-              className="w-14 h-14 rounded-2xl mx-auto mb-3 shadow-[0_4px_16px_rgba(91,33,182,0.2)]"
+              className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-contain mx-auto mb-3"
             />
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
               {status === 'success' ? 'Check your email' : 'Reset Password'}
