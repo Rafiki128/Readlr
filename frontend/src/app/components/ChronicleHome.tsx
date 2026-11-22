@@ -5,7 +5,7 @@ import { ReadingWorldBackdrop } from './ReadingWorldBackdrop';
 import { CHRONICLES } from './chronicleContent';
 import { READING_CHAPTERS } from './aralCurriculum';
 import { CharacterCompanion } from './CharacterCompanion';
-import { loadReadingProgress, loadDevelopmentReadingProgress } from '../../hooks/readingCheckpoints';
+import { loadReadingProgress, loadDevelopmentReadingProgress, loadLearnerReadingProgress } from '../../hooks/readingCheckpoints';
 import { devicePracticeNotice } from '../../hooks/readingProgressError';
 import { useWorldExit } from './useWorldExit';
 import { consumeReadingBookUnlock, readReadingAccessSnapshot, readReadingCarouselFocus, saveReadingAccessSnapshot, saveReadingCarouselFocus, type ReadingBookUnlockTransition } from '../../hooks/readingLocalProgress';
@@ -22,7 +22,7 @@ const TRAIL_PATH=Array.from({length:10},(_,i)=>[50+i*100,60+(i%2?24:-24)]).map((
 interface Props {
   learnerId?:number|null; reviewMode?:boolean; blocked?:boolean;
   initialIndex?:number; onFocusBook?:(index:number)=>void;
-  curriculumState?:LearnerCurriculumState; completedBooks?:string[];
+  curriculumState?:LearnerCurriculumState; completedBooks?:string[]; bookOneOverride?:boolean;
   onOpenBook:(index:number)=>void; onOpenCamp:()=>void;
   onProgress?:()=>void; onStickers?:()=>void; onSounds?:()=>void; onAchievements?:()=>void;
 }
@@ -42,7 +42,7 @@ function OpenBookCtaIcon() {
   );
 }
 
-export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialIndex,onFocusBook,onOpenBook,onOpenCamp,curriculumState=emptyLearnerCurriculumState(),completedBooks=[]}:Props) {
+export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialIndex,onFocusBook,onOpenBook,onOpenCamp,curriculumState=emptyLearnerCurriculumState(),completedBooks=[],bookOneOverride=false}:Props) {
   const cached=learnerId?readReadingAccessSnapshot(learnerId):null;
   const storedFocus=readReadingCarouselFocus(learnerId);
   const suggestedFocus=cached?Math.max(0,READING_CHAPTERS.findIndex(c=>cached.available.includes(c.id)&&!cached.completed.includes(c.id))):0;
@@ -57,6 +57,39 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
   const [destination,setDestination]=useState('');
   const [unlocking,setUnlocking]=useState<number|null>(null);
   const [unlockMessage,setUnlockMessage]=useState('');
+  const [trailOpen,setTrailOpen]=useState(false);
+  const homeRef=useRef<HTMLElement>(null);
+  const trailRef=useRef<HTMLElement>(null);
+  const trailToggleRef=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{
+    const home=homeRef.current;
+    if(!trailOpen||!home)return;
+    let furthestDown=home.scrollTop;
+    const closeTrail=()=>{
+      if(trailRef.current?.contains(document.activeElement))trailToggleRef.current?.focus({preventScroll:true});
+      setTrailOpen(false);
+    };
+    const dismissOnScrollUp=()=>{
+      furthestDown=Math.max(furthestDown,home.scrollTop);
+      if(furthestDown-home.scrollTop>=24)closeTrail();
+    };
+    const dismissOnEscape=(event:KeyboardEvent)=>{
+      if(event.key!=='Escape'||event.defaultPrevented)return;
+      event.preventDefault();
+      closeTrail();
+    };
+    home.addEventListener('scroll',dismissOnScrollUp,{passive:true});
+    document.addEventListener('keydown',dismissOnEscape);
+    const reveal=window.requestAnimationFrame(()=>{
+      const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      home.scrollTo({top:home.scrollHeight-home.clientHeight,behavior:reduced?'instant':'smooth'});
+    });
+    return()=>{
+      window.cancelAnimationFrame(reveal);
+      home.removeEventListener('scroll',dismissOnScrollUp);
+      document.removeEventListener('keydown',dismissOnEscape);
+    };
+  },[trailOpen]);
   // Which way the book turns when the learner moves to another book; cleared when the turn finishes.
   const [turnDir,setTurnDir]=useState<'next'|'prev'|null>(null);
   // Milo reacts on the home screen: he waves hello, glances between the child and the book, and nods at locked taps.
@@ -75,7 +108,6 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
   const unlockHandoff=useRef<ReadingBookUnlockTransition|null>(null);
   const transition=useWorldExit();
   // The book and Milo grow to fill the first screen: measure the home screen and size them from its height.
-  const homeRef=useRef<HTMLElement>(null);
   useLayoutEffect(()=>{
     const home=homeRef.current;
     if(!home||typeof ResizeObserver==='undefined')return;
@@ -91,7 +123,8 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
     observer.observe(home);
     return()=>observer.disconnect();
   },[]);
-  const access=curriculumUnlocks(curriculumState,[...new Set([...completedBooks,...completed])]);
+  const doneBooks=new Set([...completedBooks,...completed]);
+  const access=curriculumUnlocks(curriculumState,[...doneBooks],bookOneOverride);
   const focusBook=(next:number)=>{
     const safe=Math.max(0,Math.min(READING_CHAPTERS.length-1,next));
     focusChosen.current=true;
@@ -135,7 +168,7 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
     if(cachedAccess){setCompleted(cachedAccess.completed);setAvailable(cachedAccess.available);if(!focusChosen.current)setIndex(Math.max(0,READING_CHAPTERS.findIndex(c=>cachedAccess.available.includes(c.id)&&!cachedAccess.completed.includes(c.id))));}
     const controller=new AbortController();
     let initialLoad=true;
-    const refresh=()=>void loadReadingProgress(controller.signal).then(p=>{
+    const refresh=()=>void (learnerId?loadLearnerReadingProgress(learnerId,controller.signal):loadReadingProgress(controller.signal)).then(p=>{
       if(controller.signal.aborted)return;
       setCompleted(p.completed);setAvailable(p.available);if(learnerId)saveReadingAccessSnapshot(learnerId,{completed:p.completed,available:p.available,openChallenges:p.openChallenges??[]});
       if(initialLoad&&!focusChosen.current)setIndex(Math.max(0,READING_CHAPTERS.findIndex(c=>p.available.includes(c.id)&&!p.completed.includes(c.id))));
@@ -151,9 +184,8 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
     return()=>{controller.abort();window.clearInterval(timer);};
   },[learnerId,reviewMode,retry]);
   const book=CHRONICLES[index],chapter=READING_CHAPTERS[index];
-  const doneBooks=new Set([...completedBooks,...completed]);
   const unlocked=!blocked&&(reviewMode||DEV_UNLOCK_ALL||(index===0?access.bookOne:true)&&available.includes(chapter.id));
-  const sayBook=useMiloInstruction(opening?undefined:unlocked?`${chapter.title}. ${book.subtitle}. Tap ${completed.includes(chapter.id)?'Read again':'Open this book'} to start.`:`${chapter.title}. This book is still locked.`);
+  const sayBook=useMiloInstruction(opening?undefined:unlocked?`${chapter.title}. ${book.subtitle}. Tap ${doneBooks.has(chapter.id)?'Read again':'Open this book'} to start.`:`${chapter.title}. This book is still locked.`);
   // Book 1 opens after the Learning Camp practices, so its button leads there instead of sitting disabled.
   const campFirst=index===0&&!unlocked&&!blocked&&!loadingBooks&&!status&&!access.bookOne;
   const goTo=(kind:string,action:()=>void)=>{setDestination(kind);transition.exit(action,kind==='camp'?CAMP_ARRIVAL_MS:650);};
@@ -175,19 +207,23 @@ export function ChronicleHome({learnerId,reviewMode=false,blocked=false,initialI
           </button>;
         })}</div>
       </div>
-      <div className="book-carousel-footer" aria-live="polite"><span className="sr-only">Book {index+1} of 10</span>{unlockMessage&&<span className="book-unlock-message"><Sparkles/>{unlockMessage}</span>}<div className="home-pager"><button className="carousel-arrow carousel-arrow--prev" aria-label="Previous book" disabled={opening||transition.leaving||index===0} onClick={()=>focusBook(index-1)}><ChevronLeft/></button>{campFirst?<button className="world-primary" disabled={opening||transition.leaving} onClick={()=>goTo('camp',onOpenCamp)}><Sparkles/>Start at Learning Camp <ArrowRight/></button>:<button className="world-primary" disabled={!unlocked} onClick={openBook}>{unlocked?<OpenBookCtaIcon/>:<LockKeyhole/>}{unlocked?completed.includes(chapter.id)?'Read again':'Open this book':blocked?'Adventure is paused':loadingBooks?'Loading books...':status?'Book access unavailable':index===0?'Visit Learning Camp to begin':`Finish Book ${index} to unlock`} {unlocked&&<ArrowRight size={20} strokeWidth={2.5}/>}</button>}<button className="carousel-arrow carousel-arrow--next" aria-label="Next book" disabled={opening||transition.leaving||index===9} onClick={()=>focusBook(index+1)}><ChevronRight/></button></div>{status&&<p role="status">{status} <button disabled={loadingBooks} onClick={()=>setRetry(value=>value+1)}>Retry</button></p>}</div>
+      <div className="book-carousel-footer" aria-live="polite"><span className="sr-only">Book {index+1} of 10</span>{unlockMessage&&<span className="book-unlock-message"><Sparkles/>{unlockMessage}</span>}<div className="home-pager"><button className="carousel-arrow carousel-arrow--prev" aria-label="Previous book" disabled={opening||transition.leaving||index===0} onClick={()=>focusBook(index-1)}><ChevronLeft/></button>{campFirst?<button className="world-primary" disabled={opening||transition.leaving} onClick={()=>goTo('camp',onOpenCamp)}><Sparkles/>Start at Learning Camp <ArrowRight/></button>:<button className="world-primary" disabled={!unlocked} onClick={openBook}>{unlocked?<OpenBookCtaIcon/>:<LockKeyhole/>}{unlocked?doneBooks.has(chapter.id)?'Read again':'Open this book':blocked?'Adventure is paused':loadingBooks?'Loading books...':status?'Book access unavailable':index===0?'Visit Learning Camp to begin':`Finish Book ${index} to unlock`} {unlocked&&<ArrowRight size={20} strokeWidth={2.5}/>}</button>}<button className="carousel-arrow carousel-arrow--next" aria-label="Next book" disabled={opening||transition.leaving||index===9} onClick={()=>focusBook(index+1)}><ChevronRight/></button></div>{status&&<p role="status">{status} <button disabled={loadingBooks} onClick={()=>setRetry(value=>value+1)}>Retry</button></p>}</div>
     </section>
-    <button type="button" className="home-trail-hint" onClick={()=>document.getElementById('home-reading-trail')?.scrollIntoView({behavior:'smooth',block:'center'})}><MapPin aria-hidden="true"/>My reading trail<ChevronDown aria-hidden="true"/></button>
+    <button ref={trailToggleRef} type="button" className="home-trail-hint" aria-expanded={trailOpen} aria-controls="home-reading-trail" onClick={()=>setTrailOpen(open=>!open)}><MapPin aria-hidden="true"/>My reading trail<ChevronDown aria-hidden="true"/></button>
     </div>
-    <nav className="book-trail" id="home-reading-trail" aria-label="My reading trail">
-      <div className="book-trail-head"><span><MapPin aria-hidden="true"/>My reading trail</span><strong>{completed.length} of 10 books read</strong></div>
-      <div className="book-trail-track"><svg className="book-trail-line" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true"><path className="book-trail-road" d={TRAIL_PATH}/><path className="book-trail-dash" d={TRAIL_PATH}/></svg>
-        <ol>{READING_CHAPTERS.map((entry,i)=>{const done=completed.includes(entry.id),locked=bookLocked(i)&&!done,here=i===index;return <li key={entry.id} style={{'--step':i,'--dy':i%2?'1':'-1'} as CSSProperties}>
-          <button className={`book-trail-stone ${done?'is-done':''} ${locked?'is-locked':''} ${here?'is-here':''}`} style={{'--book-color':CHRONICLES[i].color,'--book-light':CHRONICLES[i].light} as CSSProperties} aria-current={here?'true':undefined} aria-label={`Book ${i+1}: ${entry.title}${done?', read':locked?', locked':''}`} title={`Book ${i+1}: ${entry.title}`} disabled={opening||transition.leaving} onClick={()=>focusBook(i)}>{done?<Star/>:locked?<LockKeyhole/>:<span>{i+1}</span>}</button>
+    <div className="book-trail-reveal" data-open={trailOpen}>
+    <div className="book-trail-reveal-inner" inert={!trailOpen}>
+    <nav ref={trailRef} className="book-trail" id="home-reading-trail" aria-label="My reading trail">
+      <div className="book-trail-head"><span><MapPin aria-hidden="true"/>My reading trail</span><strong>{doneBooks.size} of 10 books read</strong></div>
+      <div className="book-trail-track"><svg className="book-trail-line" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true"><path className="book-trail-road" d={TRAIL_PATH}/><path className="book-trail-dash" d={TRAIL_PATH}/><path className="book-trail-spark" pathLength={100} d={TRAIL_PATH}/></svg>
+        <ol>{READING_CHAPTERS.map((entry,i)=>{const done=doneBooks.has(entry.id),locked=bookLocked(i)&&!done,here=i===index;return <li key={entry.id} style={{'--step':i,'--dy':i%2?'1':'-1'} as CSSProperties}>
+          <button type="button" className={`book-trail-stone ${done?'is-done':''} ${locked?'is-locked':''} ${here?'is-here':''}`} style={{'--book-color':CHRONICLES[i].color,'--book-light':CHRONICLES[i].light} as CSSProperties} aria-current={here?'true':undefined} aria-label={`Book ${i+1}: ${entry.title}${done?', read':locked?', locked':''}`} title={`Book ${i+1}: ${entry.title}`} disabled={opening||transition.leaving} onClick={()=>{focusBook(i);setTrailOpen(false);trailToggleRef.current?.focus();}}>{done?<Star/>:locked?<LockKeyhole/>:<span>{i+1}</span>}</button>
           {here&&<span className="book-trail-flag" aria-hidden="true"><Flag/></span>}
         </li>;})}</ol>
       </div>
     </nav>
+    </div>
+    </div>
   </div>{transition.leaving&&destination==='camp'&&<div className="camp-arrival" role="status" aria-live="polite">
     <div className="camp-arrival-scene" aria-hidden="true">
       <div className="camp-arrival-milo"><CharacterCompanion state="encouraging" gesture="wave" size={150}/></div>

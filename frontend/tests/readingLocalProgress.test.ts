@@ -13,6 +13,16 @@ test('device fallback advances only the next chapter and ignores malformed saved
   assert.deepEqual(readLocalReadingProgress(101),['gate']);
 });
 
+test('device completion of a teacher-opened book survives out-of-order reads',()=>{
+  const saved=new Map<string,string>();
+  Object.assign(globalThis,{localStorage:{getItem:(key:string)=>saved.get(key)??null,setItem:(key:string,value:string)=>{saved.set(key,value);}}});
+  completeLocalReadingChapter(101,'lanterns');
+  assert.deepEqual(readLocalReadingProgress(101),['lanterns']);
+  assert.deepEqual(availableLocalReadingChapters(readLocalReadingProgress(101)),['gate','lanterns','market']);
+  completeLocalReadingChapter(101,'gate');
+  assert.deepEqual(readLocalReadingProgress(101),['gate','lanterns']);
+});
+
 test('Lantern Lane resumes its current challenge and lit words after reload',()=>{
   const saved=new Map<string,string>();
   Object.assign(globalThis,{localStorage:{getItem:(key:string)=>saved.get(key)??null,setItem:(key:string,value:string)=>{saved.set(key,value);},removeItem:(key:string)=>{saved.delete(key);}}});

@@ -78,9 +78,7 @@ export function readLocalReadingProgress(learnerId:number) {
     const parsed=JSON.parse(localStorage.getItem(key(learnerId))||'[]');
     if(!Array.isArray(parsed))return [];
     const completed=new Set(parsed.filter((id):id is string=>typeof id==='string'));
-    const ordered:string[]=[];
-    for(const chapter of READING_CHAPTERS){if(!completed.has(chapter.id))break;ordered.push(chapter.id);}
-    return ordered;
+    return READING_CHAPTERS.filter(chapter=>completed.has(chapter.id)).map(chapter=>chapter.id);
   } catch { return []; }
 }
 
@@ -91,8 +89,7 @@ export function completeLocalReadingChapter(learnerId:number,chapterId:string) {
 }
 
 export function availableLocalReadingChapters(completed:string[]) {
-  const next=Math.min(completed.length,READING_CHAPTERS.length-1);
-  return READING_CHAPTERS.slice(0,next+1).map(chapter=>chapter.id);
+  return READING_CHAPTERS.filter((chapter,index)=>index===0||completed.includes(chapter.id)||completed.includes(READING_CHAPTERS[index-1].id)).map(chapter=>chapter.id);
 }
 
 export function readGuidedReadingStops(learnerId:number) {

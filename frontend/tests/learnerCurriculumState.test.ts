@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { curriculumUnlocks, emptyLearnerCurriculumState, mergeLearnerCurriculumState, normalizeGuidedStops, readLearnerCurriculumState } from '../src/hooks/learnerCurriculumState.ts';
+import { curriculumUnlocks, emptyLearnerCurriculumState, hasBookOneOverride, mergeLearnerCurriculumState, normalizeGuidedStops, readLearnerCurriculumState } from '../src/hooks/learnerCurriculumState.ts';
 
 test('account state merges learning monotonically across devices',()=>{
   const old={...emptyLearnerCurriculumState(),campOrientationStep:3,guidedStops:['gate:mango'],guidedActivities:{'gate:mango':true},guidedRounds:{gate:{step:3,spoken:['am']}},carouselFocus:4,updatedAt:'2026-10-18T01:00:00.000Z'};
@@ -24,6 +24,19 @@ test('features unlock at the requested curriculum milestones',()=>{
   assert.equal(curriculumUnlocks(firstThree,[]).sounds,true);
   assert.equal(curriculumUnlocks(firstThree,['gate']).progress,true);
   assert.equal(curriculumUnlocks(firstThree,['gate']).achievements,true);
+});
+
+test('explicit Book 1 grants open Progress and Awards without recording a completion',()=>{
+  const initial=emptyLearnerCurriculumState();
+  const completed:string[]=[];
+  for(const policy of [{readingUnlockThrough:1},{readingOpenChallenges:[1]}]){
+    assert.deepEqual(curriculumUnlocks(initial,completed,hasBookOneOverride(policy)),
+      {camp:false,bookOne:true,stickers:false,sounds:false,progress:true,achievements:true});
+    assert.deepEqual(completed,[]);
+  }
+  const laterBookOnly=hasBookOneOverride({readingOpenChallenges:[2]});
+  assert.equal(curriculumUnlocks(initial,completed,laterBookOnly).progress,false);
+  assert.equal(curriculumUnlocks(initial,completed,laterBookOnly).achievements,false);
 });
 
 test('legacy Book 1 stop names and the issued reward marker recover current unlocks',()=>{

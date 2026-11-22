@@ -31,7 +31,7 @@
 @media(max-width:1000px){.world-place{width:155px}.world-place>.landmark-art{height:120px}.world-place--camp,.world-place--stickers{left:2%}.world-place--progress,.world-place--sound{right:2%}.world-sign{min-width:130px;font-size:14px}.chronicle-carousel{--carousel-step:85px;width:57%}.chronicle-book{transform:translateX(calc(var(--offset)*85px)) scale(calc(1 - var(--distance)*.2)) rotateY(var(--turn))}.world-milo>span{display:none}.chronicle-heading h2{font-size:23px}}
 @media(max-width:680px){.chronicle-home{min-height:100%;padding-bottom:20px}.world-welcome{padding:18px 20px 0}.world-welcome h1{font-size:25px}.world-milo{display:none}.chronicle-carousel{--carousel-step:86px;width:100%;padding:0 35px;margin:24px auto 0;overflow:hidden}.chronicle-heading h2{font-size:24px}.chronicle-heading p{font-size:12px}.book-carousel-stage{height:337px}.chronicle-book{left:calc(50% - 99px);width:198px;height:285px;transform:translateX(calc(var(--offset)*86px)) scale(calc(1 - var(--distance)*.22)) rotateY(var(--turn))}.book-cover-title{font-size:22px}.book-emblem{height:105px;width:120px}.carousel-arrow--prev{left:-21px}.carousel-arrow--next{right:-21px}.home-landmarks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));position:relative;gap:4px;margin:16px 10px 0}.world-place{position:relative!important;top:auto!important;left:auto!important;right:auto!important;width:100%;min-width:0}.world-place>.landmark-art{height:75px}.world-sign{min-width:0;width:100%;font-size:11px;padding:7px 3px;line-height:1.3;border-radius:6px}.world-sign small{display:none}.world-footer{margin-top:25px;gap:14px;font-size:11px}.chronicle-home .adventure-backdrop{height:100%;min-height:900px}.book-carousel-footer .world-primary{font-size:14px;max-width:100%}}
 @media(prefers-reduced-motion:reduce){.adventure-clouds{animation:none}.chronicle-book,.world-place,.world-primary{transition:none}}
-.chronicle-home{min-height:0!important}
+.chronicle-home{min-height:0!important;padding-bottom:0}
 .chronicle-home-scene{position:relative;isolation:isolate;min-height:800px;height:100%}
 .chronicle-journey-shell{height:100%;overflow:hidden}
 .chronicle-book.is-unlocking{animation:chronicle-book-unlock 1.25s cubic-bezier(.2,.8,.2,1) both;filter:drop-shadow(0 0 26px #ffe16b) drop-shadow(8px 17px 10px #335e5a30)}
@@ -60,7 +60,11 @@ main.chronicle-home .home-stage .book-carousel-footer{margin-top:20px;gap:12px}
 @media(min-width:1500px){.home-guide{top:190px}}
 @media(max-width:680px){.home-guide{left:calc(50% - 99px - 78px);top:218px}.home-guide>.milo-companion{width:96px!important;height:96px!important}.home-guide .home-guide-hear{left:-14px;bottom:8px}}
 /* Reading trail: one slim card along the bottom. */
-.book-trail{position:relative;z-index:3;flex-shrink:0;width:calc(100% - 32px);max-width:760px;margin:12px auto 16px;padding:8px 18px 4px;border:3px solid #fff;border-radius:24px;background:linear-gradient(180deg,#fffdf4f0,#fff3d6f0);box-shadow:0 5px 0 #88b79f,0 14px 28px #1f3d3420}
+.book-trail{position:relative;z-index:3;flex-shrink:0;width:min(760px,calc(100% - 32px));margin:14px auto 24px;padding:8px 18px 4px;border:3px solid #fff;border-radius:24px;background:linear-gradient(180deg,#fffdf4,#fff3d6);box-shadow:0 5px 0 #88b79f,0 14px 28px #1f3d3420}
+.book-trail-reveal{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .34s ease-in-out,opacity .23s ease-in;overflow-anchor:none}
+.book-trail-reveal[data-open="true"]{grid-template-rows:1fr;opacity:1;transition:none}
+.book-trail-reveal-inner{min-height:0;overflow:hidden}
+.book-trail-reveal[data-open="true"] .book-trail{animation:trail-appear .3s ease-out both}
 .book-trail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#31594d}
 .book-trail-head span{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600}
 .book-trail-head span svg{width:20px;height:20px;color:#e8564f}
@@ -69,6 +73,10 @@ main.chronicle-home .home-stage .book-carousel-footer{margin-top:20px;gap:12px}
 .book-trail-line{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .book-trail-road{fill:none;stroke:#f1d38a;stroke-width:16;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .book-trail-dash{fill:none;stroke:#fffaf0;stroke-width:3;stroke-dasharray:3 12;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.book-trail-spark{fill:none;stroke:#fff4c7;stroke-width:7;stroke-linecap:round;stroke-dasharray:10 110;stroke-dashoffset:10;opacity:0}
+.book-trail-reveal[data-open="true"] .book-trail-spark{animation:trail-sweep 1.5s .2s ease-out both}
+@keyframes trail-appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes trail-sweep{0%{stroke-dashoffset:10;opacity:0}12%{opacity:1}88%{opacity:1}100%{stroke-dashoffset:-100;opacity:0}}
 .book-trail ol{position:absolute;inset:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));margin:0;padding:0;list-style:none}
 .book-trail li{position:relative;display:grid;place-items:center;transform:translateY(calc(var(--dy) * 17px))}
 .book-trail-stone{display:grid;place-items:center;width:40px;height:40px;padding:0;border:3px solid var(--book-color,#88b79f);border-radius:50%;background:#fff;color:var(--book-color,#31594d);font-size:16px;font-weight:700;line-height:1;box-shadow:0 3px 0 #1f3d3426;cursor:pointer;transition:transform .2s;font-variant-numeric:tabular-nums}
@@ -94,17 +102,20 @@ main.chronicle-home .home-stage .book-carousel-footer{margin-top:20px;gap:12px}
   .book-trail-flag{top:calc(50% - 38px)}
   .book-trail-flag svg{width:18px;height:18px}
 }
-@media(prefers-reduced-motion:reduce){.book-trail-stone{transition:none}.book-trail-stone.is-here,.book-trail-flag{animation:none}}
-/* The book and Milo fill the first screen; the reading trail waits below on the meadow, one scroll down. */
+@media(prefers-reduced-motion:reduce){.book-trail-stone,.book-trail-reveal{transition:none}.book-trail-stone.is-here,.book-trail-flag,.book-trail-reveal[data-open="true"] .book-trail,.book-trail-reveal[data-open="true"] .book-trail-spark{animation:none}}
+/* The book and Milo fill the first screen independently of the trail. */
 main.chronicle-home>.chronicle-home-scene{background:#64c78e}
 main.chronicle-home .reading-world-scenery{height:var(--home-h,100vh)!important;min-height:0!important;bottom:auto}
 main.chronicle-home .home-stage{min-height:calc(var(--home-h,100vh) - 14px);padding-bottom:56px}
-main.chronicle-home .book-trail{margin:28px auto 44px}
-.home-trail-hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border:2px solid #fff;border-radius:999px;background:#fffdf2e6;color:#31594d;font-size:14px;font-weight:600;box-shadow:0 3px 0 #88b79f;cursor:pointer;animation:trail-hint 2.2s ease-in-out infinite}
+.home-trail-hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border:2px solid #fff;border-radius:999px;background:#fffdf2e6;color:#31594d;font-size:14px;font-weight:600;box-shadow:0 3px 0 #88b79f;cursor:pointer;white-space:nowrap}
 .home-trail-hint svg{width:18px;height:18px}
 .home-trail-hint svg:first-child{color:#e8564f}
 .home-trail-hint:focus-visible{outline:3px solid #f0a83a;outline-offset:2px}
-@keyframes trail-hint{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,4px)}}
+.home-trail-hint[aria-expanded="true"] svg:last-child{transform:rotate(180deg)}
+@media(max-width:400px){
+  .book-trail-stone{width:24px;height:24px}
+  .book-trail-stone.is-here{width:26px;height:26px;box-shadow:0 0 0 2px #ffd76a,0 3px 0 #1f3d3426}
+}
 /* Bigger book and Milo: --book-s comes from the measured home height (1 = normal size, up to 1.7). */
 @media(min-width:700px){
   main.chronicle-home .home-stage .book-carousel-stage{height:calc(20px + 304px * var(--book-s,1))}
@@ -112,7 +123,6 @@ main.chronicle-home .book-trail{margin:28px auto 44px}
   main.chronicle-home .home-guide{left:calc(50% - 109px * var(--book-s,1) - 175px * var(--book-s,1));top:calc(22px + 304px * var(--book-s,1) - 188px * var(--book-s,1))}
   main.chronicle-home .home-guide>.milo-companion{width:calc(188px * var(--book-s,1))!important;height:calc(188px * var(--book-s,1))!important}
 }
-@media(prefers-reduced-motion:reduce){.home-trail-hint{animation:none}}
 /* Soft fade where the scenery meets the meadow below it, so there is no seam. */
 main.chronicle-home>.chronicle-home-scene::after{content:"";position:absolute;left:0;right:0;top:calc(var(--home-h,100vh) - 110px);height:110px;background:linear-gradient(#64c78e00,#64c78e);z-index:-1;pointer-events:none}
 /* Turning to another book: the new book swings in from the side the learner is heading toward. */
