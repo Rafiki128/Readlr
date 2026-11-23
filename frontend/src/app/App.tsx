@@ -311,7 +311,8 @@ function AppContent() {
   useFrames();
   useDarkMode();
   useLearningSettings(token, user?.id);
-  useEffect(() => setBackgroundMusicLoggedIn(isAuthenticated), [isAuthenticated]);
+  const allowBackgroundMusic = isAuthenticated && !!user && user.role !== "admin";
+  useEffect(() => setBackgroundMusicLoggedIn(allowBackgroundMusic), [allowBackgroundMusic]);
   const initialRoute = parseAppPath(window.location.pathname);
   const [currentScreen, setCurrentScreen] = useState<Screen>(initialRoute.screen);
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialRoute.authMode ?? 'register');
