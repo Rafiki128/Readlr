@@ -18,7 +18,7 @@ import { setBackgroundMusicLoggedIn } from "../hooks/backgroundMusic";
 import { NavigationHeader } from "./components/NavigationHeader";
 import { StudentSurvey } from "./components/StudentSurvey";
 import { Landing } from "./components/Landing";
-import { ExperimentalLanding } from "./components/ExperimentalLanding";
+import type { ComponentType } from "react";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ChildSetup } from "./components/ChildSetup";
 import { useFrames } from './hooks/useFrames';
@@ -174,6 +174,13 @@ const CVC_MAP: Record<number, { word: string }> = {
 
 
 
+// The design preview is intentionally untracked; clean checkouts use the normal landing page.
+const ExperimentalLanding = import.meta.env.DEV
+  ? Object.values(import.meta.glob<ComponentType<{onGetStarted:()=>void;onSignIn:()=>void;onTeacher:()=>void}>>(
+      "./components/ExperimentalLanding.tsx", {eager:true, import:"ExperimentalLanding"}
+    ))[0]
+  : undefined;
+
 type Screen =
   | "survey"
   | "landing"
@@ -210,7 +217,7 @@ function parseAppPath(pathname: string): AppRouteState {
   const path = pathname.replace(/\/+$/, "") || "/";
 
   if (path === "/") return DEFAULT_ROUTE;
-  if (path === "/landing-experimental") return { screen: "landing-experimental" };
+  if (path === "/landing-experimental") return { screen: ExperimentalLanding ? "landing-experimental" : "landing" };
   if (path === "/login") return { screen: "auth", authMode: "login" };
   if (path === "/register") return { screen: "auth", authMode: "register" };
   if (path === "/profile/setup") return { screen: "welcome" };
@@ -707,7 +714,7 @@ function AppContent() {
 
   if(currentScreen==='reading-review'&&import.meta.env.DEV) return <ReadingReview onBack={()=>setCurrentScreen(isAuthenticated?(user?.role==='admin'?'admin-learners':'stage-selection'):'landing')} onSignIn={!isAuthenticated?handleSignIn:undefined}/>;
 
-  if (currentScreen === "landing-experimental") {
+  if (currentScreen === "landing-experimental" && ExperimentalLanding) {
     return <ExperimentalLanding onGetStarted={() => setCurrentScreen("landing")} onSignIn={handleSignIn} onTeacher={handleSignIn} />;
   }
 
