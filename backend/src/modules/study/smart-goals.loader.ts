@@ -1,7 +1,7 @@
 // Read-only loader for the SMART goal report: fetches app activity for study learners and normalizes it per learner.
 import { supabase, unwrap } from '../../database/db.js';
 import { READING_VERSION } from '../evidence/reading-catalog.js';
-import { ALL_STUDY_WORDS, STUDY_BOOKS } from './study.data.js';
+import { ALL_STUDY_WORDS } from './study.data.js';
 import { summarize, type StudyFluency, type StudyResponse, type StudySession } from './study.service.js';
 import { HOME_DAYS, STUDY_TIME_ZONE, smartGoals, type LearnerRecord } from './smart-goals.js';
 
@@ -9,6 +9,7 @@ export interface Attempt { id: number; learner_id: number; activity_id: string; 
 export interface Checkpoint { learner_id: number; chapter_id: string; epoch: number; passed: boolean; created_at: string; completed_at: string | null }
 export interface RawSmartData {
   sessions: StudySession[]; responses: StudyResponse[]; fluency: StudyFluency[];
+  pathwayEvents?:Array<{user_id:number;kind:string;occurred_at:string}>;
   profiles: Array<{ id: number; user_id: number }>; epochs: Array<{ learner_id: number; epoch: number }>;
   checkpoints: Checkpoint[]; attempts: Attempt[];
   events: Array<{ user_id: number; event_type: string; occurred_at: string }>;
@@ -58,9 +59,11 @@ export function normalizeLearners(raw: RawSmartData, lastDay = HOME_DAYS[HOME_DA
       words: { pre: words('pre'), post: words('post') },
       blend: p.blend.pre.total ? { pre: blend('pre'), post: blend('post') } : null,
       wcpm: { pre: p.fluency.pre?.wcpm ?? null, post: p.fluency.post?.wcpm ?? null },
-      requiredBooks: STUDY_BOOKS[s.study_group],
+      requiredBooks: [],
       // Same rule as the app's progress and rewards: passes in the current reading epoch only.
       booksPassed: [...new Set(checkpoints.filter(c => c.passed && c.epoch === (epochOf.get(profileId!) ?? 0) && c.completed_at && inWindow(c.completed_at)).map(c => c.chapter_id))],
+      resumeDates:dates((raw.pathwayEvents??[]).filter(e=>e.user_id===s.user_id&&e.kind==='resume').map(e=>e.occurred_at)),
+      incidents:(raw.pathwayEvents??[]).filter(e=>e.user_id===s.user_id&&e.kind==='incident').length,taskStarts:(raw.pathwayEvents??[]).filter(e=>e.user_id===s.user_id&&e.kind==='task-start').length,
       attemptDates: dates(attempts.map(a => a.completed_at)),
       checkpointDates: dates(checkpoints.map(c => c.created_at)),
       loginDates: dates(raw.events.filter(e => e.user_id === s.user_id && (e.event_type === 'login' || e.event_type === 'app_open')).map(e => e.occurred_at)),
@@ -92,7 +95,7 @@ export async function loadSmartGoals(sessions: StudySession[], responses: StudyR
     const ids = raw.profiles.map(p => p.id);
     const start = new Date(`${sessions.map(s => manilaDate(s.created_at)).sort()[0]}T00:00:00+08:00`).toISOString();
     const end = new Date(Date.parse(`${HOME_DAYS[HOME_DAYS.length - 1]}T00:00:00+08:00`) + 86_400_000).toISOString();
-    [raw.epochs, raw.checkpoints, raw.attempts, raw.events, raw.states, raw.surveys] = await Promise.all([
+    [raw.epochs, raw.checkpoints, raw.attempts, raw.events, raw.states, raw.surveys,raw.pathwayEvents] = await Promise.all([
       pages<RawSmartData['epochs'][number]>((a, b) => supabase.from('learner_stage_state').select('learner_id,epoch').in('learner_id', ids).eq('stage_number', 3).order('learner_id').range(a, b)),
       pages<Checkpoint>((a, b) => supabase.from('reading_checkpoints').select('learner_id,chapter_id,epoch,passed,created_at,completed_at').in('learner_id', ids)
         .eq('curriculum_version', READING_VERSION).gte('created_at', start).lt('created_at', end).order('created_at').order('id').range(a, b)),
@@ -102,6 +105,7 @@ export async function loadSmartGoals(sessions: StudySession[], responses: StudyR
         .in('event_type', ['login', 'app_open']).gte('occurred_at', start).lt('occurred_at', end).order('id').range(a, b)),
       pages<RawSmartData['states'][number]>((a, b) => supabase.from('learner_curriculum_state').select('learner_id,guided_stops').in('learner_id', ids).order('learner_id').range(a, b)),
       pages<RawSmartData['surveys'][number]>((a, b) => supabase.from('survey_responses').select('user_id').in('user_id', userIds).order('user_id').range(a, b)),
+      pages<NonNullable<RawSmartData['pathwayEvents']>[number]>((a,b)=>supabase.from('readlr_validation_events').select('user_id,kind,occurred_at').in('user_id',userIds).order('id').range(a,b)),
     ]);
   }
   return smartGoals(normalizeLearners(raw));

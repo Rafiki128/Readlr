@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { enableValidationEvents } from './validationEvents';
 import { CLASSROOM_API } from './useClassroom';
 
 export type StudyPhase = 'pretest' | 'learning' | 'posttest' | 'done';
 export interface StudyState {
-  active: boolean;
+  active: boolean; systemUse?:boolean;
   phase?: StudyPhase;
   books?: string[];
   learningEndsAt?: string | null;
@@ -15,20 +16,24 @@ export interface StudyState {
 }
 
 /** Polls the learner's validation-study session. Errors count as "no session" so the normal app keeps working. */
-export function useStudySession(token: string | null, enabled: boolean) {
+export function useStudySession(token: string | null, enabled: boolean,userId?:number) {
   const [state, setState] = useState<StudyState | null>(null);
   const [loaded, setLoaded] = useState(false);
+  useEffect(()=>{enableValidationEvents(enabled&&state?.systemUse?token:null,userId);return ()=>enableValidationEvents(null);},[enabled,token,userId,state?.systemUse]);
   const [tick, setTick] = useState(0);
+  const version=useRef(0);
+  const setStudy=useCallback((next:StudyState)=>{version.current++;setState(next);},[]);
   const refresh = useCallback(() => setTick(n => n + 1), []);
   useEffect(() => {
     if (!enabled || !token) { setState(null); setLoaded(true); return; }
     let active = true;
     const load = async () => {
+      const requestVersion=++version.current;
       try {
         const response = await fetch(`${CLASSROOM_API}/study/me`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
         if (!response.ok) throw new Error('Unavailable');
         const data = await response.json() as StudyState;
-        if (active) setState(data);
+        if (active && requestVersion===version.current) setState(data);
       } catch { if (active) setState(previous => previous ?? { active: false }); }
       finally { if (active) setLoaded(true); }
     };
@@ -36,5 +41,5 @@ export function useStudySession(token: string | null, enabled: boolean) {
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 15000);
     return () => { active = false; window.clearInterval(timer); };
   }, [token, enabled, tick]);
-  return { study: state, loaded, refresh, setStudy: setState };
+  return { study: state, loaded, refresh, setStudy };
 }

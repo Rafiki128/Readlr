@@ -20,7 +20,13 @@ export function StudyFluency({ token, phase, words, onSaved, onRefused }: {
   const stop = useRef<(() => void) | null>(null);
   const live = useRef(true);
   // Leaving the screen mid-reading discards it, so the reading can start again cleanly.
-  useEffect(() => () => { live.current = false; stop.current?.(); }, []);
+  useEffect(() => { live.current=true; return () => { live.current = false; stop.current?.(); }; }, []);
+
+  useEffect(()=>{
+    if(stage==='intro')return;
+    const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};
+    window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);
+  },[stage]);
 
   async function save(reading: { blob: Blob; startedAt: string; durationMs: number } | null) {
     setStage('saving');
@@ -67,11 +73,13 @@ export function StudyFluency({ token, phase, words, onSaved, onRefused }: {
     recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
     // The words appear only once recording has begun, so the minute starts with the reading.
     recorder.onstart = () => { began = performance.now(); startedAt = new Date().toISOString(); setStage('reading'); timer = window.setTimeout(finish, MAX_MS); };
-    recorder.onerror = finish;
+    let failed=false;
+    recorder.onerror = () => { failed=true; finish(); };
     recorder.onstop = () => {
       stop.current = null;
       stream.getTracks().forEach(track => track.stop());
       if (!live.current) return;
+      if(failed || !chunks.length || !began){setStage('intro');setMessage('The microphone stopped. Please try again.');return;}
       void save({ blob: new Blob(chunks, { type: recorder.mimeType }), startedAt, durationMs: Math.min(MAX_MS, Math.round((ended || performance.now()) - began)) });
     };
     recorder.start();

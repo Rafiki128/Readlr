@@ -19,6 +19,7 @@ export interface LearnerRecord {
   wcpm: { pre: number | null; post: number | null };
   requiredBooks: string[]; booksPassed: string[];
   // Distinct Asia/Manila dates inside the study window.
+  resumeDates?:string[]; incidents?:number; taskStarts?:number;
   attemptDates: string[]; checkpointDates: string[]; loginDates: string[];
   retry: { missed: number; corrected: number };
   agreement: { compared: number; agree: number };
@@ -77,9 +78,9 @@ export function smartGoals(all: LearnerRecord[], config: SmartGoalsConfig = { ex
   const higher = paired.filter(p => p.n && p.post.median! > p.pre.median!).length;
   const measured = paired.filter(p => p.n).length;
   const book1 = count(learners, l => l.booksPassed.includes('gate'));
-  const home = count(learners, l => onHomeDay([...l.loginDates, ...l.attemptDates]));
+  const home = count(learners, l => onHomeDay(l.resumeDates??[]));
   const withStops = count(learners, l => l.guidedStops > 0);
-  const recordings = learners.reduce((s, l) => s + l.recordings, 0), noApp = learners.reduce((s, l) => s + l.appUnavailable, 0);
+  const incidents=learners.reduce((s,l)=>s+(l.incidents??0),0), starts=learners.reduce((s,l)=>s+(l.taskStarts??0),0);
   // Admin resets delete passes and survey rows, so these rows can undercount after a reset.
   const resetNote = 'An admin progress reset after enrollment removes passes and can lower this count.';
   const sectionA = [
@@ -93,15 +94,15 @@ export function smartGoals(all: LearnerRecord[], config: SmartGoalsConfig = { ex
     a('Book 1 guided completion', 'Enrolled learners who passed Book 1', 'Learners who passed the gate checkpoint / enrolled learners x 100', 'At least 80%',
       rate(book1, enrolled), enrolled, statusFor(percentage(book1, enrolled), 80),
       `Passed means the Book 1 ('gate') reading checkpoint was passed in the current reading epoch between enrollment and the last home day. ${resetNote}`),
-    a('Home continuation', 'Enrolled learners active on a home day', 'Learners with a login/app_open event or a curriculum attempt on a home day / enrolled learners x 100', 'No target',
+    a('Home continuation', 'Enrolled learners active on a home day', 'Learners with a saved-pathway resume event on a home day / enrolled learners x 100', 'No target',
       rate(home, enrolled), enrolled, 'Reported', `Home days: ${homeList} (Asia/Manila).`),
     a('Book/stop use', 'Guided stops opened and books passed', 'Counts of enrolled learners', 'No target',
       `${withStops} of ${enrolled} opened a guided stop; ${count(learners, l => l.booksPassed.length > 0)} of ${enrolled} passed at least one book`, enrolled, 'Reported',
       `Guided stops come from saved learner state and are not limited to the study window. ${resetNote}`),
     a('Questionnaire', 'Enrolled learners who submitted the questionnaire', 'Count of enrolled learners with a survey response', 'No target',
       `${count(learners, l => l.surveyed)} of ${enrolled}`, enrolled, 'Reported', 'An admin survey reset deletes responses and can lower this count.'),
-    a('Technical feasibility', 'Recordings without an app result', 'Recordings with no or unavailable app result / recordings saved', 'No target',
-      `${noApp} of ${recordings} recordings`, recordings, 'Reported', 'Classroom incidents are recorded in team session notes; not stored in the system.'),
+    a('Technical feasibility', 'Recorded technical incidents', 'Incidents / task starts x 100', 'No target',
+      rate(incidents,starts), starts, 'Reported', 'Instrumented reading rounds only; missing telemetry is not evidence of uninterrupted service.'),
   ];
 
   // Section B: proposal objectives GO1-GO3, denominators are completed learners.
@@ -109,7 +110,6 @@ export function smartGoals(all: LearnerRecord[], config: SmartGoalsConfig = { ex
     ({ section: 'B', objective, indicator, formula, target: target === null ? 'No target' : `At least ${target}%`, result, n, status: status ?? statusFor(value, target!), note });
   const post = total(done.map(l => l.words.post)), pre = total(done.map(l => l.words.pre));
   const postAccuracy = percentage(post.correct, post.scored);
-  const levelDone = count(done, l => l.requiredBooks.every(book => l.booksPassed.includes(book)));
   const agreement = { agree: done.reduce((s, l) => s + l.agreement.agree, 0), compared: done.reduce((s, l) => s + l.agreement.compared, 0) };
   const improved = count(done, l => l.words.post.correct > l.words.pre.correct);
   const retry = { corrected: done.reduce((s, l) => s + l.retry.corrected, 0), missed: done.reduce((s, l) => s + l.retry.missed, 0) };
@@ -129,8 +129,8 @@ export function smartGoals(all: LearnerRecord[], config: SmartGoalsConfig = { ex
     b('GO1', 'Post-test printed-word reading accuracy (proposal: pronunciation accuracy on CVC assessments)', 'Post-test correct / post-test scored items x 100', 80,
       postAccuracy, post.scored ? `${pct(postAccuracy)} (${post.correct}/${post.scored} scored items)` : 'Unavailable (no scored items)', completed,
       'Teacher score preferred, app result otherwise; skipped = incorrect; unclear/missing items excluded.'),
-    b('GO1', 'Level completion', 'Learners who passed every required book / completed learners x 100', 75, percentage(levelDone, completed),
-      `${rate(levelDone, completed)}; average books passed ${num(mean(done.map(l => l.booksPassed.length)))}`, completed, `Required books are the learner's study group books. ${resetNote}`),
+    b('GO1', 'Level completion', 'Original target requires an assigned set of levels', 75, null,
+      'Not applicable: no books assigned', completed, 'Book reach and completion among starters are reported descriptively.', 'Not measured'),
     b('GO1', 'ASR-teacher agreement (proposal: ASR recognition)', 'Recordings where app and teacher agree / recordings compared x 100', 85,
       percentage(agreement.agree, agreement.compared), agreement.compared ? `${pct(percentage(agreement.agree, agreement.compared))} (${agreement.agree}/${agreement.compared} recordings)` : 'Unavailable (no recordings compared)',
       agreement.compared, 'Adapted: the app recognizes whole words, so this is agreement between app and teacher decisions on the same recordings.'),

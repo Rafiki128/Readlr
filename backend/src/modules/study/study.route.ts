@@ -1,9 +1,10 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import {enterWorld,addEvent,participantDetail,checkExport,cohortPathway} from './workspace.js';
 import multer from 'multer';
 import { authMiddleware, requireRole } from '../../middleware/auth.js';
 import {
   answerStudyFluency, answerStudyWord, deleteStudySession, enrollStudy, exportStudy, getFluencyRecording, getFluencyScoringBatch, getMyStudy, getRecording, getScoringBatch,
-  getStudyOverview, getStudyResults, rescoreStudy, scoreFluency, scoreResponse, updateStudySession,
+  getStudyOverview, getStudyResults, scoreFluency, scoreResponse, updateStudySession,
 } from './study.controller.js';
 
 const audioOnly: multer.Options['fileFilter'] = (_req, file, done) => {
@@ -24,6 +25,11 @@ const fluencyUpload = sized(10);
 
 const router = Router();
 const admin = [authMiddleware, requireRole('admin')];
+router.post('/me/enter',authMiddleware,requireRole('learner'),enterWorld);
+router.post('/me/event',authMiddleware,requireRole('learner'),addEvent);
+router.get('/admin/participants/:userId',...admin,participantDetail);
+router.get('/admin/pathway',...admin,cohortPathway);
+router.put('/admin/participants/:userId/check',...admin,checkExport);
 router.get('/me', authMiddleware, requireRole('learner'), getMyStudy);
 router.post('/me/answer', authMiddleware, requireRole('learner'), answerUpload, answerStudyWord);
 router.post('/me/fluency', authMiddleware, requireRole('learner'), fluencyUpload, answerStudyFluency);
@@ -35,7 +41,7 @@ router.delete('/admin/sessions/:userId', ...admin, deleteStudySession);
 router.get('/admin/scoring', ...admin, getScoringBatch);
 router.put('/admin/responses/:id/score', ...admin, scoreResponse);
 router.get('/admin/recordings/:id', ...admin, getRecording);
-router.post('/admin/rescore', ...admin, rescoreStudy);
+
 router.get('/admin/fluency/scoring', ...admin, getFluencyScoringBatch);
 router.put('/admin/fluency/:id/score', ...admin, scoreFluency);
 router.get('/admin/fluency/:id/recording', ...admin, getFluencyRecording);

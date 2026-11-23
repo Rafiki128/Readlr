@@ -40,13 +40,13 @@ test('exact target boundaries are met; just below is not', () => {
   assert.equal(missed.status, 'Not met');
   // 3 of 4 completed learners passed every book: exactly 75%.
   const books = [learner(), learner(), learner(), learner({ booksPassed: ['gate'] })];
-  assert.equal(row(smartGoals(books, config), 'Level completion').status, 'Met');
+  assert.equal(row(smartGoals(books, config), 'Level completion').status, 'Not measured');
 });
 
 test('no completed learners leaves every targeted Section B row pending', () => {
   const report = smartGoals([learner({ complete: false })], config);
   assert.equal(report.completed, 0);
-  for (const goal of report.sectionB.filter(g => g.target !== 'No target')) assert.equal(goal.status, 'Pending', goal.indicator);
+  for (const goal of report.sectionB.filter(g => g.target !== 'No target' && g.indicator !== 'Level completion')) assert.equal(goal.status, 'Pending', goal.indicator);
 });
 
 // --- Normalization from saved study rows (teacher score preferred, skips incorrect, unclear/missing unscored)
@@ -85,7 +85,7 @@ test('books passed count only the current epoch inside the study window', () => 
     checkpoint('garden', 1, '2026-11-23T03:00:00Z', false),
   ] });
   assert.deepEqual(record.booksPassed, ['gate']);
-  assert.deepEqual(record.requiredBooks, ['gate', 'lanterns', 'market']);
+  assert.deepEqual(record.requiredBooks, []);
   assert.deepEqual(record.checkpointDates, ['2026-11-23'], 'activity counts in any epoch, but not before enrollment');
 });
 
@@ -149,10 +149,10 @@ test('fluency: null readings excluded, zero pre mean, mean rounding and medians'
 
 // --- GO1 completion, GO3 engagement
 
-test('completion: missing a required book vs all required books', () => {
+test('free exploration has no assigned-level completion target', () => {
   const report = smartGoals([learner(), learner({ booksPassed: ['gate', 'lanterns'] })], config);
-  assert.equal(row(report, 'Level completion').result, '50.0% (1/2); average books passed 2.5');
-  assert.equal(row(report, 'Level completion').status, 'Not met');
+  assert.equal(row(report, 'Level completion').result, 'Not applicable: no books assigned');
+  assert.equal(row(report, 'Level completion').status, 'Not measured');
 });
 
 test('returning: 0, 1, and 2+ Manila active dates', () => {
@@ -188,8 +188,8 @@ test('voluntary use and consistency count home-day attempts or checkpoints', () 
   assert.deepEqual([voluntary.result, voluntary.status], ['50.0% (2/4)', 'Not met']);
   const consistency = row(report, 'Voluntary use consistency');
   assert.deepEqual([consistency.result, consistency.status, consistency.target], ['25.0% (1/4)', 'Reported', 'No target']);
-  // A login alone counts for Section A home continuation but not for voluntary use.
-  assert.equal(row(report, 'Enrolled learners active on a home day').result, '75.0% (3/4)');
+  // Login and task activity without a saved-pathway resume do not establish home continuation.
+  assert.equal(row(report, 'Enrolled learners active on a home day').result, '0.0% (0/4)');
 });
 
 // --- Section A, labels, exclusions
@@ -231,7 +231,7 @@ test('label wording, notes, and statuses for reported rows', () => {
   assert.equal(row(report, 'Returning').note, 'Adapted for the 4-day study: active on >=2 distinct Manila learning dates.');
   assert.equal(row(report, 'Reward milestones').note, 'Adapted: passed at least one book. An admin progress reset after enrollment removes passes and can lower this count.');
   assert.match(row(report, 'Voluntary use (proposal').note, /Home access is unequal \(devices, internet, adult time\); interpret descriptively\./);
-  assert.equal(row(report, 'Recordings without an app result').note, 'Classroom incidents are recorded in team session notes; not stored in the system.');
+  assert.match(row(report,'Recorded technical incidents').note,/missing telemetry/);
   assert.deepEqual(report.sectionA.map(r => r.objective), ['Data completeness', 'Short-term change', 'Assessment completion', 'Book 1 guided completion', 'Home continuation', 'Book/stop use', 'Questionnaire', 'Technical feasibility']);
   for (const goal of report.sectionA.slice(4)) assert.equal(goal.status, 'Reported');
 });
@@ -240,7 +240,7 @@ test('rows that admin resets can lower carry a reset note', () => {
   const report = smartGoals([learner()], config);
   const noted = [...report.sectionA, ...report.sectionB].filter(r => /admin (progress|survey) reset/.test(r.note)).map(r => r.indicator);
   assert.deepEqual(noted, ['Enrolled learners who passed Book 1', 'Guided stops opened and books passed', 'Enrolled learners who submitted the questionnaire',
-    'Level completion', 'Reward milestones (proposal: daily reward milestones)']);
+    'Reward milestones (proposal: daily reward milestones)']);
 });
 
 test('excluded participant codes are left out of every count', () => {

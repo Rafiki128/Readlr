@@ -9,15 +9,16 @@ import { playMiloScript, stopMiloScript } from '../../hooks/miloScripts';
 
 interface WelcomeScreenProps {
   onStart: () => void;
+  validationComplete?: boolean;
   userName?: string;
 }
 
-export function WelcomeScreen({ onStart, userName }: WelcomeScreenProps) {
+export function WelcomeScreen({ onStart, userName, validationComplete }: WelcomeScreenProps) {
   const transition=useWorldExit(1800);
   const [loadingMs,setLoadingMs]=useState(1800);
   const reduced=useReducedMotion();
   // Browsers may block this until the learner has interacted; the welcome then stays silent.
-  useEffect(()=>{void playMiloScript('HOME-001');},[]);
+  useEffect(()=>{if(!validationComplete)void playMiloScript('HOME-001');},[]);
   // Keep the loading scene open until Milo's line ends (never shorter than 1.8s).
   const enter=()=>{
     const started=performance.now();
@@ -44,10 +45,10 @@ export function WelcomeScreen({ onStart, userName }: WelcomeScreenProps) {
           <CharacterCompanion state="encouraging" gesture="wave" size={180}/>
 
           <h1 className="text-4xl md:text-5xl text-[var(--ink)] tracking-tight mb-3">
-            Welcome{userName ? `, ${userName}` : ""}!
+            {validationComplete ? "You did it, reader!" : `Welcome${userName ? `, ${userName}` : ""}!`}
           </h1>
           <p className="text-[var(--ink-soft)] text-lg mb-8">
-            Milo saved a place for you. Let’s open a book and discover new words together!
+            {validationComplete ? "Your reading activities are complete. Milo is ready to explore with you." : "Milo saved a place for you. Let’s open a book and discover new words together!"}
           </p>
 
 
@@ -58,7 +59,7 @@ export function WelcomeScreen({ onStart, userName }: WelcomeScreenProps) {
             disabled={transition.leaving}
             className="world-primary"
           >
-            Enter my adventure <ArrowRight className="w-5 h-5" />
+            {validationComplete ? "Enter Readlr" : "Enter my adventure"} <ArrowRight className="w-5 h-5" />
           </motion.button>
           <span className="welcome-small-print">Little sounds. Wonderful stories.</span>
         </div>

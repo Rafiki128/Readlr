@@ -93,7 +93,7 @@ export function blendTranscriptionPrompt() {
 export type Score = 'correct' | 'incorrect' | null;
 /** Teacher scores are primary; the app result is used only when no teacher score exists. Skips are incorrect. */
 export function finalScore(row: { skipped: boolean; teacher_score: string | null; app_result: string | null }): Score {
-  if (row.skipped) return 'incorrect';
+  if (row.skipped || row.teacher_score === 'skip') return 'incorrect';
   if (row.teacher_score === 'correct' || row.teacher_score === 'incorrect') return row.teacher_score;
   if (row.teacher_score === 'unclear') return null;
   if (row.app_result === 'matched') return 'correct';

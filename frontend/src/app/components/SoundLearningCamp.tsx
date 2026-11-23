@@ -132,7 +132,7 @@ export function SoundLearningCamp({onBack,reviewMode=false,learnerId}:{onBack:()
 }
 
 // Learning Camp passes disableBuildStage so it skips the phrase-building step; the books leave it off and keep it.
-export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildStage=false}:{card:SoundCard;reviewMode:boolean;onBack:()=>void;onFinish:()=>void;disableBuildStage?:boolean}) {
+export function CampSoundLesson({card,reviewMode,onBack,onFinish,onSupport,disableBuildStage=false}:{onSupport?:(kind:"mic-free"|"replay")=>void;card:SoundCard;reviewMode:boolean;onBack:()=>void;onFinish:()=>void;disableBuildStage?:boolean}) {
   const [phase,setPhase]=useState<'listen'|'find'|'build-up'|'say'|'finish'>('listen');
   const [message,setMessage]=useState(card.cue);
   const [busy,setBusy]=useState(false),[recording,setRecording]=useState(false),[seconds,setSeconds]=useState(4);
@@ -507,7 +507,7 @@ export function CampSoundLesson({card,reviewMode,onBack,onFinish,disableBuildSta
           </button>
           
           {phase === 'say' && (
-            <button className="camp-text-button" disabled={busy} onClick={() => { sound.stop(); setPhase('finish'); setMessage('You explored a new sound! Come back and say it with me any time.'); }}>
+            <button className="camp-text-button" disabled={busy} onClick={() => { onSupport?.('mic-free'); sound.stop(); setPhase('finish'); setMessage('You explored a new sound! Come back and say it with me any time.'); }}>
               Practice without recording
             </button>
           )}

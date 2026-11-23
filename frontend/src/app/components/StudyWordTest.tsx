@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, SkipForward, Check, WifiOff } from 'lucide-react';
+import { Mic, SkipForward, Check } from 'lucide-react';
 import { useCvcRecorder } from '../../hooks/useCvcRecorder';
 import { CLASSROOM_API } from '../hooks/useClassroom';
 import type { StudyState } from '../hooks/useStudySession';
 import { StudyBlendIntro, StudyBlendItem } from './StudyBlendItem';
+import { CharacterCompanion } from './CharacterCompanion';
 import { StudyFluency } from './StudyFluency';
 import './study.css';
 
@@ -13,28 +14,23 @@ interface Answer { word: string; blob: Blob | null; itemType: 'word' | 'blend'; 
 /**
  * Pretest/posttest: the child reads each printed word once. There is deliberately no
  * word audio, hint, correctness feedback, or reward, so the test measures independent reading.
- * Answers upload in the background so the next word appears immediately.
+ * Keep the current card until its saved response is acknowledged.
  */
 export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: string; test: NonNullable<StudyState['test']>; onUpdate: (state: StudyState) => void; onRefresh: () => void }) {
   const recorder = useCvcRecorder();
+  const leftMicCheck = useRef(false);
+  const [level,setLevel]=useState(0);
+  const [prepared, setPrepared] = useState(false);
   const [started, setStarted] = useState(false);
   const [micChecked, setMicChecked] = useState(false);
   const [status, setStatus] = useState<Status>('ready');
   const [seconds, setSeconds] = useState(4);
   const [message, setMessage] = useState('');
-  const [local, setLocal] = useState<string[]>([]);
-  const [pending, setPending] = useState(0);
-  const [offline, setOffline] = useState(false);
-  const [blendStarted, setBlendStarted] = useState(false);
-  const [fluencySent, setFluencySent] = useState(false);
-  const queue = useRef<Answer[]>([]);
+  const [sending, setSending] = useState(false);
+  const [draft, setDraft] = useState<Answer | null>(null);
   const uploading = useRef(false);
-  const latest = useRef<StudyState | null>(null);
-  const dropReason = useRef('');
-  const live = useRef(true);
-  useEffect(() => () => { live.current = false; }, []);
-
-  const finished = new Set([...test.answered, ...local]);
+  const [blendStarted, setBlendStarted] = useState(false);
+  const finished = new Set(test.answered);
   // Part 1 (printed words) always comes first; Part 2 (sound blending) starts only when it is done.
   const blends = test.blends ?? [];
   const remaining = test.words.filter(word => !finished.has(word));
@@ -44,9 +40,15 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
   const number = test.words.length - remaining.length + 1;
   // Part 3 (one-minute reading) follows Part 2 in sessions that have it.
   const fluency = test.fluency ?? [];
-  const needsFluency = fluency.length > 0 && !test.fluencyDone && !fluencySent;
+  const needsFluency = fluency.length > 0 && !test.fluencyDone;
 
-  async function upload(answer: Answer): Promise<'ok' | 'drop' | 'retry'> {
+  useEffect(()=>{if(!draft&&!sending&&status!=='recording')return;
+    const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};
+    window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);
+  },[draft,sending,status]);
+  async function submit(answer: Answer) {
+    if (uploading.current) return;
+    uploading.current = true; setSending(true); setMessage('');
     const form = new FormData();
     form.append('phase', test.phase);
     form.append('word', answer.word);
@@ -56,128 +58,88 @@ export function StudyWordTest({ token, test, onUpdate, onRefresh }: { token: str
     else form.append('skip', 'true');
     try {
       const response = await fetch(`${CLASSROOM_API}/study/me/answer`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form, signal: AbortSignal.timeout(30000) });
-      if (response.ok) { latest.current = await response.json(); return 'ok'; }
-      // 400/409: the server refused this answer; retrying the same upload cannot help.
-      if (response.status === 400 || response.status === 409) {
-        dropReason.current = (await response.json().catch(() => null) as { message?: string } | null)?.message ?? '';
-        return 'drop';
-      }
-      return 'retry';
-    } catch { return 'retry'; }
-  }
-
-  async function drain() {
-    if (uploading.current) return;
-    uploading.current = true;
-    let dropped = false;
-    while (queue.current.length && live.current) {
-      const result = await upload(queue.current[0]);
-      if (result === 'retry') { setOffline(true); await new Promise(resolve => setTimeout(resolve, 3000)); continue; }
-      if (result === 'drop') dropped = true;
-      queue.current.shift();
-      setOffline(false);
-      setPending(queue.current.length);
-    }
-    uploading.current = false;
-    if (!live.current) return;
-    // Words count as done on screen only while they wait to upload; after that the server's saved
-    // list decides. Without this, a refused answer looked finished, the server never reached the
-    // last word, and the test sat on "Getting the next part ready" instead of starting learning time.
-    const keepPending = () => setLocal(list => list.filter(word => queue.current.some(answer => answer.word === word)));
-    if (dropped) {
-      if (latest.current) onUpdate(latest.current);
-      keepPending();
-      setMessage(`${dropReason.current || 'That answer was not saved.'} Let's read that word again.`);
-      onRefresh();
-    } else if (latest.current && (latest.current.phase !== test.phase || queue.current.length === 0)) {
-      onUpdate(latest.current);
-      keepPending();
-    }
-  }
-
-  function submit(answer: Answer) {
-    queue.current.push(answer);
-    setPending(queue.current.length);
-    setLocal(list => [...list, answer.word]);
-    void drain();
+      if (!response.ok) throw new Error('Your response could not be sent. Tap Next to try again.');
+      const state = await response.json();
+      setDraft(null); setStatus('ready'); onUpdate(state);
+    } catch { setMessage('Connection interrupted. Keep this card open and try again.'); }
+    finally { uploading.current = false; setSending(false); }
   }
 
   async function record(practice = false, replayed = false) {
     setMessage('');
     setStatus('recording');
     try {
-      const blob = await recorder.capture(setSeconds, async () => undefined, { endOnSilence: true });
+      const blob = await recorder.capture(setSeconds, async () => undefined, { onLevel:practice?setLevel:undefined, acceptQuiet:!practice, endOnSilence: practice, maxMs: practice ? 4000 : 10000 });
+      if (practice && leftMicCheck.current) return;
       if (practice) { setStatus('ready'); setMicChecked(true); setMessage('I can hear you. You are ready!'); return; }
       const current = word;
       const itemType = part;
       setStatus('saved');
-      window.setTimeout(() => { if (live.current) { setStatus('ready'); submit({ word: current, blob, itemType, replayed }); } }, 300);
+      setDraft({ word: current, blob, itemType, replayed });
     } catch (error) {
+      if (practice && leftMicCheck.current) return;
       setStatus('ready');
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      setMessage(error instanceof Error && error.name === 'NoVoiceError' ? 'I could not hear you. Tap the microphone and read the word out loud.' : 'The microphone is not working. Please ask your teacher.');
+      setMessage(practice ? 'Try saying hello again, or skip this check.' : error instanceof Error && error.name === 'NoVoiceError' ? 'I could not hear you. Tap the microphone and read the word out loud.' : 'The microphone is not working. Please ask your teacher.');
     }
   }
 
+  if (!prepared) return <section className="study-card study-intro study-invitation">
+    <CharacterCompanion state="encouraging" gesture="wave" size={164}/>
+    <p className="study-progress">The Reading Chronicles</p><h1>{test.phase === 'pretest' ? 'Welcome to Readlr!' : 'Welcome back, reader!'}</h1>
+    <p>{test.phase === 'pretest' ? "Before we open your first book, let's try three little reading activities." : "Let's visit the word cards, sound tiles, and reading wall again."}</p>
+    <button className="study-primary" onClick={()=>setPrepared(true)}>Let's Prepare</button></section>;
+  const next = draft && <button className="study-primary" disabled={sending} onClick={()=>void submit(draft)}>{sending ? 'One moment...' : 'Next'}</button>;
   if (!started) {
     return <section className="study-card study-intro" aria-labelledby="study-test-heading">
-      <h1 id="study-test-heading">Word game</h1>
-      <p>You will see some words. Read each word out loud.</p>
-      <ol>
-        <li>Tap the <strong>microphone</strong>.</li>
-        <li>Read the word.</li>
-        <li>If you do not know a word, tap <strong>Skip</strong>. That is okay!</li>
-      </ol>
+      <CharacterCompanion state={status==='recording'?'listening':'encouraging'} size={126}/>
+      <h1 id="study-test-heading">Mic check</h1>
       <div className="study-mic-check">
-        <p><strong>First, let's check the microphone.</strong> Tap it and say your name.</p>
+        <p><strong>First, let's check the microphone.</strong> Tap it and say hello.</p>
         <button className="study-mic" disabled={status === 'recording'} onClick={() => void record(true)} aria-label="Check the microphone">
           {status === 'recording' ? <span className="study-countdown">{seconds}</span> : <Mic size={40} />}
         </button>
+        {status==='recording'&&<meter aria-label="Microphone input level" min={0} max={1} value={level}/>}
         {message && <p role="status" className={micChecked ? 'study-ok' : 'study-warn'}>{message}</p>}
       </div>
-      <button className="study-primary" disabled={!micChecked || status === 'recording'} onClick={() => { setStarted(true); setMessage(''); }}>Start the word game</button>
+      <button className="study-primary" onClick={() => { leftMicCheck.current=true; recorder.stop(); setStatus('ready'); setStarted(true); setMessage(''); }}>{micChecked ? 'Start the word game' : 'Skip mic check'}</button>
     </section>;
   }
 
   if (!word && needsFluency) {
-    // Answers still uploading will return the newer state, so only an idle queue takes this one.
-    const saved = (state: StudyState) => { setFluencySent(true); if (queue.current.length) latest.current = state; else onUpdate(state); };
-    return <StudyFluency token={token} phase={test.phase} words={fluency} onSaved={saved} onRefused={onRefresh} />;
+    return <StudyFluency token={token} phase={test.phase} words={fluency} onSaved={onUpdate} onRefused={onRefresh} />;
   }
 
   if (!word) {
     return <section className="study-card study-intro">
       <Check size={44} className="study-ok mx-auto" />
       <h1>All done!</h1>
-      <p>{pending ? `Saving your answers... (${pending} left)` : 'Getting the next part ready...'}</p>
-      {offline && <p className="study-warn" role="alert"><WifiOff size={18} className="inline mr-1" />Waiting for the internet. Please keep this screen open.</p>}
+      <p>Getting the next part ready...</p>
     </section>;
   }
 
   if (part === 'blend') {
     const notices = <>
       {message && <p role="alert" className="study-warn">{message}</p>}
-      {offline && <p className="study-hint"><WifiOff size={14} className="inline mr-1" />Saving is slow. Keep going!</p>}
     </>;
     // After a reload partway through Part 2 the practice is not repeated.
     if (!blendStarted && remainingBlends.length === blends.length) return <StudyBlendIntro onStart={() => setBlendStarted(true)} />;
     return <StudyBlendItem key={word} word={word} number={blends.length - remainingBlends.length + 1} total={blends.length} status={status} seconds={seconds}
-      onRecord={replayed => void record(false, replayed)} onSkip={replayed => submit({ word, blob: null, itemType: 'blend', replayed })}>{notices}</StudyBlendItem>;
+      onRecord={replayed => void record(false, replayed)} onNext={next} sending={sending} onFinish={recorder.finish} onSkip={replayed => submit({ word, blob: null, itemType: 'blend', replayed })}>{notices}</StudyBlendItem>;
   }
 
   return <section className="study-card study-test" aria-labelledby="study-word">
     <p className="study-progress">Word {number} of {test.words.length}</p>
     <div className="study-progress-bar" aria-hidden="true"><span style={{ width: `${((number - 1) / test.words.length) * 100}%` }} /></div>
     <p id="study-word" className="study-word" lang="en">{word}</p>
-    {status === 'saved' ? <p className="study-ok study-saved"><Check size={28} /> Thank you!</p> :
+    {status === 'saved' ? next :
       <div className="study-actions">
-        <button className="study-mic" disabled={status !== 'ready'} onClick={() => void record()} aria-label="Record yourself reading the word">
+        <button className="study-mic" disabled={sending} onClick={() => status === 'recording' ? recorder.finish() : void record()} aria-label={status === "recording" ? "Finish speaking" : "Read the word aloud"}>
           {status === 'recording' ? <span className="study-countdown">{seconds}</span> : <Mic size={48} />}
         </button>
-        <button className="study-skip" disabled={status !== 'ready'} onClick={() => submit({ word, blob: null, itemType: 'word', replayed: false })}><SkipForward size={20} /> Skip</button>
+        <button className="study-skip" disabled={sending || status !== 'ready'} onClick={() => submit({ word, blob: null, itemType: 'word', replayed: false })}><SkipForward size={20} /> Skip</button>
       </div>}
-    <p className="study-hint">{status === 'recording' ? 'Read the word now.' : status === 'ready' ? 'Tap the microphone, then read the word.' : ''}</p>
+    <p className="study-hint">{status === 'recording' ? 'Read the word. Tap the microphone when finished.' : status === 'ready' ? 'Tap the microphone, then read the word.' : ''}</p>
     {message && <p role="alert" className="study-warn">{message}</p>}
-    {offline && <p className="study-hint"><WifiOff size={14} className="inline mr-1" />Saving is slow. Keep going!</p>}
   </section>;
 }

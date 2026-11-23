@@ -1,3 +1,4 @@
+import {pathwayEvent} from './hooks/validationEvents';
 import { earnedProgress, preserveRewards } from "./components/progressReset";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useJourneySync } from "./hooks/useJourneySync";
@@ -316,7 +317,8 @@ function AppContent() {
     level: currentScreen === 'game' ? selectedLevel : null,
     screen: currentScreen,
   });
-  const studySession = useStudySession(token, isAuthenticated && user?.role === 'learner');
+  const studySession = useStudySession(token, isAuthenticated && user?.role === 'learner',user?.id);
+  useEffect(()=>{if(studySession.study?.systemUse)pathwayEvent('screen-view','',currentScreen);},[currentScreen,studySession.study?.systemUse]);
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [completedBooksLoadedFor, setCompletedBooksLoadedFor] = useState<number | null>(null);
@@ -749,7 +751,7 @@ function AppContent() {
 
   // A running pretest/posttest study session replaces the normal learner app.
   if (user?.role === 'learner' && token && learnerId && studySession.study?.active) {
-    return <StudySession token={token} userId={user.id} learnerId={learnerId} study={studySession.study} surveyAssigned={classroom.surveyAssigned}
+    return <StudySession token={token} study={studySession.study} onEnter={handleStartAdventure}
       onUpdate={studySession.setStudy} onRefresh={studySession.refresh} onLogout={handleBackToRoleSelect} />;
   }
   if (user?.role === 'learner' && token && !studySession.loaded) {

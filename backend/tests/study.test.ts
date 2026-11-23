@@ -144,10 +144,10 @@ test('an untimed session has no end time and stays in learning after any elapsed
   } finally { restore(); }
 });
 
-test('a timed session still moves to posttest once its time is up', async () => {
+test('a legacy timed session waits for an explicit post-test assignment', async () => {
   const row = learningRow(30, '2020-01-01T00:00:00Z');
   const restore = stubSessionRow(row);
-  try { assert.equal((await getSession(9))?.phase, 'posttest'); } finally { restore(); }
+  try { assert.equal((await getSession(9))?.phase, 'learning'); } finally { restore(); }
 });
 
 test('start-posttest advances an untimed session', async () => {
@@ -306,7 +306,7 @@ test('export has item type, prompt replayed, and blending totals', () => {
   assert.deepEqual((long.getRow(3).values as unknown[]).slice(13), ['blend', 'Yes']);
   const wide = book.getWorksheet('Summary')!;
   assert.deepEqual((wide.getRow(1).values as unknown[]).slice(18, 21), ['Pre blending /10', 'Post blending /10', 'Gain blending']);
-  assert.deepEqual((wide.getRow(2).values as unknown[]).slice(18, 21), [1, 0, -1]);
+  assert.deepEqual((wide.getRow(2).values as unknown[]).slice(18, 21), [1, 0, '']);
   assert.equal(wide.getRow(1).getCell(14).value, 'Learning minutes', 'existing summary columns keep their positions');
 });
 
@@ -450,11 +450,11 @@ test('summary and export add Part 3 columns at the end; skipped or unscored read
   for (let col = 21; col <= 29; col++) assert.ok(!wide.getRow(3).getCell(col).value, `P14 column ${col} is blank, not 0`);
 
   const long = book.getWorksheet('Responses')!;
-  assert.deepEqual((long.getRow(1).values as unknown[]).slice(15), ['Words attempted', 'Words correct', 'Duration (s)', 'WCPM']);
+  assert.deepEqual((long.getRow(1).values as unknown[]).slice(15), ['Words attempted', 'Words correct', 'Duration (s)', 'WCPM','Timed review status','Technical note','Word order shown']);
   const fluencyRows = long.getRows(2, long.rowCount - 1)!.filter(r => r.getCell(13).value === 'fluency');
   assert.equal(fluencyRows.length, 4);
   const p11post = fluencyRows.find(r => r.getCell(1).value === 'P11' && r.getCell(3).value === 'posttest')!;
-  assert.deepEqual((p11post.values as unknown[]).slice(15), [40, 39, 50, 46.8]);
+  assert.deepEqual((p11post.values as unknown[]).slice(15,19), [40, 39, 50, 46.8]);
   const p14pre = fluencyRows.find(r => r.getCell(1).value === 'P14' && r.getCell(3).value === 'pretest')!;
   assert.equal(p14pre.getCell(7).value, 'Yes');
   for (let col = 15; col <= 18; col++) assert.ok(!p14pre.getCell(col).value, 'skipped reading is blank');

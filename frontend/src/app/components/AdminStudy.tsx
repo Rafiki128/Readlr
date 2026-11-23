@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, FlaskConical, Headphones, Play, RefreshCw, Undo2, UserPlus } from 'lucide-react';
+import { Download, FlaskConical, Play, RefreshCw, Undo2 } from 'lucide-react';
 import { CLASSROOM_API } from '../hooks/useClassroom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from './ui/alert-dialog';
+import { ValidationDossier } from './ValidationDossier';
 import { StudyFluencyScoring } from './AdminStudyFluency';
 import './study.css';
+import './validationDashboard.css';
+import {CohortDashboard} from './PathwayDashboard';
 
-interface Session { userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
+interface Session { reviewed:number; entryPending?:boolean; userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
 interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number } }
 interface Counts { correct: number; scored: number; total: number }
 interface Reading { wordsAttempted: number; wordsCorrect: number; durationSeconds: number; wcpm: number | null }
@@ -27,19 +29,21 @@ function useApi(token: string) {
 }
 
 export function AdminStudy({ token }: { token: string }) {
-  const [tab, setTab] = useState('sessions');
+  const [tab, setTab] = useState('pathway');
   const api = useApi(token);
   return <section className="admin-access-section" aria-labelledby="study-heading">
-    <header className="admin-section-heading"><div><h2 id="study-heading" className="flex items-center gap-2"><FlaskConical size={20} />Pretest &amp; posttest study</h2>
-      <p>Group A learns Books 1–3 (short i/e). Group B learns Books 1, 4–5 (short o/u). Everyone takes the same word test before and after.</p></div></header>
+    <header className="admin-section-heading"><div><h2 id="study-heading" className="flex items-center gap-2"><FlaskConical size={20} />Validation workspace</h2>
+      <p>Assignments, participant records, and validation exports.</p></div></header>
     <Tabs value={tab} onValueChange={setTab} className="admin-section-tabs">
-      <TabsList aria-label="Study sections" className="admin-section-nav">
-        <TabsTrigger value="sessions">Sessions</TabsTrigger>
+      <TabsList aria-label="Study sections" className="admin-section-nav vd-navigation">
+        <TabsTrigger value="pathway">Pathway analytics</TabsTrigger>
+        <TabsTrigger value="sessions">Participants</TabsTrigger>
         <TabsTrigger value="scoring">Scoring</TabsTrigger>
         <TabsTrigger value="fluency">One-minute reading</TabsTrigger>
         <TabsTrigger value="results">Results</TabsTrigger>
       </TabsList>
       <TabsContent value="sessions" className="admin-section-panel"><StudySessions token={token} /></TabsContent>
+      <TabsContent value="pathway" className="admin-section-panel"><CohortDashboard api={api}/></TabsContent>
       <TabsContent value="scoring" className="admin-section-panel"><StudyScoring token={token} /></TabsContent>
       <TabsContent value="fluency" className="admin-section-panel"><StudyFluencyScoring api={api} /></TabsContent>
       <TabsContent value="results" className="admin-section-panel"><StudyResults token={token} /></TabsContent>
@@ -47,90 +51,29 @@ export function AdminStudy({ token }: { token: string }) {
   </section>;
 }
 
-function StudySessions({ token }: { token: string }) {
-  const api = useApi(token);
-  const [data, setData] = useState<Overview | null>(null);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [chosen, setChosen] = useState<number[]>([]);
-  const [minutes, setMinutes] = useState(30);
-  const [untimed, setUntimed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [removing, setRemoving] = useState<Session | null>(null);
-  const [confirmWord, setConfirmWord] = useState('');
-  const [now, setNow] = useState(Date.now());
-  const load = useCallback(async () => {
-    try { setData(await (await api('/overview')).json()); setError(''); } catch (e) { setError((e as Error).message); }
-  }, [api]);
-  useEffect(() => { void load(); const timer = window.setInterval(() => { setNow(Date.now()); if (document.visibilityState === 'visible') void load(); }, 10000); return () => window.clearInterval(timer); }, [load]);
-  async function act(run: () => Promise<unknown>, done: string) {
-    setBusy(true); setError(''); setNotice('');
-    try { await run(); setNotice(done); await load(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
-  }
-  const enroll = () => act(async () => { await api('/enroll', { method: 'POST', body: JSON.stringify({ userIds: chosen, learningMinutes: untimed ? null : minutes }) }); setChosen([]); },
-    `Enrolled ${chosen.length} learner(s). They see the word game the next time their screen refreshes (within 15 seconds).`);
-  const update = (s: Session, body: object, done: string) => act(() => api(`/sessions/${s.userId}`, { method: 'PUT', body: JSON.stringify(body) }), done);
-  const remove = () => removing && act(async () => { await api(`/sessions/${removing.userId}`, { method: 'DELETE', body: JSON.stringify({ confirmation: confirmWord }) }); setRemoving(null); setConfirmWord(''); }, 'Session and recordings removed.');
-
-  if (!data) return <p className={error ? 'admin-error' : 'admin-muted'} role={error ? 'alert' : undefined}>{error || 'Loading study sessions...'}</p>;
-  return <div className="study-admin-grid">
-    {error && <p role="alert" className="admin-control-notice is-error">{error}</p>}
-    {notice && <p role="status" className="admin-control-notice">{notice}</p>}
-    <div className="study-stat-row">
-      <div className="study-stat"><strong>{data.sessions.length}</strong>Enrolled</div>
-      <div className="study-stat"><strong>{data.groups.A} / {data.groups.B}</strong>Group A / Group B</div>
-      <div className="study-stat"><strong>{data.sessions.filter(s => s.phase === 'done' || s.phase === 'closed').length}</strong>Finished</div>
-      <div className="study-stat"><strong>{data.unscored}</strong>Recordings to score</div>
-    </div>
-
-    <section aria-labelledby="enroll-heading">
-      <h3 id="enroll-heading" className="font-semibold mb-2">Enroll learners</h3>
-      <p className="admin-muted mb-2">Only learners marked <em>Study participant</em> (signed guardian consent and child assent) are listed. Groups are assigned at random and kept balanced.
-        {data.notConsented > 0 && ` ${data.notConsented} other learner(s) are not marked yet; mark them in Learner overview → details.`}</p>
-      {data.eligible.length === 0 ? <p className="admin-empty">No consented learners waiting to be enrolled.</p> : <>
-        <label className="flex items-center gap-2 mb-2"><input type="checkbox" checked={chosen.length === data.eligible.length} onChange={e => setChosen(e.target.checked ? data.eligible.map(l => l.id) : [])} />Select all ({data.eligible.length})</label>
-        <div className="study-eligible">{data.eligible.map(l => <label key={l.id}><input type="checkbox" checked={chosen.includes(l.id)} onChange={e => setChosen(list => e.target.checked ? [...list, l.id] : list.filter(id => id !== l.id))} /><span><strong>{l.name}</strong> <small className="admin-muted">{l.email}</small></span></label>)}</div>
-        <div className="flex flex-wrap items-end gap-3 mt-3">
-          <label className="grid gap-1">Learning time (minutes)<input type="number" min={5} max={120} value={minutes} disabled={untimed} onChange={e => setMinutes(Number(e.target.value))} className="rounded-lg border px-3 py-2 w-28 disabled:opacity-50 disabled:cursor-not-allowed" /></label>
-          <label className="flex items-center gap-2 py-2"><input type="checkbox" checked={untimed} onChange={e => setUntimed(e.target.checked)} />Untimed (admin starts post-test)</label>
-          <button className="admin-apply" disabled={busy || !chosen.length || (!untimed && (minutes < 5 || minutes > 120))} onClick={() => void enroll()}><UserPlus size={17} />Enroll {chosen.length || ''} and assign groups</button>
-        </div>
-      </>}
-    </section>
-
-    <section aria-labelledby="sessions-heading">
-      <div className="flex items-center justify-between"><h3 id="sessions-heading" className="font-semibold">Live sessions</h3><button className="admin-icon-button" aria-label="Refresh sessions" title="Refresh sessions" onClick={() => void load()}><RefreshCw size={18} /></button></div>
-      {data.sessions.length === 0 ? <p className="admin-empty">No one is enrolled yet.</p> :
-        <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Learner</th><th>Group</th><th>Status</th><th>Pretest</th><th>Learning</th><th>Posttest</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>
-          {data.sessions.map(s => {
-            const left = s.learningEndsAt ? Math.max(0, Date.parse(s.learningEndsAt) - now) : null;
-            return <tr key={s.userId}>
-              <td><strong>{s.participantCode}</strong></td><td>{s.name}</td>
-              <td>{s.phase === 'pretest' ? <select aria-label={`Group for ${s.participantCode}`} value={s.group} disabled={busy} onChange={e => void update(s, { action: 'set-group', group: e.target.value }, `${s.participantCode} moved to group ${e.target.value}.`)} className="rounded border px-2 py-1"><option value="A">A</option><option value="B">B</option></select> : s.group}</td>
-              <td><span className={`study-phase ${s.phase}`}>{PHASE_LABEL[s.phase] ?? s.phase}</span></td>
-              <td>{s.pretestAnswered} / {s.itemCount}</td>
-              <td>{s.learningMinutes === null ? 'Untimed' : s.phase === 'learning' && left !== null ? `${Math.ceil(left / 60000)} min left` : s.learningEndsAt ? 'Done' : `${s.learningMinutes} min`}</td>
-              <td>{s.posttestAnswered} / {s.itemCount}</td>
-              <td className="whitespace-nowrap">
-                {s.phase === 'learning' && <button className="admin-discard" disabled={busy} onClick={() => void update(s, { action: 'start-posttest' }, `${s.participantCode} moved to the posttest.`)}>Start posttest now</button>}
-                {s.phase === 'done' && <button className="admin-discard" disabled={busy} onClick={() => void update(s, { action: 'close' }, `${s.participantCode} returned to the normal app.`)}>Return to app</button>}
-                <button className="admin-discard ml-2" disabled={busy} onClick={() => { setRemoving(s); setConfirmWord(''); }}>Remove</button>
-              </td>
-            </tr>;
-          })}
-        </tbody></table></div>}
-      <p className="admin-muted mt-3"><Headphones size={15} className="inline mr-1" />Before starting: headsets with microphones, children seated apart, and Classroom controls set to <em>Normal book progression</em>. Assign the Student feedback survey if children should answer it at the end. After the pretest, children go straight into their learning books on their own, even if you pause the class while you check recordings.</p>
-    </section>
-
-    <AlertDialog open={!!removing} onOpenChange={open => { if (!open && !busy) setRemoving(null); }}>
-      <AlertDialogContent className="admin-confirm-dialog">
-        <AlertDialogTitle>Remove {removing?.participantCode}'s session?</AlertDialogTitle>
-        <AlertDialogDescription>This permanently deletes their test answers and recordings. Use it only for pilot runs or a withdrawn participant.</AlertDialogDescription>
-        <label>Type DELETE to confirm<input className="admin-reset-confirmation" autoComplete="off" value={confirmWord} onChange={e => setConfirmWord(e.target.value)} /></label>
-        <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><button className="admin-confirm-apply admin-reset-submit" disabled={busy || confirmWord !== 'DELETE'} onClick={() => void remove()}>Remove session</button></AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  </div>;
+function StudySessions({token}:{token:string}) {
+  const api=useApi(token),[data,set]=useState<Overview|null>(null),[error,fail]=useState(''),[busy,wait]=useState(false);
+  const [chosen,choose]=useState<number[]>([]),[mode,assign]=useState<'pre'|'post'>('pre'),[query,search]=useState('');
+  const [review,open]=useState<{id:number;name:string;tab:'pretest'|'posttest'|'System use'|'Results'|'Survey'}|null>(null);
+  const load=useCallback(async()=>{try{set(await(await api('/overview')).json());}catch(e){fail((e as Error).message);}},[api]);
+  useEffect(()=>{void load();const t=setInterval(()=>{if(!document.hidden)void load();},15000);return()=>clearInterval(t);},[load]);
+  const eligible=mode==='pre'?(data?.eligible??[]):(data?.sessions??[]).filter(s=>s.phase==='learning'&&!s.entryPending).map(s=>({id:s.userId,name:s.name}));
+  const selected=eligible.filter(l=>chosen.includes(l.id));
+  async function apply(){wait(true);fail('');try{
+    if(mode==='pre')await api('/enroll',{method:'POST',body:JSON.stringify({userIds:selected.map(l=>l.id),learningMinutes:null})});
+    else for(const s of selected)await api('/sessions/'+s.id,{method:'PUT',body:JSON.stringify({action:'start-posttest'})});
+    choose([]);
+  }catch(e){fail((e as Error).message);}finally{await load();wait(false);}}
+  return <div className="study-admin-grid">{error&&<p role="alert">{error}</p>}
+    <details><summary>Assign assessments</summary><fieldset disabled={busy}><label>Assessment <select value={mode} onChange={e=>{assign(e.target.value as 'pre'|'post');choose([]);}}><option value="pre">Pre-test</option><option value="post">Post-test</option></select></label>
+    <label><input type="checkbox" checked={!!eligible.length&&selected.length===eligible.length} onChange={e=>choose(e.target.checked?eligible.map(l=>l.id):[])}/> Select all eligible</label>
+    <div className="study-eligible">{eligible.map(l=><label key={l.id}><input type="checkbox" checked={chosen.includes(l.id)} onChange={e=>choose(e.target.checked?[...chosen,l.id]:chosen.filter(id=>id!==l.id))}/>{l.name}</label>)}{!eligible.length&&'No eligible learners.'}</div>
+    <button className="admin-apply" disabled={!selected.length} onClick={()=>void apply()}>Assign {mode==='pre'?'pre-test':'post-test'} ({selected.length})</button></fieldset></details>
+    <label className="vd-search">Find participant <input type="search" value={query} onChange={e=>search(e.target.value)}/></label>
+    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Participant</th><th>Assignment</th><th>Submitted</th><th>Record</th></tr></thead><tbody>
+    {data?.eligible.filter(l=>l.name.toLowerCase().includes(query.toLowerCase())).map(l=><tr key={l.id}><td>{l.name}</td><td>Awaiting assignment</td><td>None</td><td><button onClick={()=>{assign('pre');choose([l.id]);const d=document.querySelector<HTMLDetailsElement>('.study-admin-grid>details');if(d)d.open=true;}}>Select for pre-test</button></td></tr>)}
+    {data?.sessions.filter(s=>(s.name+s.participantCode).toLowerCase().includes(query.toLowerCase())).map(s=><tr key={s.userId}><td><strong>{s.name}</strong><small className="vd-sub">{s.participantCode}</small></td><td>{s.entryPending?'Completed · awaiting world entry':['done','learning','closed'].includes(s.phase)?'System use':PHASE_LABEL[s.phase]}</td><td>Pre {s.pretestAnswered}/{s.itemCount}<br/>Post {s.posttestAnswered}/{s.itemCount}<small className="vd-sub">Reviewed or skipped: {s.reviewed}</small></td><td><button className="vd-open" onClick={()=>open({id:s.userId,name:s.name,tab:"System use"})}>Open record &rarr;</button></td></tr>)}</tbody></table></div>
+    {review&&<ValidationDossier api={api} token={token} {...review} initial={review.tab} onClose={()=>open(null)}/>}</div>;
 }
 
 function StudyScoring({ token }: { token: string }) {
@@ -140,7 +83,7 @@ function StudyScoring({ token }: { token: string }) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [last, setLast] = useState<{ id: string; word: string; item_type: 'word' | 'blend' } | null>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  
   const [busy, setBusy] = useState(false);
   const player = useRef<HTMLAudioElement>(null);
   const item = items[0];
@@ -172,11 +115,9 @@ function StudyScoring({ token }: { token: string }) {
     };
     window.addEventListener('keydown', keys); return () => window.removeEventListener('keydown', keys);
   });
-  const rescore = async () => { setNotice(''); try { const data = await (await api('/rescore', { method: 'POST' })).json(); setNotice(`App checking started for ${data.queued} recording(s).`); } catch (e) { setError((e as Error).message); } };
   return <div className="study-admin-grid">
     <p className="admin-muted">Blind scoring: you hear each recording without the learner's name, group, or whether it is the pretest or posttest. Mark <strong>Correct</strong> only if the whole word was read accurately (for blending items, said as one whole word). Keys: 1 correct, 2 incorrect, 3 unclear, Space replay.</p>
     {error && <p role="alert" className="admin-control-notice is-error">{error}</p>}
-    {notice && <p role="status" className="admin-control-notice">{notice}</p>}
     <p><strong>{remaining ?? '...'}</strong> recording(s) left to score.</p>
     {item ? <div className="study-score-card">
       <span className="admin-muted">{item.item_type === 'blend' ? `Blending — target: ${item.word}` : 'Expected word'}</span>
@@ -191,17 +132,12 @@ function StudyScoring({ token }: { token: string }) {
     </div> : remaining === 0 && <p className="admin-empty">All recordings are scored.</p>}
     <div className="flex flex-wrap gap-2">
       {last && <button className="admin-discard" disabled={busy} onClick={() => void score(null, last)}><Undo2 size={16} className="inline mr-1" />Undo last score</button>}
-      <button className="admin-discard" onClick={() => void rescore()}>Re-run app checking on unchecked recordings</button>
+
     </div>
   </div>;
 }
 
-const pct = (c: Counts) => c.total ? Math.round(c.correct / c.total * 100) : 0;
-/** Word totals differ by group (Group B has 3 transfer words), so show the range when they do. */
-const outOf = (rows: Participant[], pick: (p: Participant) => number) => {
-  const totals = [...new Set(rows.map(pick))].sort((a, b) => a - b);
-  return totals.length ? totals.join(' or ') : '–';
-};
+const scored=(v:Counts)=>v.scored ? v.correct+'/'+v.scored : 'Not scored';
 const mean = (rows: Participant[], pick: (p: Participant) => number) => rows.length ? (rows.reduce((n, p) => n + pick(p), 0) / rows.length).toFixed(1) : '–';
 
 function StudyResults({ token }: { token: string }) {
@@ -232,21 +168,14 @@ function StudyResults({ token }: { token: string }) {
     </div>
     <div className="study-stat-row">
       <div className="study-stat"><strong>{complete.length} / {data.participants.length}</strong>Completed both tests</div>
-      <div className="study-stat"><strong>{mean(complete, p => p.taught.post.correct - p.taught.pre.correct)}</strong>Mean gain, taught words (of {outOf(data.participants, p => p.taught.pre.total)})</div>
-      <div className="study-stat"><strong>{mean(complete, p => p.transfer.post.correct - p.transfer.pre.correct)}</strong>Mean gain, transfer words (of {outOf(data.participants, p => p.transfer.pre.total)})</div>
-      <div className="study-stat"><strong>{mean(complete, p => p.control.post.correct - p.control.pre.correct)}</strong>Mean gain, control words (of {outOf(data.participants, p => p.control.pre.total)})</div>
-      <div className="study-stat"><strong>{mean(complete.filter(p => p.blend.pre.total), p => p.blend.post.correct - p.blend.pre.correct)}</strong>Mean gain, sound blending (of {outOf(data.participants.filter(p => p.blend.pre.total), p => p.blend.pre.total)})</div>
       <div className="study-stat"><strong>{mean(readers, p => p.fluency.post!.wcpm! - p.fluency.pre!.wcpm!)}</strong>Mean gain, one-minute reading (WCPM, {readers.length} scored)</div>
       <div className="study-stat"><strong>{data.agreement.percent === null ? '–' : `${data.agreement.percent}%`}</strong>App agrees with teacher ({data.agreement.compared} compared)</div>
     </div>
-    <p className="admin-muted">If the app teaches, taught and transfer gains should be clearly larger than control gains. Run the statistics (for example Wilcoxon signed-rank) on the exported file.</p>
-    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Group</th><th>Taught pre → post</th><th>Transfer pre → post</th><th>Control pre → post</th><th>Blending pre → post</th><th>Unscored</th><th>One-minute WCPM pre → post</th></tr></thead><tbody>
+    <p className="admin-muted">Compare repeated assessments descriptively. Score change alone does not establish causation.</p>
+    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Printed words pre → post</th><th>Blending pre → post</th><th>Unscored</th><th>One-minute WCPM pre → post</th></tr></thead><tbody>
       {data.participants.map(p => <tr key={p.participantCode}>
-        <td><strong>{p.participantCode}</strong>{!p.complete && <small className="admin-muted"> (in progress)</small>}</td><td>{p.group}</td>
-        <td>{p.taught.pre.correct} → {p.taught.post.correct} <small className="admin-muted">/{p.taught.pre.total} ({pct(p.taught.pre)}% → {pct(p.taught.post)}%)</small></td>
-        <td>{p.transfer.pre.correct} → {p.transfer.post.correct} <small className="admin-muted">/{p.transfer.pre.total}</small></td>
-        <td>{p.control.pre.correct} → {p.control.post.correct} <small className="admin-muted">/{p.control.pre.total}</small></td>
-        <td>{p.blend.pre.total ? <>{p.blend.pre.correct} → {p.blend.post.correct} <small className="admin-muted">/{p.blend.pre.total}</small></> : '–'}</td>
+        <td><strong>{p.participantCode}</strong>{!p.complete && <small className="admin-muted"> (in progress)</small>}</td><td>{(['pre','post'] as const).map(k=>{const tallies=[p.taught[k],p.transfer[k],p.control[k]];return scored(tallies.reduce((a,b)=>({correct:a.correct+b.correct,scored:a.scored+b.scored,total:a.total+b.total}),{correct:0,scored:0,total:0}));}).join(' → ')}</td>
+        <td>{scored(p.blend.pre)} → {scored(p.blend.post)}</td>
         <td>{p.unscored}</td>
         <td>{p.fluency.pre?.wcpm ?? '–'} → {p.fluency.post?.wcpm ?? '–'}</td>
       </tr>)}
