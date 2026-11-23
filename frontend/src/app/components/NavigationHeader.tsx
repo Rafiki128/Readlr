@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { LearnerBrand } from './LearnerBrand';
 import { Home, Settings, HelpCircle, User, LogOut, Menu, X, FileText, TentTree, LockKeyhole, ChevronDown } from "lucide-react";
 import { LandmarkArt } from "./AdventureArt";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
@@ -144,8 +145,7 @@ export function NavigationHeader({
         >
           <div className="kid-header-row">
             <button className="kid-logo" onClick={() => onNavigate("stage-selection")} aria-label="Readlr home">
-              <img src="/readlr_logo_mark.svg" alt="" className="kid-logo-mark rounded-xl object-contain" />
-              <span className="kid-logo-text readlr-wordmark">Readlr</span>
+              <LearnerBrand/>
             </button>
 
             <nav className="kid-nav" aria-label="Places to visit">

@@ -7,7 +7,6 @@ import { stagePermitted } from '../admin/classroom.policy.js';
 import { getLearningCampAccess } from './camp-access.js';
 import { READING_VERSION, READING_MEDIA, CHAPTER_IDS, checkpointWords, chapterAvailable } from './reading-catalog.js';
 import { recognizeCvcWord } from '../audio/audio.service.js';
-import { studyReadingAccess } from '../study/study.service.js';
 
 interface Session {
   id: string; learner_id: number; epoch: number; chapter_id: string; words: string[];
@@ -26,17 +25,11 @@ async function context(req: Request) {
   const access = await getLearningCampAccess(userId);
   if (!access.enabled || access.curriculumVersion !== READING_VERSION || access.mediaManifestVersion !== READING_MEDIA)
     throw new ReadingError(403, 'This reading journey is not released for your account.');
-  // A running validation study limits the journey to the learner's assigned books.
-  const [{ policy }, study] = await Promise.all([effectivePolicy(userId), studyReadingAccess(userId)]);
-  if (study && 'blocked' in study) throw new ReadingError(403, 'Finish your word game first.');
-  // During study learning time the child plays independently, even while the teacher
-  // pauses the rest of the class to check pretest recordings.
-  if (!study && !stagePermitted(policy, 3)) throw new ReadingError(403, 'Your teacher has paused access to the kingdom.');
+  const { policy } = await effectivePolicy(userId);
+  if (!stagePermitted(policy, 3)) throw new ReadingError(403, 'Your teacher has paused access to the kingdom.');
   const learner = await getLearnerByUserId(userId);
   unwrap(await supabase.from('learner_stage_state').upsert({learner_id:learner.id,stage_number:3}, {onConflict:'learner_id,stage_number',ignoreDuplicates:true}));
   const state = unwrap<{epoch:number}>(await supabase.from('learner_stage_state').select('epoch').eq('learner_id',learner.id).eq('stage_number',3).single());
-  if (study) return {learnerId:learner.id,epoch:state.epoch,unlockThrough:0,openStops:[] as string[],allowed:study.books,
-    openChallenges:study.books.map(id=>CHAPTER_IDS.indexOf(id)+1).filter(book=>book>1)};
   return {learnerId:learner.id,epoch:state.epoch,unlockThrough:policy.readingUnlockThrough ?? 0,openStops:policy.readingOpenStops ?? [],openChallenges:policy.readingOpenChallenges ?? [],allowed:null as string[]|null};
 }
 type ReadingContext = Awaited<ReturnType<typeof context>>;

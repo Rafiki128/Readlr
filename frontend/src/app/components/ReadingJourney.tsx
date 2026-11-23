@@ -1,3 +1,4 @@
+import {pathwayEvent} from '../hooks/validationEvents';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Crown, Flag, Headphones, Lightbulb, Mic, Puzzle, RotateCcw, Sparkles, TrainFront, Volume2 } from 'lucide-react';
 import { ARAL_VERSION, ARAL_MEDIA_VERSION, READING_CHAPTERS, makeReadingRound, readingEvidenceResult, shuffleReading, type ReadingChapter, type ReadingTask } from './aralCurriculum';
@@ -67,6 +68,21 @@ export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onB
   const transitionTimers=useRef<number[]>([]);
   const activityFinishing=useRef(false);
   const selected=READING_CHAPTERS[chapter];
+  const opened=useRef('');
+  useEffect(()=>{
+    if(initialTab==='camp'||sandbox||opened.current===selected.id)return; opened.current=selected.id;
+    pathwayEvent('book-start',selected.id);
+    if(readGuidedReadingStops(learnerId).some(key=>key.startsWith(selected.id+':')||(selected.id==='gate'&&!key.includes(':'))) || readLocalReadingProgress(learnerId).includes(selected.id))pathwayEvent('resume',selected.id);
+  },[learnerId,sandbox,selected.id,initialTab]);
+  const lessonTask=useRef('');
+  const startStop=(id:string)=>{
+    if(sandbox)return;
+    pathwayEvent('stop-start',selected.id,id);
+    if(id!=='games'&&id!=='check'){
+      lessonTask.current=crypto.randomUUID();
+      pathwayEvent('task-start',selected.id,id,lessonTask.current);
+    }
+  };
   useEffect(()=>{
     const applyReset=(event:Event)=>{
       const detail=(event as CustomEvent<{scope?:'all'|'book'|'challenge';chapter?:string;stop?:string}>).detail;
@@ -100,6 +116,7 @@ export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onB
   }
   function finishActivity(stopId:string,apply:()=>void,nextPage:number|null) {
     if(activityFinishing.current)return;
+    if(!sandbox && stopId!=='check')pathwayEvent('stop-complete',selected.id,stopId);
     activityFinishing.current=true;
     setActivityLeaving(true);
     transitionTimers.current.push(window.setTimeout(()=>{
@@ -135,9 +152,10 @@ export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onB
     return()=>{controller.abort();window.clearInterval(timer);};
   },[learnerId,sandbox,round,initialTab]);
   if(initialTab==='camp')return <SoundLearningCamp learnerId={learnerId} onBack={onBack} reviewMode={reviewMode}/>;
-  if(lesson)return <div className={`chronicle-activity-shell ${activityLeaving?'is-completing':''}`}><div className="activity-exit-sparkles" aria-hidden="true">{[0,1,2,3,4,5,6,7].map(item=><i key={item}/>)}</div><div className="chronicle-activity-paper">{lesson==='blend'?<ChronicleBlendLesson learnerId={learnerId} index={chapter} onBack={()=>setLesson(null)} onComplete={()=>{const next=saveGuidedReadingStop(learnerId,stopKey('blend'));finishActivity('blend',()=>setVisited(next),pageAfterStop('blend',next,practiceFinished,completed.includes(selected.id)));}}/>:<CampSoundLesson card={lesson} reviewMode={reviewMode} onBack={()=>setLesson(null)} onFinish={()=>{const next=saveGuidedReadingStop(learnerId,stopKey(lesson.word));const firstReward=selected.id==='gate'&&['mango','apple','top'].every(word=>next.includes(`gate:${word}`))&&!localStorage.getItem(`readlr_first_reward_v1_${learnerId}`);if(firstReward){localStorage.setItem(`readlr_first_reward_v1_${learnerId}`,'seen');setFeatureReward('Your Sticker Book and Sound Library are unlocked!');window.setTimeout(()=>setFeatureReward(''),4200);}finishActivity(lesson.word,()=>setVisited(next),pageAfterStop(lesson.word,next,practiceFinished,completed.includes(selected.id)));}}/>}</div></div>;
+  if(lesson)return <div className={`chronicle-activity-shell ${activityLeaving?'is-completing':''}`}><div className="activity-exit-sparkles" aria-hidden="true">{[0,1,2,3,4,5,6,7].map(item=><i key={item}/>)}</div><div className="chronicle-activity-paper">{lesson==='blend'?<ChronicleBlendLesson learnerId={learnerId} index={chapter} onBack={()=>setLesson(null)} onComplete={()=>{const next=saveGuidedReadingStop(learnerId,stopKey('blend'));finishActivity('blend',()=>setVisited(next),pageAfterStop('blend',next,practiceFinished,completed.includes(selected.id)));}}/>:<CampSoundLesson onSupport={kind=>{if(!sandbox&&lessonTask.current)pathwayEvent(kind,selected.id,lesson.word,lessonTask.current);}} card={lesson} reviewMode={reviewMode} onBack={()=>setLesson(null)} onFinish={()=>{const next=saveGuidedReadingStop(learnerId,stopKey(lesson.word));const firstReward=selected.id==='gate'&&['mango','apple','top'].every(word=>next.includes(`gate:${word}`))&&!localStorage.getItem(`readlr_first_reward_v1_${learnerId}`);if(firstReward){localStorage.setItem(`readlr_first_reward_v1_${learnerId}`,'seen');setFeatureReward('Your Sticker Book and Sound Library are unlocked!');window.setTimeout(()=>setFeatureReward(''),4200);}finishActivity(lesson.word,()=>setVisited(next),pageAfterStop(lesson.word,next,practiceFinished,completed.includes(selected.id)));}}/>}</div></div>;
   if(round)return <div className={`chronicle-activity-shell ${activityLeaving?'is-completing':''}`}><div className="activity-exit-sparkles" aria-hidden="true">{[0,1,2,3,4,5,6,7].map(item=><i key={item}/>)}</div><div className="chronicle-activity-paper"><ReadingRound key={`${round.chapter.id}-${round.checkpoint}`} learnerId={learnerId} previewMode={previewMode} reviewMode={reviewMode} localMode={deviceProgress} chapter={round.chapter} checkpoint={round.checkpoint}
     onBack={()=>setRound(null)} onPractice={()=>setRound({chapter:round.chapter,checkpoint:false})} onComplete={(passed,deviceOnly=false)=>{
+      if(!sandbox&&round.checkpoint&&passed){pathwayEvent('book-complete',selected.id);pathwayEvent('stop-complete',selected.id,'check');}
       const nextPracticed=practiceFinished||!round.checkpoint;
       const nextCompleted=passed?[...new Set([...completed,round.chapter.id])]:completed;
       const nextVisited=round.checkpoint?visited:saveGuidedReadingStop(learnerId,stopKey('games'));
@@ -156,8 +174,8 @@ export function ReadingJourney({learnerId,previewMode=false,reviewMode=false,onB
     {saveError&&<p role="status" className="reading-preview">{saveError}</p>}
     {featureReward&&<div className="reading-feature-unlock" role="status"><Sparkles/><div><strong>New places unlocked!</strong><span>{featureReward}</span></div></div>}
     <ChronicleBookWorld index={chapter} completed={completed.includes(selected.id)} practiceDone={practiceFinished} available={sandbox||available.includes(selected.id)} reviewMode={sandbox} openStops={openStops.filter(stop=>stop.startsWith(`${selected.id}:`)).map(stop=>stop.split(':')[1])} challengesOpen={openChallenges.includes(chapter+1)} onBack={onBack} onFinishBook={finishBook} celebrateStop={mapCelebration}
-      bookPage={bookPage} onPageChange={setBookPage} visited={chapterVisited} onSound={setLesson} onBlend={()=>setLesson('blend')}
-      onPractice={()=>setRound({chapter:selected,checkpoint:false})} onCheckpoint={()=>setRound({chapter:selected,checkpoint:true})}/>
+      bookPage={bookPage} onPageChange={setBookPage} visited={chapterVisited} onSound={card=>{startStop(card.word);setLesson(card);}} onBlend={()=>{startStop('blend');setLesson('blend');}}
+      onPractice={()=>{startStop('games');setRound({chapter:selected,checkpoint:false});}} onCheckpoint={()=>{startStop('check');setRound({chapter:selected,checkpoint:true});}}/>
   </div>;
 }
 
@@ -211,6 +229,10 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
   const started=useRef(new Date().toISOString());
   const session=useRef<string>(crypto.randomUUID());
   const live=useRef(true), inFlight=useRef(false), request=useRef<AbortController|null>(null);
+  const taskKey=session.current+':'+roundNumber+':'+index+':'+active.kind+':'+active.word+':'+remediation;
+  const track=(kind:string)=>{if(!sandbox)pathwayEvent(kind,chapter.id,checkpoint?'check':'games',taskKey);};
+  const lastTracked=useRef('');
+  useEffect(()=>{if(!complete && lastTracked.current!==taskKey){lastTracked.current=taskKey;track('task-start');}},[taskKey,complete]);
   const audioItem=useRef(0);
   const heading=useRef<HTMLElement>(null);
   const practice=usePracticeSession(sandbox||localMode?null:learnerId,3,`aral-${chapter.id}-${active.word}`,active.word);
@@ -278,6 +300,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
     setAnswerState('incorrect');setHelped(true);setDone(true);returnLater();setMessage('We can try this one again soon.');
   }
   function giveHint() {
+    track('hint');
     const hint=ladder[hintsUsed];
     if(!hint||done)return;
     setHintsUsed(hintsUsed+1);setMessage(hintLine(hint,active));
@@ -299,6 +322,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
     void sound.narrateText({file:'',text:line});
   }
   async function hear() {
+    if(heard)track('replay');
     if(inFlight.current)return;
     const item=audioItem.current;
     if(active.kind!=='listen')setHelped(true);
@@ -313,6 +337,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
   }
   function answer(value:string,kind:'selection'|'construction'='selection') {
     if(done||busy)return;
+    if(misses>0)track('retry');
     const correct=value===active.word;
     save(correct?'correct':'incorrect',value,kind);
     setSelectedAnswer(value);
@@ -346,6 +371,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
   async function record() {
     if(inFlight.current||done)return;
     if(previewMode){setMessage('Sign in to check your voice. You can still explore the practice games here.');return;}
+    if(misses>0)track('retry');
     inFlight.current=true;setBusy(true);setMessage('Getting your microphone ready...');sound.stop();
     try {
       const blob=await recorder.capture(setSeconds,async()=>{if(live.current){setRecording(true);setMessage('Milo is listening...');}});
@@ -387,7 +413,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
       else if(result.status==='different')markIncorrect(`Let's try “${active.word}” again in a moment.`);
       else markIncorrect('Let’s give that word another try in a moment.');
     } catch(error) {
-      if(live.current){if(!sandbox&&!localMode)practice.recognize('unavailable');save('unavailable',null,'speech_prediction');setMessage(error instanceof Error?error.message:'Word checking is unavailable. Try again.');}
+      if(live.current){if(!sandbox&&!localMode)practice.recognize('unavailable');track('incident');save('unavailable',null,'speech_prediction');setMessage(error instanceof Error?error.message:'Word checking is unavailable. Try again.');}
     } finally {inFlight.current=false;if(live.current){setBusy(false);setRecording(false);}}
   }
   function next(skipped?:ReadingTask) {
@@ -418,7 +444,7 @@ function ReadingRound({learnerId,previewMode,reviewMode,localMode=false,chapter,
         setIssued(saved);
         if((active.kind==='meaning'?saved.results.meaning:saved.results[index])!=='skipped')throw new Error('This answer was already saved. Reopen the checkpoint to resume.');
       }
-      save('no_response',null,active.kind==='read'?'speech_prediction':'selection');setUnassessed(s=>s+1);next(!checkpoint&&!remediation?active:undefined);
+      track('skip');save('no_response',null,active.kind==='read'?'speech_prediction':'selection');setUnassessed(s=>s+1);next(!checkpoint&&!remediation?active:undefined);
     }catch(error){if(live.current)setMessage(error instanceof Error?error.message:'Could not save. Please retry.');}
     finally{inFlight.current=false;if(live.current)setBusy(false);}
   }

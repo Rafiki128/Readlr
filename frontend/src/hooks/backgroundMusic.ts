@@ -3,7 +3,7 @@ import { learningVolume } from "./learningSettings.ts";
 const MUSIC_FILE = "/audio/music/the-mountain-retro-game.mp3";
 const OFF_KEY = "readlr_music_off";
 // The track plays well below Milo's voice so small sound differences stay audible.
-const MUSIC_LEVEL = 0.1;
+const MUSIC_LEVEL = 0.1 * 0.4; // Default to 40% of the music mix, independent of narration.
 
 export const musicVolume = (settingsVolume: number) => Math.max(0, Math.min(1, settingsVolume * MUSIC_LEVEL));
 

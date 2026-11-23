@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { supabase, unwrap } from '../../database/db.js';
-import { recognizeCvcWord } from '../audio/audio.service.js';
 import { surveyAssigned } from '../admin/survey.controller.js';
 import {
   ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_MAX_MS, FLUENCY_WORDS, STUDY_BOOKS, blendTranscriptionPrompt, categoryTotal, allocateGroups, finalScore, fluencyScore, shuffled, studyTranscriptionPrompt, wcpm, wordCategory,
@@ -10,6 +9,9 @@ import {
 export const STUDY_BUCKET = 'study-recordings';
 
 export interface StudySession {
+  pre_check?:unknown; post_check?:unknown;
+  withdrawn?:boolean;
+  entry_pending?: boolean;
   user_id: number; participant_code: string; study_group: StudyGroup; phase: StudyPhase; learning_minutes: number | null;
   pretest_order: string[]; posttest_order: string[];
   pretest_blend_order: string[] | null; posttest_blend_order: string[] | null;
@@ -26,6 +28,7 @@ export interface StudyResponse {
 }
 export interface StudyFluency {
   id: string; user_id: number; phase: 'pretest' | 'posttest'; word_order: string[]; started_at: string | null; duration_ms: number | null;
+  review_status?: string|null; technical_note?:string|null;
   recording_path: string | null; skipped: boolean; words_attempted: number | null; error_positions: number[] | null; words_correct: number | null;
   scored_at: string | null; created_at: string;
 }
@@ -40,7 +43,7 @@ export function learningEndsAt(session: Pick<StudySession, 'learning_started_at'
 export async function getSession(userId: number): Promise<StudySession | null> {
   const session = unwrap(await supabase.from('readlr_study_sessions').select('*').eq('user_id', userId).maybeSingle()) as StudySession | null;
   if (session?.phase === 'pretest' && (!session.pretest_blend_order || session.pretest_fluency_order === null)) return addMissingParts(session);
-  if (session?.phase === 'learning' && (learningEndsAt(session)?.getTime() ?? Infinity) <= Date.now()) return advance(session, 'learning', 'posttest');
+
   return session;
 }
 
@@ -66,48 +69,13 @@ async function advance(session: StudySession, from: StudyPhase, to: StudyPhase):
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { phase: to, updated_at: now };
   if (to === 'learning') patch.learning_started_at = now;
+  if (to === 'learning' || to === 'done') patch.entry_pending = true;
   if (to === 'posttest') patch.posttest_started_at = now;
   if (to === 'done') patch.finished_at = now;
   // Conditional on the current phase so two devices cannot advance twice.
   const rows = unwrap(await supabase.from('readlr_study_sessions').update(patch).eq('user_id', session.user_id).eq('phase', from).select('*')) as StudySession[];
-  if (to === 'done' && rows[0]) await assignSurveyOnFinish(session.user_id);
+
   return rows[0] ?? (unwrap(await supabase.from('readlr_study_sessions').select('*').eq('user_id', session.user_id).single()) as StudySession);
-}
-
-/**
- * A learner who finishes the posttest goes straight on to the student survey, so it is assigned to
- * them here. A teacher's explicit per-learner choice is never overwritten. Uses the same revision
- * check as the admin assignment screen so concurrent changes are not lost.
- */
-export async function assignSurveyOnFinish(userId: number) {
-  try {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const row = unwrap(await supabase.from('survey_assignment').select('overrides,revision').eq('id', 1).maybeSingle()) as { overrides: Record<string, boolean> | null; revision: number } | null;
-      if (!row) return;
-      const overrides = row.overrides ?? {};
-      if (String(userId) in overrides) return;
-      const saved = unwrap(await supabase.from('survey_assignment').update({ overrides: { ...overrides, [String(userId)]: true }, revision: row.revision + 1 })
-        .eq('id', 1).eq('revision', row.revision).select('id')) as unknown[];
-      if (saved.length) return;
-    }
-  } catch (error) {
-    // Finishing the study must never fail because the survey is not set up.
-    console.warn('Survey could not be assigned after the posttest:', error instanceof Error ? error.message : error);
-  }
-}
-
-/** Reading Chronicles access while a study session is running. */
-export async function studyReadingAccess(userId: number): Promise<null | { blocked: true } | { books: string[] }> {
-  let session: StudySession | null;
-  try { session = await getSession(userId); }
-  catch (error) {
-    // The normal reading journey must keep working before the study migration is applied.
-    console.warn('Study session check skipped:', error instanceof Error ? error.message : error);
-    return null;
-  }
-  if (!session || session.phase === 'closed') return null;
-  if (session.phase !== 'learning') return { blocked: true };
-  return { books: STUDY_BOOKS[session.study_group] };
 }
 
 type Progress = { answered: string[]; fluencyDone: boolean };
@@ -129,14 +97,16 @@ function testComplete(session: StudySession, phase: 'pretest' | 'posttest', prog
 export async function learnerView(session: StudySession | null, known?: Progress) {
   if (!session || session.phase === 'closed') return { active: false as const };
   const testPhase = session.phase === 'pretest' || session.phase === 'posttest' ? session.phase : null;
+  const progress=testPhase?(known??await testProgress(session,testPhase)):null;
+  if(testPhase&&progress&&testComplete(session,testPhase,progress))return learnerView(await advance(session,testPhase,testPhase==='pretest'?'learning':'done'));
+  if (!testPhase && !session.entry_pending) return { active: false as const, systemUse:true };
   return {
     active: true as const,
     phase: session.phase,
-    books: STUDY_BOOKS[session.study_group],
     learningEndsAt: learningEndsAt(session)?.toISOString() ?? null,
     learningMinutes: session.learning_minutes,
     survey: session.phase === 'done' ? await surveyAssigned(session.user_id).catch(() => false) : false,
-    test: testPhase ? { phase: testPhase, ...testItems(session, testPhase), ...(known ?? await testProgress(session, testPhase)) } : null,
+    test: testPhase ? { phase: testPhase, ...testItems(session, testPhase), ...progress! } : null,
   };
 }
 
@@ -169,8 +139,6 @@ export async function recordAnswer(userId: number, phase: unknown, word: unknown
     if (path) await supabase.storage.from(STUDY_BUCKET).remove([path]);
     // A retried upload after a dropped connection: the first answer stands.
     if ((inserted.error as { code?: string }).code !== '23505') throw new Error(inserted.error.message);
-  } else if (file) {
-    queueAppScoring(inserted.data.id, word, file);
   }
   return finishIfComplete(session, session.phase);
 }
@@ -212,46 +180,6 @@ export async function recordFluency(userId: number, phase: unknown, file: { buff
   return finishIfComplete(session, session.phase);
 }
 
-// --- Automatic speech scoring runs in the background so children never wait on it
-// and a busy speech service cannot block the test.
-const pending: Array<{ id: string; word: string; file?: { buffer: Buffer; mimetype: string } }> = [];
-let running = 0;
-const MAX_PARALLEL = 2;
-export function queueAppScoring(id: string, word: string, file?: { buffer: Buffer; mimetype: string }) {
-  pending.push({ id, word, file });
-  pump();
-}
-function pump() {
-  while (running < MAX_PARALLEL && pending.length) {
-    const job = pending.shift()!;
-    running++;
-    void scoreJob(job).finally(() => { running--; pump(); });
-  }
-}
-async function scoreJob(job: { id: string; word: string; file?: { buffer: Buffer; mimetype: string } }) {
-  try {
-    let file = job.file;
-    if (!file) {
-      const row = unwrap(await supabase.from('readlr_study_responses').select('recording_path,recording_type').eq('id', job.id).single()) as { recording_path: string | null; recording_type: string | null };
-      if (!row.recording_path) return;
-      const download = await supabase.storage.from(STUDY_BUCKET).download(row.recording_path);
-      if (download.error || !download.data) throw new Error('Recording unavailable');
-      file = { buffer: Buffer.from(await download.data.arrayBuffer()), mimetype: row.recording_type ?? download.data.type };
-    }
-    const prompt = BLEND_ITEMS.includes(job.word) ? blendTranscriptionPrompt : studyTranscriptionPrompt;
-    let result;
-    try { result = await recognizeCvcWord(file, job.word, prompt()); }
-    catch {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      result = await recognizeCvcWord(file, job.word, prompt());
-    }
-    await supabase.from('readlr_study_responses').update({ app_result: result.status, app_transcript: result.transcript }).eq('id', job.id);
-  } catch (error) {
-    console.warn('Study app scoring failed:', error instanceof Error ? error.message : error);
-    await supabase.from('readlr_study_responses').update({ app_result: 'unavailable' }).eq('id', job.id);
-  }
-}
-
 // --- Admin
 
 async function readAll<T>(table: string, columns: string): Promise<T[]> {
@@ -275,14 +203,15 @@ export async function adminOverview() {
       return users.map(u => ({ id: u.id, email: u.email, name: byUser.get(u.id)?.name ?? u.email.split('@')[0], studyParticipant: byUser.get(u.id)?.study_participant === true }));
     })(),
   ]);
-  const enrolled = new Set(sessions.map(s => s.user_id));
+  const enrolled = new Set(sessions.filter(s=>!s.withdrawn).map(s => s.user_id));
   const learnerById = new Map(learners.map(l => [l.id, l]));
   return {
-    sessions: sessions.map(s => {
+    sessions: sessions.filter(s => !s.withdrawn && learnerById.get(s.user_id)?.studyParticipant).map(s => {
       const own = [...responses, ...fluency].filter(r => r.user_id === s.user_id);
       return {
         userId: s.user_id, name: learnerById.get(s.user_id)?.name ?? 'Learner', participantCode: s.participant_code, group: s.study_group,
-        phase: s.phase === 'learning' && (learningEndsAt(s)?.getTime() ?? Infinity) <= Date.now() ? 'posttest' : s.phase,
+        phase: s.phase, entryPending:s.entry_pending===true,
+        reviewed:responses.filter(r=>r.user_id===s.user_id&&(r.teacher_score!==null||r.skipped)).length+fluency.filter(r=>r.user_id===s.user_id&&(r.scored_at!==null||r.skipped)).length,
         learningMinutes: s.learning_minutes, learningEndsAt: learningEndsAt(s)?.toISOString() ?? null,
         pretestAnswered: own.filter(r => r.phase === 'pretest').length, posttestAnswered: own.filter(r => r.phase === 'posttest').length,
         // Part 3 is one recording, so it counts as one item.
@@ -302,9 +231,14 @@ export async function enroll(userIds: number[], learningMinutes: number | null) 
   const profiles = unwrap(await supabase.from('learner_profiles').select('user_id,study_participant').in('user_id', userIds)) as Array<{ user_id: number; study_participant: boolean }>;
   const consented = new Set(profiles.filter(p => p.study_participant).map(p => p.user_id));
   if (userIds.some(id => !consented.has(id))) throw new StudyError(400, 'Only learners marked as study participants (with signed consent) can be enrolled.');
-  const existing = await readAll<Pick<StudySession, 'user_id' | 'participant_code' | 'study_group'>>('readlr_study_sessions', 'user_id,participant_code,study_group,created_at');
-  if (userIds.some(id => existing.some(s => s.user_id === id))) throw new StudyError(409, 'Some learners already have a study session. Refresh and try again.');
-  const groups = allocateGroups(userIds, { A: existing.filter(s => s.study_group === 'A').length, B: existing.filter(s => s.study_group === 'B').length });
+  const existing = await readAll<Pick<StudySession, 'user_id' | 'participant_code' | 'study_group' | 'withdrawn' | 'finished_at' | 'learning_started_at' | 'posttest_started_at'>>('readlr_study_sessions', 'user_id,participant_code,study_group,withdrawn,finished_at,learning_started_at,posttest_started_at,created_at');
+  if (userIds.some(id => existing.some(s => !s.withdrawn && s.user_id === id))) throw new StudyError(409, 'Some learners already have a study session. Refresh and try again.');
+  const restores=existing.filter(s=>s.withdrawn&&userIds.includes(s.user_id));
+  for(const r of restores){
+    const phase=r.finished_at?'done':r.posttest_started_at?'posttest':r.learning_started_at?'learning':'pretest';
+    unwrap(await supabase.from('readlr_study_sessions').update({withdrawn:false,phase,entry_pending:false}).eq('user_id',r.user_id).eq('withdrawn',true));
+  }
+  const groups = allocateGroups(userIds.filter(id=>!restores.some(s=>s.user_id===id)), { A: existing.filter(s => s.study_group === 'A').length, B: existing.filter(s => s.study_group === 'B').length });
   let next = existing.reduce((max, s) => Math.max(max, Number(s.participant_code.slice(1))), 0);
   const rows = [...groups].map(([userId, group]) => ({
     user_id: userId, study_group: group, learning_minutes: learningMinutes,
@@ -313,8 +247,8 @@ export async function enroll(userIds: number[], learningMinutes: number | null) 
     pretest_blend_order: shuffled(BLEND_ITEMS), posttest_blend_order: shuffled(BLEND_ITEMS),
     pretest_fluency_order: shuffled(FLUENCY_WORDS), posttest_fluency_order: shuffled(FLUENCY_WORDS),
   }));
-  unwrap(await supabase.from('readlr_study_sessions').insert(rows));
-  return rows.length;
+  if(rows.length)unwrap(await supabase.from('readlr_study_sessions').insert(rows));
+  return rows.length+restores.length;
 }
 
 export async function updateSession(userId: number, action: unknown, group: unknown) {
@@ -326,7 +260,7 @@ export async function updateSession(userId: number, action: unknown, group: unkn
     if (session.phase !== 'pretest') throw new StudyError(409, 'Groups can only change before the learning phase starts.');
     unwrap(await supabase.from('readlr_study_sessions').update({ study_group: group, updated_at: now }).eq('user_id', userId).eq('phase', 'pretest'));
   } else if (action === 'start-posttest') {
-    if (session.phase !== 'learning') throw new StudyError(409, 'The learner is not in the learning phase.');
+    if (session.phase !== 'learning' || session.entry_pending) throw new StudyError(409, 'The learner is not in the learning phase.');
     await advance(session, 'learning', 'posttest');
   } else if (action === 'close') {
     if (session.phase !== 'done') throw new StudyError(409, 'Only finished sessions can return to the normal app.');
@@ -348,7 +282,7 @@ export async function scoringBatch(limit = 20) {
 }
 
 export async function setScore(id: string, score: unknown, adminId: number) {
-  if (!['correct', 'incorrect', 'unclear', null].includes(score as string | null)) throw new StudyError(400, 'Choose correct, incorrect, or unclear.');
+  if (!['correct', 'incorrect', 'skip', 'unclear', null].includes(score as string | null)) throw new StudyError(400, 'Choose correct, incorrect, or unclear.');
   const rows = unwrap(await supabase.from('readlr_study_responses').update({ teacher_score: score, scored_by: score ? adminId : null, scored_at: score ? new Date().toISOString() : null }).eq('id', id).eq('skipped', false).select('id')) as unknown[];
   if (!rows.length) throw new StudyError(404, 'Recording not found.');
 }
@@ -368,7 +302,8 @@ export async function fluencyScoringBatch() {
 }
 
 /** Saves the teacher's marks for one reading, or clears them when marks is null. */
-export async function setFluencyScore(id: string, marks: { errors: unknown; lastReached: unknown } | null, adminId: number) {
+export async function setFluencyScore(id: string, marks: { errors: unknown; lastReached: unknown } | null, adminId: number, status:unknown=marks?'complete':null, note?:unknown) {
+  if(![null,'complete','unclear','skip'].includes(status as string|null)|| (note!==undefined && (typeof note!=='string'||note.length>1000)) || (status==='complete')!==!!marks) throw new StudyError(400,'Invalid timed reading review.');
   const row = unwrap(await supabase.from('readlr_study_fluency').select('word_order').eq('id', id).eq('skipped', false).maybeSingle()) as Pick<StudyFluency, 'word_order'> | null;
   if (!row) throw new StudyError(404, 'Recording not found.');
   let patch: Record<string, unknown> = { words_attempted: null, error_positions: null, words_correct: null, scored_by: null, scored_at: null };
@@ -376,7 +311,7 @@ export async function setFluencyScore(id: string, marks: { errors: unknown; last
     try { patch = { ...fluencyScore(row.word_order.length, marks.errors, marks.lastReached), scored_by: adminId, scored_at: new Date().toISOString() }; }
     catch (error) { throw new StudyError(400, (error as Error).message); }
   }
-  unwrap(await supabase.from('readlr_study_fluency').update(patch).eq('id', id));
+  unwrap(await supabase.from('readlr_study_fluency').update({...patch,review_status:status,...(note!==undefined?{technical_note:note}:{}),...(status?{scored_by:adminId,scored_at:new Date().toISOString()}:{})}).eq('id', id));
 }
 
 export async function fluencyRecording(id: string) {
@@ -385,12 +320,6 @@ export async function fluencyRecording(id: string) {
   const download = await supabase.storage.from(STUDY_BUCKET).download(row.recording_path);
   if (download.error || !download.data) throw new Error('Recording unavailable');
   return { type: download.data.type || 'audio/webm', buffer: Buffer.from(await download.data.arrayBuffer()) };
-}
-
-export async function rescoreMissing() {
-  const rows = unwrap(await supabase.from('readlr_study_responses').select('id,word').eq('skipped', false).or('app_result.is.null,app_result.eq.unavailable').limit(1000)) as Array<{ id: string; word: string }>;
-  rows.forEach(row => queueAppScoring(row.id, row.word));
-  return rows.length;
 }
 
 // --- Results
@@ -436,5 +365,7 @@ export function summarize(sessions: StudySession[], responses: StudyResponse[], 
 
 export async function loadResults() {
   const [sessions, responses, fluency] = await Promise.all([readAll<StudySession>('readlr_study_sessions', '*'), readAll<StudyResponse>('readlr_study_responses', '*'), readAll<StudyFluency>('readlr_study_fluency', '*')]);
-  return { sessions, responses, fluency, summary: summarize(sessions.sort((a, b) => a.participant_code.localeCompare(b.participant_code)), responses, fluency) };
+  const active=sessions.filter(s=>!s.withdrawn).sort((a,b)=>a.participant_code.localeCompare(b.participant_code)), ids=new Set(active.map(s=>s.user_id));
+  const items=responses.filter(r=>ids.has(r.user_id)),readings=fluency.filter(r=>ids.has(r.user_id));
+  return {sessions:active,responses:items,fluency:readings,summary:summarize(active,items,readings)};
 }
