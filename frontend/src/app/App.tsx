@@ -1,4 +1,4 @@
-import {pathwayEvent} from './hooks/validationEvents';
+import {enableLearnerActivity,pathwayEvent} from './hooks/validationEvents';
 import { earnedProgress, preserveRewards } from "./components/progressReset";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useJourneySync } from "./hooks/useJourneySync";
@@ -326,7 +326,14 @@ function AppContent() {
     screen: currentScreen,
   });
   const studySession = useStudySession(token, isAuthenticated && user?.role === 'learner',user?.id);
-  useEffect(()=>{if(studySession.study?.systemUse)pathwayEvent('screen-view','',currentScreen);},[currentScreen,studySession.study?.systemUse]);
+  const trackLearnerActivity = isAuthenticated && user?.role === 'learner' && studySession.loaded && !studySession.study?.active;
+  useEffect(()=>{
+    enableLearnerActivity(trackLearnerActivity?token:null,user?.id);
+    return ()=>enableLearnerActivity(null);
+  },[trackLearnerActivity,token,user?.id]);
+  useEffect(()=>{
+    if(trackLearnerActivity)pathwayEvent('screen-view','',currentScreen);
+  },[currentScreen,trackLearnerActivity,studySession.study?.systemUse,token,user?.id]);
   const [mapEntry, setMapEntry] = useState<"dojo" | "valley" | "bridges" | undefined>();
   const [completedByStage, setCompletedByStage] = useState<Record<number, number>>({ ...DEFAULT_PROGRESS });
   const [completedBooksLoadedFor, setCompletedBooksLoadedFor] = useState<number | null>(null);

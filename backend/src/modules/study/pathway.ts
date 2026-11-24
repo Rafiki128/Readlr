@@ -9,7 +9,7 @@ export function pathway(events:PathEvent[]){
   const starts=unique('book-start'),ends=unique('book-complete');
   const stops=(kind:string)=>new Set(rows.filter(e=>e.kind===kind).map(e=>e.book+':'+e.stop));
   const startedStops=stops('stop-start'), finishedStops=stops('stop-complete');
-  const tasks=new Set(events.filter(e=>e.kind==='task-start').map(e=>e.task));
+  const tasks=new Set(events.filter(e=>e.kind==='task-start'&&e.task).map(e=>e.task));
   const taskEvents=events.filter(e=>tasks.has(e.task));
   const count=(kind:string)=>taskEvents.filter(e=>e.kind===kind).length;
   const distinct=(kinds:string[])=>new Set(taskEvents.filter(e=>kinds.includes(e.kind)).map(e=>e.task)).size;

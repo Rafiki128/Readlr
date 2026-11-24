@@ -3,6 +3,7 @@ import { RefreshCw, BookOpen, CheckCircle2 } from 'lucide-react';
 import { READING_CHAPTERS } from './aralCurriculum';
 import { adminReadingStops } from './adminReadingStops';
 import { chronicleStopLocked } from './chronicleRoute';
+import { LearnerActivity } from './LearnerActivityTimeline';
 import type { LearnerCurriculumState } from '../../hooks/learnerCurriculumState';
 import type { ClassroomPolicy } from '../hooks/useClassroom';
 import './adminReadingDetail.css';
@@ -62,5 +63,6 @@ export function AdminReadingDetail({userId,token}:{userId:number;token:string}) 
     <details className="admin-reading-evidence"><summary>Practice details and saved activities ({activities.length})</summary>{round&&<p>Saved practice position: {round.step+1}. Spoken words: {round.spoken.join(', ')||'None recorded'}.</p>}{activities.length?<ul>{activities.map(([key])=><li key={key}>{key.slice(chapter.id.length+1).replaceAll('-',' ')}: practiced</li>)}</ul>:<p>No sub-activity records for this book.</p>}</details>
     <details className="admin-reading-evidence" open><summary>Independent checkpoint history ({attempts.length})</summary>{attempts.length===0?<p>No checkpoint rounds recorded for this book.</p>:attempts.map((attempt,index)=><details className="admin-checkpoint-attempt" key={attempt.id}><summary><strong>{attempt.passed?'Passed':attempt.completed_at?'Finished, not passed':Date.parse(attempt.expires_at)<Date.now()?'Expired':'In progress'}</strong><span>{date(attempt.created_at)}{index===0?' - latest':''}</span></summary><div className="admin-word-results">{attempt.words.map((word,i)=><div key={i}><strong>{word}</strong><span>{resultLabel(attempt.results[String(i)])}</span></div>)}{chapter.id==='gate'&&<div><strong>Picture meaning</strong><span>{resultLabel(attempt.results.meaning)}</span></div>}</div>{attempt.completed_at&&<p>Finished {date(attempt.completed_at)}</p>}</details>)}</details>
     <details className="admin-reading-evidence"><summary>Learning Camp and Sound Library</summary><div className="admin-camp-status">{['First sounds','Slide sounds forward','Read a little word'].map((title,index)=><p key={title}><strong>{title}</strong><span>{state.guidedActivities[`camp-orientation:skipped:${index}`]?'Skipped':state.campOrientationStep>index?'Practiced':'Not recorded'}</span></p>)}</div><h4>Sound Library recording entries</h4>{state.soundRecordings.length?<ul>{state.soundRecordings.map((record,index)=><li key={index}>{record.word} - {date(record.recordedAt)}</li>)}</ul>:<p>No saved recordings.</p>}</details>
+    <LearnerActivity userId={userId} token={token} refresh={refresh}/>
   </section>;
 }

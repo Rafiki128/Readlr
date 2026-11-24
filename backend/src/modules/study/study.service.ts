@@ -9,6 +9,7 @@ import {
 export const STUDY_BUCKET = 'study-recordings';
 
 export interface StudySession {
+  pretest_ended_early_at?: string | null;
   pre_check?:unknown; post_check?:unknown;
   withdrawn?:boolean;
   entry_pending?: boolean;
@@ -210,7 +211,7 @@ export async function adminOverview() {
       const own = [...responses, ...fluency].filter(r => r.user_id === s.user_id);
       return {
         userId: s.user_id, name: learnerById.get(s.user_id)?.name ?? 'Learner', participantCode: s.participant_code, group: s.study_group,
-        phase: s.phase, entryPending:s.entry_pending===true,
+        phase: s.phase, entryPending:s.entry_pending===true, pretestEndedEarly:!!s.pretest_ended_early_at,
         reviewed:responses.filter(r=>r.user_id===s.user_id&&(r.teacher_score!==null||r.skipped)).length+fluency.filter(r=>r.user_id===s.user_id&&(r.scored_at!==null||r.skipped)).length,
         learningMinutes: s.learning_minutes, learningEndsAt: learningEndsAt(s)?.toISOString() ?? null,
         pretestAnswered: own.filter(r => r.phase === 'pretest').length, posttestAnswered: own.filter(r => r.phase === 'posttest').length,
@@ -259,6 +260,13 @@ export async function updateSession(userId: number, action: unknown, group: unkn
     if (group !== 'A' && group !== 'B') throw new StudyError(400, 'Choose group A or B.');
     if (session.phase !== 'pretest') throw new StudyError(409, 'Groups can only change before the learning phase starts.');
     unwrap(await supabase.from('readlr_study_sessions').update({ study_group: group, updated_at: now }).eq('user_id', userId).eq('phase', 'pretest'));
+  } else if (action === 'end-pretest') {
+    if (session.phase !== 'pretest' || session.withdrawn) throw new StudyError(409, 'Only an active pre-test can be ended.');
+    const ended = unwrap(await supabase.from('readlr_study_sessions').update({
+      phase: 'learning', entry_pending: false, learning_minutes: null, learning_started_at: now,
+      pretest_ended_early_at: now, updated_at: now,
+    }).eq('user_id', userId).eq('phase', 'pretest').eq('withdrawn', false).select('user_id').maybeSingle());
+    if (!ended) throw new StudyError(409, 'The learner’s assignment changed. Refresh the participant list.');
   } else if (action === 'start-posttest') {
     if (session.phase !== 'learning' || session.entry_pending) throw new StudyError(409, 'The learner is not in the learning phase.');
     await advance(session, 'learning', 'posttest');

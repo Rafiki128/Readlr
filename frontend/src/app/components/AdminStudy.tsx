@@ -8,7 +8,7 @@ import './study.css';
 import './validationDashboard.css';
 import {CohortDashboard} from './PathwayDashboard';
 
-interface Session { reviewed:number; entryPending?:boolean; userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
+interface Session { reviewed:number; entryPending?:boolean; pretestEndedEarly?:boolean; userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
 interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number } }
 interface Counts { correct: number; scored: number; total: number }
 interface Reading { wordsAttempted: number; wordsCorrect: number; durationSeconds: number; wcpm: number | null }
@@ -64,6 +64,15 @@ function StudySessions({token}:{token:string}) {
     else for(const s of selected)await api('/sessions/'+s.id,{method:'PUT',body:JSON.stringify({action:'start-posttest'})});
     choose([]);
   }catch(e){fail((e as Error).message);}finally{await load();wait(false);}}
+  async function endPretest(s:Session){
+    if(!window.confirm('End the pre-test for '+s.name+' and move them to System Use? Submitted answers are kept. Unsubmitted tasks will be marked incomplete.'))return;
+    wait(true);fail('');
+    try {
+      await api('/sessions/'+s.userId,{method:'PUT',body:JSON.stringify({action:'end-pretest'})});
+      await load();
+    } catch(e) { fail((e as Error).message); }
+    finally { wait(false); }
+  }
   return <div className="study-admin-grid">{error&&<p role="alert">{error}</p>}
     <details><summary>Assign assessments</summary><fieldset disabled={busy}><label>Assessment <select value={mode} onChange={e=>{assign(e.target.value as 'pre'|'post');choose([]);}}><option value="pre">Pre-test</option><option value="post">Post-test</option></select></label>
     <label><input type="checkbox" checked={!!eligible.length&&selected.length===eligible.length} onChange={e=>choose(e.target.checked?eligible.map(l=>l.id):[])}/> Select all eligible</label>
@@ -72,7 +81,7 @@ function StudySessions({token}:{token:string}) {
     <label className="vd-search">Find participant <input type="search" value={query} onChange={e=>search(e.target.value)}/></label>
     <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Participant</th><th>Assignment</th><th>Submitted</th><th>Record</th></tr></thead><tbody>
     {data?.eligible.filter(l=>l.name.toLowerCase().includes(query.toLowerCase())).map(l=><tr key={l.id}><td>{l.name}</td><td>Awaiting assignment</td><td>None</td><td><button onClick={()=>{assign('pre');choose([l.id]);const d=document.querySelector<HTMLDetailsElement>('.study-admin-grid>details');if(d)d.open=true;}}>Select for pre-test</button></td></tr>)}
-    {data?.sessions.filter(s=>(s.name+s.participantCode).toLowerCase().includes(query.toLowerCase())).map(s=><tr key={s.userId}><td><strong>{s.name}</strong><small className="vd-sub">{s.participantCode}</small></td><td>{s.entryPending?'Completed · awaiting world entry':['done','learning','closed'].includes(s.phase)?'System use':PHASE_LABEL[s.phase]}</td><td>Pre {s.pretestAnswered}/{s.itemCount}<br/>Post {s.posttestAnswered}/{s.itemCount}<small className="vd-sub">Reviewed or skipped: {s.reviewed}</small></td><td><button className="vd-open" onClick={()=>open({id:s.userId,name:s.name,tab:"System use"})}>Open record &rarr;</button></td></tr>)}</tbody></table></div>
+    {data?.sessions.filter(s=>(s.name+s.participantCode).toLowerCase().includes(query.toLowerCase())).map(s=><tr key={s.userId}><td><strong>{s.name}</strong><small className="vd-sub">{s.participantCode}</small></td><td>{s.entryPending?'Completed · awaiting world entry':['done','learning','closed'].includes(s.phase)?'System use':PHASE_LABEL[s.phase]}</td><td>Pre {s.pretestAnswered}/{s.itemCount}{s.pretestEndedEarly&&<small className="vd-sub">Pre-test ended by staff</small>}<br/>Post {s.posttestAnswered}/{s.itemCount}<small className="vd-sub">Reviewed or skipped: {s.reviewed}</small></td><td><div className="flex flex-wrap gap-2"><button className="vd-open" onClick={()=>open({id:s.userId,name:s.name,tab:"System use"})}>Open record &rarr;</button>{s.phase==='pretest'&&<button type="button" className="vd-open" disabled={busy} onClick={()=>void endPretest(s)}>End pre-test and move to System Use</button>}</div></td></tr>)}</tbody></table></div>
     {review&&<ValidationDossier api={api} token={token} {...review} initial={review.tab} onClose={()=>open(null)}/>}</div>;
 }
 

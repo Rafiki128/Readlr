@@ -1,6 +1,7 @@
 import {CHAPTER_IDS} from '../evidence/reading-catalog.js';
 import type { Request, Response } from 'express';
 import {eventsFor} from './workspace.js';
+import {incompletePretest} from './pretest-end.js';
 import {pathway,dayOf} from './pathway.js';
 import ExcelJS from 'exceljs';
 import { ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_WORDS, STUDY_BOOKS, categoryTotal, STUDY_VERSION, STUDY_WORDS, finalScore, wcpm, wordCategory } from './study.data.js';
@@ -141,7 +142,7 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
   const long = book.addWorksheet('Responses');
   // New columns are appended so existing column positions stay the same for earlier analysis files.
   long.addRow(['Participant', 'Group', 'Test', 'Position', 'Word', 'Category', 'Skipped', 'App result', 'App transcript', 'Teacher score', 'Final score (1/0)', 'Answered (UTC)', 'Item type', 'Prompt replayed',
-    'Words attempted', 'Words correct', 'Duration (s)', 'WCPM','Timed review status','Technical note','Word order shown']);
+    'Words attempted', 'Words correct', 'Duration (s)', 'WCPM','Timed review status','Technical note','Word order shown','Completion status']);
   for (const r of [...responses].sort((a, b) => (codeOf.get(a.user_id)?.participant_code ?? '').localeCompare(codeOf.get(b.user_id)?.participant_code ?? '') || a.phase.localeCompare(b.phase) * -1 || a.position - b.position)) {
     const session = codeOf.get(r.user_id);
     if (!session || (!ALL_STUDY_WORDS.includes(r.word) && !BLEND_ITEMS.includes(r.word))) continue;
@@ -158,6 +159,14 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
     long.addRow([session.participant_code, session.study_group, f.phase, '', '', 'fluency', f.skipped ? 'Yes' : 'No', '', '', '', '', new Date(f.created_at), 'fluency', '',
       f.words_attempted??'', f.words_correct??'', f.duration_ms!=null?Math.round(f.duration_ms / 100) / 10:'', scored?wcpm(f.words_correct!, f.duration_ms!)??'':'',
       f.skipped?'skip':f.review_status??(scored?'complete':''), f.technical_note??'', f.word_order.join(' ')]);
+  }
+  for (const s of sessions) {
+    for (const item of incompletePretest(s,responses,fluency)) {
+      const row = long.addRow([s.participant_code,s.study_group,'pretest',item.position+1,item.word,
+        item.type==='fluency'?'fluency':item.type==='blend'?'blend':ALL_STUDY_WORDS.includes(item.word)?wordCategory(s.study_group,item.word):'',
+        '','','','','','',item.type]);
+      row.getCell(22).value = 'Incomplete';
+    }
   }
   long.getColumn(12).numFmt = 'yyyy-mm-dd hh:mm:ss';
   const wide = book.addWorksheet('Summary');
@@ -192,6 +201,7 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
   notes.addRow(['One-minute reading', `${FLUENCY_WORDS.join(', ')} (Part 3: the same 40 words in a new random order each test, read aloud in one recording of up to 60 s). Teacher-scored only. Words attempted = position of the last word reached; words correct = attempted minus words marked wrong; WCPM = words correct / (duration s / 60), 1 decimal.`]);
   notes.addRow(['Categories', 'Historical word-set labels, not evidence of exposure. Use recorded book and stop events to describe actual activity.']);
   notes.addRow(['Final score', 'Teacher score when available, otherwise the app result (matched = 1, different = 0). Skipped = 0. Unclear or unscored items are blank.']);
+  notes.addRow(['Incomplete', 'An unsubmitted item when staff ended a pre-test. It is not a learner skip and has no score.']);
   notes.addRow(['Teacher scoring', 'Manual review: staff may score in participant view or the blind scoring queue.']);
   notes.addRow(['App/teacher agreement', summary.agreement.percent === null ? 'Not yet available' : `${summary.agreement.percent}% of ${summary.agreement.compared} recordings`]);
   notes.addRow(['Privacy', 'Participants are identified by code only. Keep the code-to-name list separately and within the authorized research team.']);

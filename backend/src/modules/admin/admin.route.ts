@@ -7,6 +7,7 @@ import { listRecovery, approveRecovery } from '../auth/recovery.controller.js';
 import { getSurvey,submitSurvey,getSurveyAssignments,assignSurvey,listSurveyResponses,exportSurvey,resetSurvey } from './survey.controller.js';
 
 import { getLearnerReadingDetail } from './learner-reading.controller.js';
+import { getLearnerActivity } from '../learner/learner.activity.js';
 
 const router = Router();
 router.get('/survey/me',authMiddleware,requireRole('learner'),getSurvey);
@@ -18,6 +19,7 @@ router.get('/survey/export',authMiddleware,requireRole('admin'),exportSurvey);
 router.post('/survey/reset',authMiddleware,requireRole('admin'),resetSurvey);
 
 router.get('/learners/:id/reading', authMiddleware, requireRole('admin'), getLearnerReadingDetail);
+router.get('/learners/:id/activity', authMiddleware, requireRole('admin'), getLearnerActivity);
 router.get('/learners', authMiddleware, requireRole('admin'), handleGetLearners);
 router.put('/learners/:id/study-participant', authMiddleware, requireRole('admin'), handleSetStudyParticipant);
 router.get('/password-requests', authMiddleware, requireRole('admin'), listRecovery);

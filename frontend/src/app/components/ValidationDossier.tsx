@@ -4,6 +4,7 @@ import {LearnerDashboard} from './PathwayDashboard';
 import {Play} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 import {AdminSurveyAssignment} from './AdminSurvey';
+import {ActivityTimeline} from './LearnerActivityTimeline';
 export type ValidationApi=(path:string,init?:RequestInit)=>Promise<Response>;
 type Phase='pretest'|'posttest';
 type Tab=Phase|'System use'|'Results'|'Survey';
@@ -11,6 +12,7 @@ interface Item {id:string;word:string;item_type:string;phase:Phase;audio:boolean
 interface Reading {id:string;phase:Phase;skipped:boolean;audio:boolean;word_order:string[];duration_ms:number;words_attempted:number|null;error_positions:number[]|null;review_status:string|null;technical_note:string|null}
 interface Checklist {counts:boolean;skips:boolean;exceptions:boolean;initials:string}
 interface Detail {responses:Item[];fluency:Reading[];pre?:Checklist;post?:Checklist;
+  pretestEndedEarly?:boolean;incompletePretest?:{type:'word'|'blend'|'fluency';word:string;position:number}[];
   pathway:{starts:string[];ends:string[];resumed:boolean;rates:Record<string,{n:number;d:number;value:number|null}>};
   events:{kind:string;book:string;stop:string;task:string;occurred_at:string}[]}
 type Save=(path:string,body:object)=>Promise<void>;
@@ -47,20 +49,21 @@ export function ValidationDossier({api,token,id,name,initial,onClose}:{api:Valid
   const save:Save=async(path,body)=>{wait(true);fail('');tell('');try{await api(path,{method:'PUT',body:JSON.stringify(body)});set(await (await api('/participants/'+id)).json());tell('Review saved.');}catch(e){fail((e as Error).message);}finally{wait(false);}};
   useEffect(()=>{if(tab!=='System use')return;const timer=setInterval(()=>{if(!document.hidden)refresh(n=>n+1);},15000);return()=>clearInterval(timer);},[tab]);
   const phase=tab==='pretest'||tab==='posttest'?tab:null;
-  const fmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'});
   const title=(id:string)=>READING_CHAPTERS.find(b=>b.id===id)?.title??id;
-  const days=d?[...new Set(d.events.map(e=>fmt.format(new Date(e.occurred_at))))].reverse():[];
   return <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose();}}><DialogContent className="validation-dossier vd-dialog"><header className="vd-record-head"><DialogTitle>{name}</DialogTitle><DialogDescription>Participant validation record</DialogDescription></header>
     <nav aria-label="Participant records">{(['pretest','System use','posttest','Results','Survey'] as Tab[]).map(t=><button key={t} aria-pressed={tab===t} onClick={()=>{setTab(t);tell('');}}>{t==='pretest'?'Pre-test':t==='posttest'?'Post-test':t}</button>)}</nav>
     {error&&<p role="alert">{error} <button onClick={()=>{fail('');refresh(tick+1);}}>Retry</button></p>}{notice&&<p role="status">{notice}</p>}
     {!d?<p>Loading participant record...</p>:<fieldset disabled={busy}>
-    {phase&&<>{(['word','blend'] as const).map(type=>{const rows=d.responses.filter(i=>i.phase===phase&&i.item_type===type);return <details key={phase+type} className="vd-review"><summary>{type==='word'?'Printed words':'Sound blending'} · {rows.length}/{type==='word'?15:10} submitted</summary>
+    {phase==='pretest'&&d.pretestEndedEarly&&<p>Pre-test ended by staff. {d.incompletePretest?.length??0} incomplete tasks.</p>}
+    {phase&&<>{(['word','blend'] as const).map(type=>{const rows=d.responses.filter(i=>i.phase===phase&&i.item_type===type);const missing=phase==='pretest'?d.incompletePretest?.filter(i=>i.type===type)??[]:[];return <details key={phase+type} className="vd-review"><summary>{type==='word'?'Printed words':'Sound blending'} · {rows.length}/{type==='word'?15:10} submitted{missing.length>0&&' · '+missing.length+' incomplete'}</summary>
     {rows.map(r=><div className="review-row" key={r.id}><strong>{r.word}</strong>{r.audio?<AudioClip api={api} path={'/recordings/'+r.id}/>:<span>No audio</span>}
-    {r.skipped?'Skipped by learner':<select aria-label={'Outcome for '+r.word} value={r.teacher_score??''} onChange={e=>void save('/responses/'+r.id+'/score',{score:e.target.value||null})}>{['','correct','incorrect','skip','unclear'].map(x=><option key={x} value={x}>{x||'Not reviewed'}</option>)}</select>}</div>)}</details>;})}
+    {r.skipped?'Skipped by learner':<select aria-label={'Outcome for '+r.word} value={r.teacher_score??''} onChange={e=>void save('/responses/'+r.id+'/score',{score:e.target.value||null})}>{['','correct','incorrect','skip','unclear'].map(x=><option key={x} value={x}>{x||'Not reviewed'}</option>)}</select>}</div>)}
+    {missing.map(r=><div className="review-row" key={r.position}><strong>{r.word}</strong><span>Incomplete</span></div>)}</details>;})}
+    {phase==='pretest'&&d.incompletePretest?.some(r=>r.type==='fluency')&&<section><h3>One-minute reading</h3><p>Incomplete</p></section>}
     {d.fluency.filter(f=>f.phase===phase).map(r=><Timed key={r.id} api={api} r={r} save={save}/>)}<CheckForm key={phase} phase={phase} value={phase==='pretest'?d.pre:d.post} id={id} save={save}/></>}
     {(tab==='System use'||tab==='Results')&&<LearnerDashboard path={d.pathway} events={d.events}/>}
     {tab==='System use'&&<section><h3>Book and stop activity</h3>{d.pathway.starts.map(book=>{const rows=d.events.filter(e=>e.book===book);return <details key={book}><summary>{title(book)} · {d.pathway.ends.includes(book)?'Completed':'Opened'}</summary>{[...new Set(rows.map(e=>e.stop).filter(Boolean))].map(stop=>{const events=rows.filter(e=>e.stop===stop);return <p key={stop}><strong>{stop}</strong>: {events.filter(e=>e.kind==='stop-start').length} visits · {events.some(e=>e.kind==='stop-complete')?'Completed':'No completion recorded'} · {events.filter(e=>e.kind==='retry').length} retries · {events.filter(e=>e.kind==='skip').length} skips · {events.filter(e=>e.kind==='incident').length} technical incidents</p>;})}</details>;})}</section>}
-    {tab==='System use'&&<section><h3>Activity by date · Manila</h3>{!days.length&&<p>No pathway events recorded.</p>}{days.map(day=><details key={day}><summary>{day}</summary>{d.events.filter(e=>fmt.format(new Date(e.occurred_at))===day).map((e,i)=><p key={i}>{new Date(e.occurred_at).toLocaleTimeString('en-PH',{timeZone:'Asia/Manila'})} · {title(e.book)} {e.stop} · {e.kind==='screen-view'?'Opened screen':e.kind}</p>)}</details>)}</section>}
+    {tab==='System use'&&<section><h3>Activity by date · Manila</h3><ActivityTimeline events={d.events}/></section>}
     {tab==='Results'&&<section><h3>Matched results</h3>{['word','blend'].map(type=>{const [a,b]=['pretest','posttest'].map(p=>tally(d.responses.filter(r=>r.phase===p&&r.item_type===type)));const total=type==='word'?15:10;return <p key={type}>{type==='word'?'Printed words':'Blending'}: Pre {a.correct}/{a.n} scored; Post {b.correct}/{b.n} scored. Change: {a.n===total&&b.n===total?b.correct-a.correct:'Pending full scoring'}.</p>;})}
     {(['pretest','posttest'] as Phase[]).map(p=>{const r=d.fluency.find(f=>f.phase===p);return <p key={p}>{p} WCPM: {r?.words_attempted!=null&&r.duration_ms?((r.words_attempted-(r.error_positions??[]).length)*60000/r.duration_ms).toFixed(1):'Not scored'}</p>;})}</section>}
     {tab==='Survey'&&<AdminSurveyAssignment token={token} target={String(id)} name={name}/>}</fieldset>}

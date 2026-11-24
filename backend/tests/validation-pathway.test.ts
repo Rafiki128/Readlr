@@ -14,3 +14,11 @@ test('support counts unique attempted tasks, retries are a count ratio, and zero
   assert.equal(p.resumed,true);assert.equal(p.rates['Tasks using support'].value,100);assert.equal(p.rates['Retries per task'].value,2);
   assert.equal(pathway([]).rates['Tasks skipped'].value,null);
 });
+
+test('older activity without attempt IDs does not inflate task rates',()=>{
+  const p=pathway([event('task-start','gate','games',''),event('skip','gate','games',''),
+    event('task-start','gate','games','new'),event('retry','gate','games','new')]);
+  assert.deepEqual(p.rates['Tasks skipped'],{n:0,d:1,value:0});
+  assert.deepEqual(p.rates['Tasks using support'],{n:1,d:1,value:100});
+  assert.equal(pathway([event('task-start','gate','games','')]).rates['Tasks skipped'].value,null);
+});
