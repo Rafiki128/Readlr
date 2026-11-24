@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_WORDS, STUDY_BOOKS, STUDY_WORDS, allocateGroups, blendTranscriptionPrompt, categoryTotal, finalScore, fluencyScore, studyTranscriptionPrompt, wcpm, wordCategory } from '../src/modules/study/study.data.js';
 import { READING_BANKS } from '../src/modules/evidence/reading-catalog.js';
 process.env.SUPABASE_URL = 'http://127.0.0.1:1'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-only';
-const { summarize, getSession, updateSession, learningEndsAt, recordAnswer, recordFluency, setFluencyScore } = await import('../src/modules/study/study.service.js');
+const { summarize, getSession, learnerView, updateSession, learningEndsAt, recordAnswer, recordFluency, setFluencyScore } = await import('../src/modules/study/study.service.js');
 const { supabase } = await import('../src/database/db.js');
 const { enrollStudy, answerStudyWord, deleteStudySession, scoreFluency, scoreResponse, studyWorkbook } = await import('../src/modules/study/study.controller.js');
 const response = () => ({ statusCode: 200, body: null as any, status(n: number) { this.statusCode = n; return this; }, json(d: any) { this.body = d; return this; }, setHeader() {} });
@@ -122,7 +122,11 @@ function stubSessionRow(row: any) {
     const matches = () => Object.entries(filters).every(([k, v]) => row[k] === v);
     const query: any = {
       select: () => query, eq: (k: string, v: unknown) => { filters[k] = v; return query; }, update: (p: Record<string, unknown>) => { patch = p; return query; },
-      maybeSingle: async () => ({ data: matches() ? { ...row } : null, error: null }),
+      maybeSingle: async () => {
+        const hit = matches();
+        if (hit && patch) Object.assign(row, patch);
+        return { data: hit ? { ...row } : null, error: null };
+      },
       single: async () => ({ data: { ...row }, error: null }),
       then: (resolve: (v: unknown) => unknown) => { const hit = matches(); if (hit && patch) Object.assign(row, patch); return resolve({ data: hit ? [{ ...row }] : [], error: null }); },
     };
@@ -157,6 +161,20 @@ test('start-posttest advances an untimed session', async () => {
     await updateSession(9, 'start-posttest', undefined);
     assert.equal(row.phase, 'posttest');
     assert.ok(row.posttest_started_at);
+  } finally { restore(); }
+});
+
+test('staff can end an active pre-test and later assign the post-test', async () => {
+  const row = { ...readingSession('pretest'), withdrawn: false, entry_pending: true };
+  const restore = stubSessionRow(row);
+  try {
+    await updateSession(row.user_id, 'end-pretest', undefined);
+    assert.ok(row.pretest_ended_early_at);
+    assert.equal(row.learning_minutes, null);
+    assert.deepEqual(await learnerView(row), {active: false, systemUse: true});
+    await assert.rejects(updateSession(row.user_id, 'end-pretest', undefined), /Only an active pre-test/);
+    await updateSession(row.user_id, 'start-posttest', undefined);
+    assert.equal(row.phase, 'posttest');
   } finally { restore(); }
 });
 
@@ -450,7 +468,7 @@ test('summary and export add Part 3 columns at the end; skipped or unscored read
   for (let col = 21; col <= 29; col++) assert.ok(!wide.getRow(3).getCell(col).value, `P14 column ${col} is blank, not 0`);
 
   const long = book.getWorksheet('Responses')!;
-  assert.deepEqual((long.getRow(1).values as unknown[]).slice(15), ['Words attempted', 'Words correct', 'Duration (s)', 'WCPM','Timed review status','Technical note','Word order shown']);
+  assert.deepEqual((long.getRow(1).values as unknown[]).slice(15), ['Words attempted', 'Words correct', 'Duration (s)', 'WCPM','Timed review status','Technical note','Word order shown','Completion status']);
   const fluencyRows = long.getRows(2, long.rowCount - 1)!.filter(r => r.getCell(13).value === 'fluency');
   assert.equal(fluencyRows.length, 4);
   const p11post = fluencyRows.find(r => r.getCell(1).value === 'P11' && r.getCell(3).value === 'posttest')!;
@@ -458,4 +476,19 @@ test('summary and export add Part 3 columns at the end; skipped or unscored read
   const p14pre = fluencyRows.find(r => r.getCell(1).value === 'P14' && r.getCell(3).value === 'pretest')!;
   assert.equal(p14pre.getCell(7).value, 'Yes');
   for (let col = 15; col <= 18; col++) assert.ok(!p14pre.getCell(col).value, 'skipped reading is blank');
+});
+
+test('staff-ended pre-test exports incomplete tasks with no skip or score', () => {
+  const s = { ...readingSession('learning'), pretest_ended_early_at: '2026-11-24T00:00:00Z' };
+  const answers = [answer(s.user_id, 'pretest', 'sit', 'correct'), answer(s.user_id, 'pretest', 'pin', null, null, true)];
+  const summary = summarize([s], answers);
+  const book = studyWorkbook([s], answers, summary);
+  const sheet = book.getWorksheet('Responses')!;
+  assert.equal(sheet.getRow(2).getCell(11).value, 1);
+  assert.equal(sheet.getRow(3).getCell(7).value, 'Yes');
+  const incomplete = sheet.getRows(2, 26)!.filter(r => r.getCell(22).value === 'Incomplete');
+  assert.equal(incomplete.length, 24);
+  assert.ok(incomplete.some(r => r.getCell(13).value === 'fluency'));
+  assert.ok(incomplete.every(r => r.getCell(7).value === '' && r.getCell(11).value === ''));
+  assert.equal(summary.participants[0].complete, false);
 });

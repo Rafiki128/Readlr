@@ -1,4 +1,5 @@
 import {pathway} from './pathway.js';
+import {incompletePretest} from './pretest-end.js';
 import type { Request,Response } from 'express';
 import {supabase,unwrap} from '../../database/db.js';
 import {CHAPTER_IDS} from '../evidence/reading-catalog.js';
@@ -57,7 +58,8 @@ export async function participantDetail(req:Request,res:Response){
     const responses=unwrap(a) as StudyResponse[],fluency=unwrap(b) as StudyFluency[];
     return res.json({responses:responses.map(({recording_path,app_transcript,...r})=>({...r,audio:!!recording_path})),
       fluency:fluency.map(({recording_path,...f})=>({...f,audio:!!recording_path})),events,pathway:pathway(events),
-      pre:s.pre_check,post:s.post_check,result:summarize([s],responses,fluency).participants[0]});
+      pre:s.pre_check,post:s.post_check,pretestEndedEarly:!!s.pretest_ended_early_at,
+      incompletePretest:incompletePretest(s,responses,fluency),result:summarize([s],responses,fluency).participants[0]});
   }catch{return unavailable(res);}
 }
 export async function checkExport(req:Request,res:Response){
