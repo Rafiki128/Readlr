@@ -5,8 +5,17 @@ import { READING_BANKS } from '../src/modules/evidence/reading-catalog.js';
 process.env.SUPABASE_URL = 'http://127.0.0.1:1'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-only';
 const { summarize, getSession, learnerView, updateSession, learningEndsAt, recordAnswer, recordFluency, setFluencyScore } = await import('../src/modules/study/study.service.js');
 const { supabase } = await import('../src/database/db.js');
+const { systemUseWorkbook } = await import('../src/modules/study/workspace.js');
 const { enrollStudy, answerStudyWord, deleteStudySession, scoreFluency, scoreResponse, studyWorkbook } = await import('../src/modules/study/study.controller.js');
 const response = () => ({ statusCode: 200, body: null as any, status(n: number) { this.statusCode = n; return this; }, json(d: any) { this.body = d; return this; }, setHeader() {} });
+
+test('participant activity workbook includes summary and Manila-dated events',async()=>{
+  const book=systemUseWorkbook('P07',[{kind:'book-start',book:'gate',stop:'',task:'',occurred_at:'2026-11-24T17:00:00Z'}]);
+  assert.equal(book.getWorksheet('Summary')?.getCell('D2').value,'P07');
+  assert.equal(book.getWorksheet('Activity log')?.getCell('A2').value,'2026-11-25');
+  assert.equal(book.getWorksheet('Activity log')?.getCell('D2').value,'book-start');
+  assert.ok((await book.xlsx.writeBuffer()).byteLength>0);
+});
 
 test('instrument has 15 unique words; every set has two words per vowel except B transfer (one short u)', () => {
   assert.equal(ALL_STUDY_WORDS.length, 15);
