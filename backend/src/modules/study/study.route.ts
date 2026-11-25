@@ -1,5 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import {enterWorld,addEvent,participantDetail,checkExport,cohortPathway} from './workspace.js';
+import {enterWorld,addEvent,participantDetail,checkExport,cohortPathway,exportSystemUse} from './workspace.js';
 import multer from 'multer';
 import { authMiddleware, requireRole } from '../../middleware/auth.js';
 import {
@@ -28,6 +28,7 @@ const admin = [authMiddleware, requireRole('admin')];
 router.post('/me/enter',authMiddleware,requireRole('learner'),enterWorld);
 router.post('/me/event',authMiddleware,requireRole('learner'),addEvent);
 router.get('/admin/participants/:userId',...admin,participantDetail);
+router.get('/admin/participants/:userId/system-use.xlsx',...admin,exportSystemUse);
 router.get('/admin/pathway',...admin,cohortPathway);
 router.put('/admin/participants/:userId/check',...admin,checkExport);
 router.get('/me', authMiddleware, requireRole('learner'), getMyStudy);

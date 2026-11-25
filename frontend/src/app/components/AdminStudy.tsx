@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, FlaskConical, Play, RefreshCw, Undo2 } from 'lucide-react';
 import { CLASSROOM_API } from '../hooks/useClassroom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ValidationDossier } from './ValidationDossier';
+import { ReviewTag, ValidationDossier, type ReviewStatus } from './ValidationDossier';
 import { StudyFluencyScoring } from './AdminStudyFluency';
 import './study.css';
 import './validationDashboard.css';
 import {CohortDashboard} from './PathwayDashboard';
 
-interface Session { reviewed:number; entryPending?:boolean; pretestEndedEarly?:boolean; userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
+interface Session { lastSeen?:string|null;lastSubmission?:string|null;preReview?:ReviewStatus;postReview?:ReviewStatus; reviewed:number; entryPending?:boolean; pretestEndedEarly?:boolean; userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
 interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number } }
 interface Counts { correct: number; scored: number; total: number }
 interface Reading { wordsAttempted: number; wordsCorrect: number; durationSeconds: number; wcpm: number | null }
@@ -54,6 +54,7 @@ export function AdminStudy({ token }: { token: string }) {
 function StudySessions({token}:{token:string}) {
   const api=useApi(token),[data,set]=useState<Overview|null>(null),[error,fail]=useState(''),[busy,wait]=useState(false);
   const [chosen,choose]=useState<number[]>([]),[mode,assign]=useState<'pre'|'post'>('pre'),[query,search]=useState('');
+  const [sort,setSort]=useState('use'),[filter,setFilter]=useState('all');
   const [review,open]=useState<{id:number;name:string;tab:'pretest'|'posttest'|'System use'|'Results'|'Survey'}|null>(null);
   const load=useCallback(async()=>{try{set(await(await api('/overview')).json());}catch(e){fail((e as Error).message);}},[api]);
   useEffect(()=>{void load();const t=setInterval(()=>{if(!document.hidden)void load();},15000);return()=>clearInterval(t);},[load]);
@@ -73,16 +74,33 @@ function StudySessions({token}:{token:string}) {
     } catch(e) { fail((e as Error).message); }
     finally { wait(false); }
   }
+  const visible=(data?.sessions??[]).filter(s=>{
+    if(!(s.name+' '+s.participantCode).toLowerCase().includes(query.trim().toLowerCase()))return false;
+    if(filter==='pre-checked')return s.preReview?.checked;
+    if(filter==='post-checked')return s.postReview?.checked;
+    if(filter==='needs-review')return [s.preReview,s.postReview].some(r=>r&&r.submitted>0&&!r.checked);
+    return true;
+  }).sort((a,b)=>{
+    if(sort==='name')return a.name.localeCompare(b.name);
+    const date=(s:Session)=>Date.parse((sort==='use'?s.lastSeen:s.lastSubmission)??'')||0;
+    return date(b)-date(a)||a.participantCode.localeCompare(b.participantCode);
+  });
+  const recentDate=new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',dateStyle:'short',timeStyle:'short'});
   return <div className="study-admin-grid">{error&&<p role="alert">{error}</p>}
     <details><summary>Assign assessments</summary><fieldset disabled={busy}><label>Assessment <select value={mode} onChange={e=>{assign(e.target.value as 'pre'|'post');choose([]);}}><option value="pre">Pre-test</option><option value="post">Post-test</option></select></label>
     <label><input type="checkbox" checked={!!eligible.length&&selected.length===eligible.length} onChange={e=>choose(e.target.checked?eligible.map(l=>l.id):[])}/> Select all eligible</label>
     <div className="study-eligible">{eligible.map(l=><label key={l.id}><input type="checkbox" checked={chosen.includes(l.id)} onChange={e=>choose(e.target.checked?[...chosen,l.id]:chosen.filter(id=>id!==l.id))}/>{l.name}</label>)}{!eligible.length&&'No eligible learners.'}</div>
     <button className="admin-apply" disabled={!selected.length} onClick={()=>void apply()}>Assign {mode==='pre'?'pre-test':'post-test'} ({selected.length})</button></fieldset></details>
-    <label className="vd-search">Find participant <input type="search" value={query} onChange={e=>search(e.target.value)}/></label>
-    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Participant</th><th>Assignment</th><th>Submitted</th><th>Record</th></tr></thead><tbody>
-    {data?.eligible.filter(l=>l.name.toLowerCase().includes(query.toLowerCase())).map(l=><tr key={l.id}><td>{l.name}</td><td>Awaiting assignment</td><td>None</td><td><button onClick={()=>{assign('pre');choose([l.id]);const d=document.querySelector<HTMLDetailsElement>('.study-admin-grid>details');if(d)d.open=true;}}>Select for pre-test</button></td></tr>)}
-    {data?.sessions.filter(s=>(s.name+s.participantCode).toLowerCase().includes(query.toLowerCase())).map(s=><tr key={s.userId}><td><strong>{s.name}</strong><small className="vd-sub">{s.participantCode}</small></td><td>{s.entryPending?'Completed · awaiting world entry':['done','learning','closed'].includes(s.phase)?'System use':PHASE_LABEL[s.phase]}</td><td>Pre {s.pretestAnswered}/{s.itemCount}{s.pretestEndedEarly&&<small className="vd-sub">Pre-test ended by staff</small>}<br/>Post {s.posttestAnswered}/{s.itemCount}<small className="vd-sub">Reviewed or skipped: {s.reviewed}</small></td><td><div className="flex flex-wrap gap-2"><button className="vd-open" onClick={()=>open({id:s.userId,name:s.name,tab:"System use"})}>Open record &rarr;</button>{s.phase==='pretest'&&<button type="button" className="vd-open" disabled={busy} onClick={()=>void endPretest(s)}>End pre-test and move to System Use</button>}</div></td></tr>)}</tbody></table></div>
-    {review&&<ValidationDossier api={api} token={token} {...review} initial={review.tab} onClose={()=>open(null)}/>}</div>;
+    <div className="vd-roster-filters">
+    <label>Find participant <input type="search" value={query} onChange={e=>search(e.target.value)}/></label>
+    <label>Sort by <select value={sort} onChange={e=>setSort(e.target.value)}><option value="use">Recent use</option><option value="submission">Recent assessment submission</option><option value="name">Name</option></select></label>
+    <label>Review status <select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All participants</option><option value="needs-review">Review not confirmed</option><option value="pre-checked">Pre-test checked</option><option value="post-checked">Post-test checked</option></select></label>
+    </div>
+    <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Participant</th><th>Assignment</th><th>Submitted and review</th><th>Last use (Manila)</th><th>Record</th></tr></thead><tbody>
+    {filter==='all'&&data?.eligible.filter(l=>l.name.toLowerCase().includes(query.toLowerCase())).map(l=><tr key={l.id}><td>{l.name}</td><td>Awaiting assignment</td><td>None</td><td>—</td><td><button onClick={()=>{assign('pre');choose([l.id]);const d=document.querySelector<HTMLDetailsElement>('.study-admin-grid>details');if(d)d.open=true;}}>Select for pre-test</button></td></tr>)}
+    {visible.map(s=><tr key={s.userId}><td><strong>{s.name}</strong><small className="vd-sub">{s.participantCode}</small></td><td>{s.entryPending?'Completed · awaiting world entry':['done','learning','closed'].includes(s.phase)?'System use':PHASE_LABEL[s.phase]}</td><td>Pre {s.pretestAnswered}/{s.itemCount} <ReviewTag review={s.preReview}/>{s.pretestEndedEarly&&<small className="vd-sub">Pre-test ended by staff</small>}<br/>Post {s.posttestAnswered}/{s.itemCount} <ReviewTag review={s.postReview}/><small className="vd-sub">Reviewed or skipped: {s.reviewed}</small></td><td>{s.lastSeen?recentDate.format(new Date(s.lastSeen)):"Not recorded"}</td><td><div className="flex flex-wrap gap-2"><button className="vd-open" onClick={()=>open({id:s.userId,name:s.name,tab:"System use"})}>Open record &rarr;</button>{s.phase==='pretest'&&<button type="button" className="vd-open" disabled={busy} onClick={()=>void endPretest(s)}>End pre-test and move to System Use</button>}</div></td></tr>)}</tbody></table></div>
+    {data&&!visible.length&&filter!=='all'&&<p>No participants match this review filter.</p>}
+    {review&&<ValidationDossier api={api} token={token} {...review} initial={review.tab} onClose={()=>{open(null);void load();}}/>}</div>;
 }
 
 function StudyScoring({ token }: { token: string }) {

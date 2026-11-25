@@ -1,9 +1,10 @@
-import {pathway} from './pathway.js';
+import {dayOf,pathway,type PathEvent} from './pathway.js';
+import ExcelJS from 'exceljs';
 import {incompletePretest} from './pretest-end.js';
 import type { Request,Response } from 'express';
 import {supabase,unwrap} from '../../database/db.js';
 import {CHAPTER_IDS} from '../evidence/reading-catalog.js';
-import {getSession,learnerView,summarize,type StudyResponse,type StudyFluency} from './study.service.js';
+import {assessmentReview,getSession,learnerView,summarize,type StudyResponse,type StudyFluency} from './study.service.js';
 
 const user=(req:Request)=>(req as Request & {userId:number}).userId;
 const unavailable=(res:Response)=>res.status(503).json({message:'Validation data unavailable. Check connectivity and the validation workspace migration.'});
@@ -59,15 +60,62 @@ export async function participantDetail(req:Request,res:Response){
     return res.json({responses:responses.map(({recording_path,app_transcript,...r})=>({...r,audio:!!recording_path})),
       fluency:fluency.map(({recording_path,...f})=>({...f,audio:!!recording_path})),events,pathway:pathway(events),
       pre:s.pre_check,post:s.post_check,pretestEndedEarly:!!s.pretest_ended_early_at,
+      preReview:assessmentReview(s,'pretest',responses,fluency),postReview:assessmentReview(s,'posttest',responses,fluency),
       incompletePretest:incompletePretest(s,responses,fluency),result:summarize([s],responses,fluency).participants[0]});
   }catch{return unavailable(res);}
 }
 export async function checkExport(req:Request,res:Response){
-  const {phase,counts,skips,exceptions,initials}=req.body??{};
+  const {phase,counts,skips,exceptions,initials,checked}=req.body??{};
   const id=Number(req.params.userId);
   if(!Number.isSafeInteger(id)||!['pretest','posttest'].includes(phase)||![counts,skips,exceptions].every(x=>typeof x==='boolean')||typeof initials!=='string'||!initials.trim()||initials.length>20)return res.sendStatus(400);
   try{
-    unwrap(await supabase.from('readlr_study_sessions').update({[phase==='pretest'?'pre_check':'post_check']:{counts,skips,exceptions,initials:initials.trim()}}).eq('user_id',id).select('user_id').single());
+    const session=await getSession(id);
+    if(!session||session.withdrawn)return res.sendStatus(404);
+    if(checked===true){
+      const [items,timed]=await Promise.all([
+        supabase.from('readlr_study_responses').select('user_id,phase,skipped,teacher_score').eq('user_id',id).eq('phase',phase),
+        supabase.from('readlr_study_fluency').select('user_id,phase,skipped,scored_at').eq('user_id',id).eq('phase',phase),
+      ]);
+      if(!counts||!assessmentReview(session,phase,unwrap(items)??[],unwrap(timed)??[]).ready)
+        return res.status(409).json({message:'Check the task counts and review all submitted items before marking this test checked.'});
+    }
+    unwrap(await supabase.from('readlr_study_sessions').update({[phase==='pretest'?'pre_check':'post_check']:{counts,skips,exceptions,initials:initials.trim(),...(checked===true?{checkedAt:new Date().toISOString()}:{})}}).eq('user_id',id).select('user_id').single());
     return res.sendStatus(204);
+  }catch{return unavailable(res);}
+}
+
+export function systemUseWorkbook(code:string,events:PathEvent[]){
+  const book=new ExcelJS.Workbook();
+  const summary=book.addWorksheet('Summary');
+  const activity=book.addWorksheet('Activity log');
+  const stats=pathway(events);
+  summary.addRow(['Indicator','Count','Base','Value']);
+  summary.addRow(['Participant code','','',code]);
+  summary.addRow(['Recorded events','','',events.length]);
+  summary.addRow(['Last recorded use (UTC)','','',events.at(-1)?.occurred_at??'']);
+  summary.addRow(['Study home-window resume','','',stats.resumed?'Recorded':'Not recorded']);
+  for(const [label,rate] of Object.entries(stats.rates))summary.addRow([label,rate.n,rate.d,rate.value??'Not measured']);
+  activity.addRow(['Manila date','Manila time','Occurred (UTC)','Event','Book ID','Stop ID','Task ID']);
+  const time=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  for(const e of events)activity.addRow([dayOf(e.occurred_at),time.format(new Date(e.occurred_at)),e.occurred_at,e.kind,e.book,e.stop,e.task]);
+  for(const [sheet,widths] of [[summary,[42,12,12,27]],[activity,[16,16,29,22,18,22,42]]] as const){
+    sheet.views=[{state:'frozen',ySplit:1}];
+    sheet.getRow(1).font={bold:true};
+    widths.forEach((width,i)=>{sheet.getColumn(i+1).width=width;});
+  }
+  activity.autoFilter='A1:G1';
+  return book;
+}
+
+export async function exportSystemUse(req:Request,res:Response){
+  const id=Number(req.params.userId);
+  if(!Number.isSafeInteger(id)||id<1)return res.sendStatus(400);
+  try{
+    const session=await getSession(id);
+    if(!session||session.withdrawn)return res.sendStatus(404);
+    const book=systemUseWorkbook(session.participant_code,await eventsFor(id));
+    res.setHeader('Cache-Control','no-store');
+    res.attachment('readlr-system-use.xlsx');
+    return res.send(Buffer.from(await book.xlsx.writeBuffer()));
   }catch{return unavailable(res);}
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { supabase, unwrap } from '../../database/db.js';
 import { surveyAssigned } from '../admin/survey.controller.js';
+import { reviewStatus } from './review-status.js';
 import {
   ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_MAX_MS, FLUENCY_WORDS, STUDY_BOOKS, blendTranscriptionPrompt, categoryTotal, allocateGroups, finalScore, fluencyScore, shuffled, studyTranscriptionPrompt, wcpm, wordCategory,
   type CategoryKey, type ItemType, type StudyGroup, type StudyPhase, type WordCategory,
@@ -193,25 +194,31 @@ async function readAll<T>(table: string, columns: string): Promise<T[]> {
 }
 
 export async function adminOverview() {
-  const [sessions, responses, fluency, learners] = await Promise.all([
+  const [sessions, responses, fluency, learners, presence] = await Promise.all([
     readAll<StudySession>('readlr_study_sessions', '*'),
-    readAll<Pick<StudyResponse, 'user_id' | 'phase' | 'teacher_score' | 'skipped' | 'app_result'>>('readlr_study_responses', 'user_id,phase,teacher_score,skipped,app_result,created_at'),
-    readAll<Pick<StudyFluency, 'user_id' | 'phase' | 'skipped' | 'scored_at'>>('readlr_study_fluency', 'user_id,phase,skipped,scored_at,created_at'),
+    readAll<Pick<StudyResponse, 'user_id' | 'phase' | 'teacher_score' | 'skipped' | 'app_result' | 'created_at'>>('readlr_study_responses', 'user_id,phase,teacher_score,skipped,app_result,created_at'),
+    readAll<Pick<StudyFluency, 'user_id' | 'phase' | 'skipped' | 'scored_at' | 'created_at'>>('readlr_study_fluency', 'user_id,phase,skipped,scored_at,created_at'),
     (async () => {
       const users = unwrap(await supabase.from('users').select('id,email').eq('role', 'learner')) as Array<{ id: number; email: string }>;
       const profiles = unwrap(await supabase.from('learner_profiles').select('user_id,name,study_participant')) as Array<{ user_id: number; name: string; study_participant: boolean }>;
       const byUser = new Map(profiles.map(p => [p.user_id, p]));
       return users.map(u => ({ id: u.id, email: u.email, name: byUser.get(u.id)?.name ?? u.email.split('@')[0], studyParticipant: byUser.get(u.id)?.study_participant === true }));
     })(),
+    supabase.from('learner_presence').select('user_id,last_seen'),
   ]);
   const enrolled = new Set(sessions.filter(s=>!s.withdrawn).map(s => s.user_id));
   const learnerById = new Map(learners.map(l => [l.id, l]));
+  const lastSeen = new Map((presence.data??[]).map(r=>[r.user_id,r.last_seen]));
   return {
     sessions: sessions.filter(s => !s.withdrawn && learnerById.get(s.user_id)?.studyParticipant).map(s => {
       const own = [...responses, ...fluency].filter(r => r.user_id === s.user_id);
+      const lastSubmission = own.map(r=>r.created_at).sort((a,b)=>Date.parse(b)-Date.parse(a))[0]??null;
       return {
         userId: s.user_id, name: learnerById.get(s.user_id)?.name ?? 'Learner', participantCode: s.participant_code, group: s.study_group,
         phase: s.phase, entryPending:s.entry_pending===true, pretestEndedEarly:!!s.pretest_ended_early_at,
+        lastSeen:lastSeen.get(s.user_id)??null, lastSubmission,
+        preReview: assessmentReview(s,'pretest',responses,fluency),
+        postReview: assessmentReview(s,'posttest',responses,fluency),
         reviewed:responses.filter(r=>r.user_id===s.user_id&&(r.teacher_score!==null||r.skipped)).length+fluency.filter(r=>r.user_id===s.user_id&&(r.scored_at!==null||r.skipped)).length,
         learningMinutes: s.learning_minutes, learningEndsAt: learningEndsAt(s)?.toISOString() ?? null,
         pretestAnswered: own.filter(r => r.phase === 'pretest').length, posttestAnswered: own.filter(r => r.phase === 'posttest').length,
@@ -226,6 +233,16 @@ export async function adminOverview() {
     appPending: responses.filter(r => !r.skipped && r.app_result === null).length,
     groups: { A: sessions.filter(s => s.study_group === 'A').length, B: sessions.filter(s => s.study_group === 'B').length },
   };
+}
+
+export function assessmentReview(s:StudySession, phase:'pretest'|'posttest',
+  responses:Pick<StudyResponse,'user_id'|'phase'|'skipped'|'teacher_score'>[],
+  fluency:Pick<StudyFluency,'user_id'|'phase'|'skipped'|'scored_at'>[]) {
+  const {words,blends,fluency:order}=testItems(s,phase);
+  return reviewStatus(words.length+blends.length+Number(order.length>0),
+    responses.filter(r=>r.user_id===s.user_id&&r.phase===phase),
+    fluency.filter(r=>r.user_id===s.user_id&&r.phase===phase),
+    phase==='pretest'&&!!s.pretest_ended_early_at,phase==='pretest'?s.pre_check:s.post_check);
 }
 
 export async function enroll(userIds: number[], learningMinutes: number | null) {

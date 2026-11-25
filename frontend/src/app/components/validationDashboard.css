@@ -3,6 +3,13 @@
 .vd-sub{display:block;color:#526675;margin-top:3px}
 .vd-open,.vd-board button{color:#0a665a;background:#f0f8f6;border:1px solid #a7ccc4;border-radius:6px;font-weight:650;padding:7px 13px}
 .vd-search{display:flex;align-items:center;gap:12px}
+.vd-roster-filters,.vd-review-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.vd-roster-filters label{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.vd-review-actions{margin-top:10px}
+.vd-confirm{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border:1px solid #176d61;border-radius:6px;background:#176d61;color:#fff;font-weight:650}
+.vd-confirm:disabled,.vd-open:disabled{opacity:.55;cursor:not-allowed}
+.vd-review-tag{display:inline-block;border:1px solid #d9e2e6;border-radius:4px;background:#f2f5f6;color:#425766;padding:2px 6px;font-size:12px;font-weight:650}
+.vd-review-tag[data-checked=true]{background:#eaf6ee;color:#235e40;border-color:#aaceb5}
 .validation-dossier.vd-dialog{display:flex;flex-direction:column;gap:0;width:min(1180px,96vw);max-width:min(1180px,96vw)!important;height:min(860px,93dvh);max-height:94dvh;overflow:hidden;padding:0!important;border:1px solid #c6d5d6;border-radius:8px}
 .vd-record-head{padding:22px 28px 10px;border-top:4px solid #187e70}
 .vd-record-head h2{font-size:24px;font-weight:750}
