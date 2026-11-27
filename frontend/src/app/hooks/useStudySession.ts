@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { enableValidationEvents } from './validationEvents';
 import { CLASSROOM_API } from './useClassroom';
+import { pollDelay } from './learnerPolling';
 
 export type StudyPhase = 'pretest' | 'learning' | 'posttest' | 'done';
 export interface StudyState {
@@ -27,19 +28,39 @@ export function useStudySession(token: string | null, enabled: boolean,userId?:n
   useEffect(() => {
     if (!enabled || !token) { setState(null); setLoaded(true); return; }
     let active = true;
+    let busy = false;
+    let failures = 0;
+    let timer: number|undefined;
+    let controller: AbortController|undefined;
+    const next = (delay:number) => {
+      window.clearTimeout(timer);
+      if(active&&document.visibilityState==='visible')timer=window.setTimeout(()=>void load(),delay);
+    };
     const load = async () => {
+      if(!active||busy||document.visibilityState!=='visible')return;
+      busy=true;
+      controller=new AbortController();
       const requestVersion=++version.current;
       try {
-        const response = await fetch(`${CLASSROOM_API}/study/me`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
+        const response = await fetch(`${CLASSROOM_API}/study/me`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.any([controller.signal,AbortSignal.timeout(15000)]) });
         if (!response.ok) throw new Error('Unavailable');
         const data = await response.json() as StudyState;
+        failures=0;
         if (active && requestVersion===version.current) setState(data);
-      } catch { if (active) setState(previous => previous ?? { active: false }); }
-      finally { if (active) setLoaded(true); }
+      } catch {
+        failures++;
+        if (active && requestVersion===version.current) setState(previous => previous ?? { active: false });
+      } finally {
+        busy=false;
+        if(active)setLoaded(true);
+        next(pollDelay(failures?8000:28000,failures));
+      }
     };
-    void load();
-    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 15000);
-    return () => { active = false; window.clearInterval(timer); };
+    next(Math.random()*1200);
+    const resume=()=>{if(!busy)next(Math.random()*2000);};
+    window.addEventListener('online',resume);
+    document.addEventListener('visibilitychange',resume);
+    return () => { active=false;controller?.abort();window.clearTimeout(timer);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume); };
   }, [token, enabled, tick]);
   return { study: state, loaded, refresh, setStudy };
 }

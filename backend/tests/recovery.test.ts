@@ -6,7 +6,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY='test-only';
 process.env.JWT_SECRET='test-only-recovery-secret-0123456789';
 const {supabase}=await import('../src/database/db.js');
 const {requestRecovery,approveRecovery,completeRecovery,recoveryHash,listRecovery}=await import('../src/modules/auth/recovery.controller.js');
-const {authMiddleware}=await import('../src/middleware/auth.js');
+const {authMiddleware,requireRole}=await import('../src/middleware/auth.js');
 function response(){return {statusCode:200,body:undefined as any,setHeader(){},status(n:number){this.statusCode=n;return this;},json(data:unknown){this.body=data;return this;}};}
 const id='00000000-0000-4000-8000-000000000001',secret='a'.repeat(64);
 test('request list explicitly joins the learner, not the approving admin',async()=>{
@@ -47,4 +47,32 @@ test('password changes invalidate older sessions including legacy tokens',async(
     let next=false;const res=response();await authMiddleware({headers:{authorization:`Bearer ${token}`}} as any,res as any,()=>{next=true;});
     assert.equal(next,version===1);if(version!==1)assert.equal(res.statusCode,401);
   }}finally{supabase.from=original;}
+});
+
+test('authorization uses one stored identity read and does not trust a role in the token',async()=>{
+  const original=supabase.from;
+  let calls=0;
+  supabase.from=(()=>{calls++;const q:any={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:{auth_version:0,role:'learner'},error:null})};return q;}) as any;
+  try{
+    const token=jwt.sign({id:7,role:'admin'},process.env.JWT_SECRET!);
+    const req={headers:{authorization:`Bearer ${token}`}} as any;
+    const res=response();
+    let passed=false;
+    await authMiddleware(req,res as any,()=>{passed=true;});
+    assert.equal(passed,true);
+    await requireRole('admin')(req,res as any,()=>assert.fail('stale role must not be accepted'));
+    assert.equal(res.statusCode,403);
+    assert.equal(calls,1);
+  }finally{supabase.from=original;}
+});
+
+test('session database outages return 503, not an invalid-token response',async()=>{
+  const original=supabase.from;
+  supabase.from=(()=>{const q:any={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:null,error:{message:'Unavailable'}})};return q;}) as any;
+  try{
+    const token=jwt.sign({id:7},process.env.JWT_SECRET!);
+    const res=response();
+    await authMiddleware({headers:{authorization:`Bearer ${token}`}} as any,res as any,()=>assert.fail('no verified session'));
+    assert.equal(res.statusCode,503);
+  }finally{supabase.from=original;}
 });

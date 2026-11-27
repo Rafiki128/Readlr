@@ -795,6 +795,7 @@ function AppContent() {
   return (
     <div className="size-full flex flex-col">
       {classroomMessage}
+      {classroom.reconnecting&&<p role="status" className="fixed bottom-4 right-4 z-[60] max-w-[calc(100%-2rem)] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-sm">Reconnecting to Readlr. Some online actions may be delayed.</p>}
       {showLearnerHeader && (
         <NavigationHeader
           surveyAssigned={classroom.surveyAssigned}
