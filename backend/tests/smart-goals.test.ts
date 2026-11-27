@@ -301,9 +301,9 @@ test('export adds a SMART Goals sheet after the existing sheets', () => {
   const summary = summarize(sessions, responses);
   const plain = studyWorkbook(sessions, responses, summary);
   const book = studyWorkbook(sessions, responses, summary, [], smartGoals([learner(), learner({ code: 'P02' })]));
-  assert.deepEqual(book.worksheets.map(s => s.name), ['Responses', 'Summary', 'Notes', 'SMART Goals']);
+  assert.deepEqual(book.worksheets.map(s => s.name), ['Responses', 'Summary', 'Notes', 'Paired comparison', 'SMART Goals']);
   for (const name of ['Responses', 'Summary', 'Notes']) assert.deepEqual(book.getWorksheet(name)!.getRow(1).values, plain.getWorksheet(name)!.getRow(1).values, `${name} header unchanged`);
-  assert.deepEqual(plain.worksheets.map(s => s.name), ['Responses', 'Summary', 'Notes']);
+  assert.deepEqual(plain.worksheets.map(s => s.name), ['Responses', 'Summary', 'Notes', 'Paired comparison']);
   const sheet = book.getWorksheet('SMART Goals')!;
   const cells = (r: number) => (sheet.getRow(r).values as unknown[]).slice(1);
   assert.equal(cells(1)[0], 'Export date');

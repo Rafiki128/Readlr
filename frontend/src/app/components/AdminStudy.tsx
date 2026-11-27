@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, FlaskConical, Play, RefreshCw, Undo2 } from 'lucide-react';
 import { CLASSROOM_API } from '../hooks/useClassroom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ReviewTag, ValidationDossier, type ReviewStatus } from './ValidationDossier';
+import { matchedLabel, ReviewTag, ValidationDossier, type MatchedScore, type ReviewStatus } from './ValidationDossier';
 import { StudyFluencyScoring } from './AdminStudyFluency';
 import './study.css';
 import './validationDashboard.css';
@@ -12,7 +12,7 @@ interface Session { lastSeen?:string|null;lastSubmission?:string|null;preReview?
 interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number } }
 interface Counts { correct: number; scored: number; total: number }
 interface Reading { wordsAttempted: number | null; wordsCorrect: number; durationSeconds: number | null; wcpm: number | null }
-interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts }; blend: { pre: Counts; post: Counts }; fluency: { pre: Reading | null; post: Reading | null } }
+interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; comparison?: Record<'word'|'blend',MatchedScore>; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts }; blend: { pre: Counts; post: Counts }; fluency: { pre: Reading | null; post: Reading | null } }
 interface Results { participants: Participant[]; agreement: { compared: number; agree: number; percent: number | null } }
 
 const PHASE_LABEL: Record<string, string> = { pretest: 'Pretest', learning: 'Learning', posttest: 'Posttest', done: 'Finished', closed: 'Back in normal app' };
@@ -184,12 +184,11 @@ function StudyResults({ token }: { token: string }) {
   }
   if (!data) return <p className={error ? 'admin-error' : 'admin-muted'}>{error || 'Loading results...'}</p>;
   const complete = data.participants.filter(p => p.complete);
-  // WCPM gain counts only learners with both readings scored; skipped or unscored readings are left out, not treated as 0.
-  const readers = complete.filter(p => p.fluency.pre?.wcpm != null && p.fluency.post?.wcpm != null);
+  const readers = data.participants.filter(p => p.fluency.pre?.wcpm != null && p.fluency.post?.wcpm != null);
   return <div className="study-admin-grid">
     {error && <p role="alert" className="admin-control-notice is-error">{error}</p>}
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <p className="admin-muted">Scores use the teacher's score when available, otherwise the app's. Skipped words count as incorrect.</p>
+      <p className="admin-muted">Changes compare the same scored items on both tests. Skipped and unclear answers count as incorrect; unsubmitted items do not.</p>
       <div className="flex gap-2"><button className="admin-icon-button" aria-label="Refresh results" title="Refresh results" onClick={() => void load()}><RefreshCw size={18} /></button>
         <button className="admin-apply" disabled={busy} onClick={() => void download()}><Download size={17} />{busy ? 'Exporting...' : 'Export Excel'}</button></div>
     </div>
@@ -201,8 +200,8 @@ function StudyResults({ token }: { token: string }) {
     <p className="admin-muted">Compare repeated assessments descriptively. Score change alone does not establish causation.</p>
     <div className="study-table-wrap"><table className="admin-table"><thead><tr><th>Code</th><th>Printed words pre → post</th><th>Blending pre → post</th><th>Unscored</th><th>One-minute WCPM pre → post</th></tr></thead><tbody>
       {data.participants.map(p => <tr key={p.participantCode}>
-        <td><strong>{p.participantCode}</strong>{!p.complete && <small className="admin-muted"> (in progress)</small>}</td><td>{(['pre','post'] as const).map(k=>{const tallies=[p.taught[k],p.transfer[k],p.control[k]];return scored(tallies.reduce((a,b)=>({correct:a.correct+b.correct,scored:a.scored+b.scored,total:a.total+b.total}),{correct:0,scored:0,total:0}));}).join(' → ')}</td>
-        <td>{scored(p.blend.pre)} → {scored(p.blend.post)}</td>
+        <td><strong>{p.participantCode}</strong>{!p.complete && <small className="admin-muted"> (incomplete)</small>}</td><td>{(['pre','post'] as const).map(k=>{const tallies=[p.taught[k],p.transfer[k],p.control[k]];return scored(tallies.reduce((a,b)=>({correct:a.correct+b.correct,scored:a.scored+b.scored,total:a.total+b.total}),{correct:0,scored:0,total:0}));}).join(' → ')}<small className="vd-sub">{matchedLabel(p.comparison?.word)}</small></td>
+        <td>{scored(p.blend.pre)} → {scored(p.blend.post)}<small className="vd-sub">{matchedLabel(p.comparison?.blend)}</small></td>
         <td>{p.unscored}</td>
         <td>{p.fluency.pre?.wcpm ?? '–'} → {p.fluency.post?.wcpm ?? '–'}</td>
       </tr>)}

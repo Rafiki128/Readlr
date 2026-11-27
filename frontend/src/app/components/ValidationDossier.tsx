@@ -12,6 +12,12 @@ interface Item {id:string;word:string;item_type:string;phase:Phase;audio:boolean
 interface Reading {id:string;phase:Phase;skipped:boolean;audio:boolean;word_order:string[];duration_ms:number;words_attempted:number|null;error_positions:number[]|null;review_status:string|null;technical_note:string|null}
 interface Checklist {counts:boolean;skips:boolean;exceptions:boolean;initials:string}
 export interface ReviewStatus {submitted:number;pending:number;incomplete:boolean;ready:boolean;checked:boolean}
+export interface MatchedScore {pairs:number;preCorrect:number;postCorrect:number;partial:boolean}
+export function matchedLabel(score?:MatchedScore){
+  if(!score?.pairs)return 'No matched scores yet';
+  const change=score.postCorrect-score.preCorrect;
+  return `${score.partial?'Partial match':'Matched'}: ${score.preCorrect}/${score.pairs} → ${score.postCorrect}/${score.pairs} (${change>0?'+':''}${change})`;
+}
 export function ReviewTag({review}:{review?:ReviewStatus}){
   if(!review)return null;
   return <span className="vd-review-tag" data-checked={review.checked}>
@@ -19,7 +25,7 @@ export function ReviewTag({review}:{review?:ReviewStatus}){
   </span>;
 }
 interface Detail {responses:Item[];fluency:Reading[];pre?:Checklist;post?:Checklist;
-  result?:{fluency:{pre:{wcpm:number|null}|null;post:{wcpm:number|null}|null}};
+  result?:{comparison?:Record<'word'|'blend',MatchedScore>;fluency:{pre:{wcpm:number|null}|null;post:{wcpm:number|null}|null}};
   preReview?:ReviewStatus;postReview?:ReviewStatus;
   pretestEndedEarly?:boolean;incompletePretest?:{type:'word'|'blend'|'fluency';word:string;position:number}[];
   pathway:{starts:string[];ends:string[];resumed:boolean;rates:Record<string,{n:number;d:number;value:number|null}>};
@@ -85,7 +91,7 @@ export function ValidationDossier({api,token,id,name,initial,onClose}:{api:Valid
     {(tab==='System use'||tab==='Results')&&<LearnerDashboard path={d.pathway} events={d.events}/>}
     {tab==='System use'&&<section><h3>Book and stop activity</h3>{d.pathway.starts.map(book=>{const rows=d.events.filter(e=>e.book===book);return <details key={book}><summary>{title(book)} · {d.pathway.ends.includes(book)?'Completed':'Opened'}</summary>{[...new Set(rows.map(e=>e.stop).filter(Boolean))].map(stop=>{const events=rows.filter(e=>e.stop===stop);return <p key={stop}><strong>{stop}</strong>: {events.filter(e=>e.kind==='stop-start').length} visits · {events.some(e=>e.kind==='stop-complete')?'Completed':'No completion recorded'} · {events.filter(e=>e.kind==='retry').length} retries · {events.filter(e=>e.kind==='skip').length} skips · {events.filter(e=>e.kind==='incident').length} technical incidents</p>;})}</details>;})}</section>}
     {tab==='System use'&&<section><h3>Activity by date · Manila</h3><ActivityTimeline events={d.events}/></section>}
-    {tab==='Results'&&<section><h3>Matched results</h3>{['word','blend'].map(type=>{const [a,b]=['pretest','posttest'].map(p=>tally(d.responses.filter(r=>r.phase===p&&r.item_type===type)));const total=type==='word'?15:10;return <p key={type}>{type==='word'?'Printed words':'Blending'}: Pre {a.correct}/{a.n} scored; Post {b.correct}/{b.n} scored. Change: {a.n===total&&b.n===total?b.correct-a.correct:'Pending full scoring'}.</p>;})}
+    {tab==='Results'&&<section><h3>Matched results</h3>{(['word','blend'] as const).map(type=>{const [a,b]=['pretest','posttest'].map(p=>tally(d.responses.filter(r=>r.phase===p&&r.item_type===type)));return <p key={type}>{type==='word'?'Printed words':'Blending'}: Pre {a.correct}/{a.n} scored; Post {b.correct}/{b.n} scored. <strong>{matchedLabel(d.result?.comparison?.[type])}</strong></p>;})}
     {(['pre','post'] as const).map(p=>{
       const wcpm=d.result?.fluency[p]?.wcpm;
       return <p key={p}>{p==='pre'?'Pre-test':'Post-test'} one-minute reading: {wcpm==null?'Not scored':wcpm.toFixed(1)+' WCPM'}</p>;

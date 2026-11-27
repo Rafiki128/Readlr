@@ -362,6 +362,14 @@ export function fluencyResult(row: StudyFluency | undefined) {
 }
 
 export function summarize(sessions: StudySession[], responses: StudyResponse[], fluency: StudyFluency[] = []) {
+  const match = (rows:StudyResponse[], pre:string[], post:string[]) => {
+    const scored = (phase:string) => new Map(rows.filter(r=>r.phase===phase).map(r=>[r.word,finalScore(r)]));
+    const a=scored('pretest'), b=scored('posttest'), postWords=new Set(post);
+    const words=[...new Set(pre)].filter(w=>postWords.has(w)&&a.get(w)!=null&&b.get(w)!=null);
+    const preCorrect=words.filter(w=>a.get(w)==='correct').length;
+    const postCorrect=words.filter(w=>b.get(w)==='correct').length;
+    return {pairs:words.length,preCorrect,postCorrect,partial:words.length<Math.max(pre.length,post.length)};
+  };
   const participants = sessions.map(session => {
     // Answers from an older word list (e.g. a pilot) are ignored rather than miscounted.
     const own = responses.filter(r => r.user_id === session.user_id && ALL_STUDY_WORDS.includes(r.word));
@@ -378,11 +386,15 @@ export function summarize(sessions: StudySession[], responses: StudyResponse[], 
       const scores = blends.filter(r => r.phase === phase).map(finalScore);
       return { correct: scores.filter(s => s === 'correct').length, scored: scores.filter(s => s !== null).length, total: blendTotal };
     };
+    const comparison={
+      word:match(own,session.pretest_order,session.posttest_order),
+      blend:match(blends,session.pretest_blend_order??[],session.posttest_blend_order??[]),
+    };
     const reading = (phase: 'pretest' | 'posttest') => fluency.find(r => r.user_id === session.user_id && r.phase === phase);
     const partDone = (phase: 'pretest' | 'posttest') => own.filter(r => r.phase === phase).length === ALL_STUDY_WORDS.length && blends.filter(r => r.phase === phase).length === blendTotal
       && (!session.pretest_fluency_order?.length || !!reading(phase));
     const complete = partDone('pretest') && partDone('posttest');
-    return { participantCode: session.participant_code, group: session.study_group, phase: session.phase, complete, ...result,
+    return { participantCode: session.participant_code, group: session.study_group, phase: session.phase, complete, comparison, ...result,
       blend: { pre: blendScore('pretest'), post: blendScore('posttest') },
       fluency: { pre: fluencyResult(reading('pretest')), post: fluencyResult(reading('posttest')) },
       unscored: [...own, ...blends].filter(r => finalScore(r) === null).length };
