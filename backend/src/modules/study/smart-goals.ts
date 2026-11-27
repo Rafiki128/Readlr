@@ -128,7 +128,7 @@ export function smartGoals(all: LearnerRecord[], config: SmartGoalsConfig = { ex
   const sectionB = [
     b('GO1', 'Post-test printed-word reading accuracy (proposal: pronunciation accuracy on CVC assessments)', 'Post-test correct / post-test scored items x 100', 80,
       postAccuracy, post.scored ? `${pct(postAccuracy)} (${post.correct}/${post.scored} scored items)` : 'Unavailable (no scored items)', completed,
-      'Teacher score preferred, app result otherwise; skipped = incorrect; unclear/missing items excluded.'),
+      'Teacher score preferred, app result otherwise; skipped or unclear = incorrect; missing or unscored items excluded.'),
     b('GO1', 'Level completion', 'Original target requires an assigned set of levels', 75, null,
       'Not applicable: no books assigned', completed, 'Book reach and completion among starters are reported descriptively.', 'Not measured'),
     b('GO1', 'ASR-teacher agreement (proposal: ASR recognition)', 'Recordings where app and teacher agree / recordings compared x 100', 85,

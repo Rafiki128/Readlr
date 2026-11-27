@@ -11,7 +11,7 @@ import {CohortDashboard} from './PathwayDashboard';
 interface Session { lastSeen?:string|null;lastSubmission?:string|null;preReview?:ReviewStatus;postReview?:ReviewStatus; reviewed:number; entryPending?:boolean; pretestEndedEarly?:boolean; userId: number; name: string; participantCode: string; group: 'A' | 'B'; phase: string; learningMinutes: number | null; learningEndsAt: string | null; pretestAnswered: number; posttestAnswered: number; itemCount: number; finishedAt: string | null }
 interface Overview { sessions: Session[]; eligible: { id: number; name: string; email: string }[]; notConsented: number; unscored: number; appPending: number; groups: { A: number; B: number } }
 interface Counts { correct: number; scored: number; total: number }
-interface Reading { wordsAttempted: number; wordsCorrect: number; durationSeconds: number; wcpm: number | null }
+interface Reading { wordsAttempted: number | null; wordsCorrect: number; durationSeconds: number | null; wcpm: number | null }
 interface Participant { participantCode: string; group: 'A' | 'B'; phase: string; complete: boolean; unscored: number; taught: { pre: Counts; post: Counts }; transfer: { pre: Counts; post: Counts }; control: { pre: Counts; post: Counts }; blend: { pre: Counts; post: Counts }; fluency: { pre: Reading | null; post: Reading | null } }
 interface Results { participants: Participant[]; agreement: { compared: number; agree: number; percent: number | null } }
 

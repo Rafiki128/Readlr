@@ -19,6 +19,7 @@ export function ReviewTag({review}:{review?:ReviewStatus}){
   </span>;
 }
 interface Detail {responses:Item[];fluency:Reading[];pre?:Checklist;post?:Checklist;
+  result?:{fluency:{pre:{wcpm:number|null}|null;post:{wcpm:number|null}|null}};
   preReview?:ReviewStatus;postReview?:ReviewStatus;
   pretestEndedEarly?:boolean;incompletePretest?:{type:'word'|'blend'|'fluency';word:string;position:number}[];
   pathway:{starts:string[];ends:string[];resumed:boolean;rates:Record<string,{n:number;d:number;value:number|null}>};
@@ -40,6 +41,7 @@ function Timed({r,api,save}:{r:Reading;api:ValidationApi;save:Save}){
     <label>Status <select disabled={r.skipped} value={status} onChange={e=>setStatus(e.target.value)}>{['complete','skip','unclear'].map(x=><option key={x}>{x}</option>)}</select></label>
     {status==='complete'&&<><label>Words attempted <input type="number" min={0} max={r.word_order.length} value={last} onChange={e=>{setLast(e.target.valueAsNumber);setErrors(errors.filter(x=>x<=e.target.valueAsNumber));}}/></label>
     <p>Mark any incorrect words above. Correct: {valid?correct:'N/A'} · Duration: {(r.duration_ms/1000).toFixed(1)} s · WCPM: {valid&&r.duration_ms?(correct*60000/r.duration_ms).toFixed(1):'N/A'}</p></>}
+    {(status==='skip'||status==='unclear')&&<p>Counts as incorrect: 0 correct, 0 WCPM.</p>}
     {!r.skipped&&<><label>Technical note <input maxLength={1000} value={note} onChange={e=>setNote(e.target.value)}/></label><button type="button" className="vd-confirm" disabled={status==='complete'&&!valid} onClick={()=>void save('/fluency/'+r.id+'/score',{status,note,marks:status==='complete'?{lastReached:last,errors}:null})}>Save reading review</button></>}
   </section>;
 }
@@ -48,7 +50,7 @@ function CheckForm({value,phase,id,save,review}:{value?:Checklist;phase:Phase;id
   return <section><h3>Assessment review <ReviewTag review={review}/></h3>{([['counts','Task counts checked'],['skips','Skips noted'],['exceptions','Exceptions logged']] as const).map(([key,label])=><label key={key}><input type="checkbox" checked={c[key]} onChange={e=>set({...c,[key]:e.target.checked})}/> {label}</label>)}<label>Initials <input maxLength={20} value={c.initials} onChange={e=>set({...c,initials:e.target.value})}/></label><div className="vd-review-actions"><button type="button" className="vd-open" disabled={!c.initials.trim()||review?.checked} onClick={()=>void save('/participants/'+id+'/check',{phase,...c})}>Save checklist</button><button type="button" className="vd-confirm" disabled={!c.initials.trim()||!c.counts||!review?.ready} onClick={()=>void save('/participants/'+id+'/check',{phase,...c,checked:true})}>{review?.checked?'Update checked review':'Mark as checked'}</button></div></section>;
 }
 function tally(rows:Item[]){
-  const scored=rows.map(r=>r.skipped?'skip':r.teacher_score??({matched:'correct',different:'incorrect'}[r.app_result??''])).filter(s=>s&&s!=='unclear');
+  const scored=rows.map(r=>r.skipped?'skip':r.teacher_score??({matched:'correct',different:'incorrect'}[r.app_result??''])).filter(Boolean);
   return {n:scored.length,correct:scored.filter(s=>s==='correct').length};
 }
 export function ValidationDossier({api,token,id,name,initial,onClose}:{api:ValidationApi;token:string;id:number;name:string;initial:Tab;onClose:()=>void}){
@@ -84,7 +86,10 @@ export function ValidationDossier({api,token,id,name,initial,onClose}:{api:Valid
     {tab==='System use'&&<section><h3>Book and stop activity</h3>{d.pathway.starts.map(book=>{const rows=d.events.filter(e=>e.book===book);return <details key={book}><summary>{title(book)} · {d.pathway.ends.includes(book)?'Completed':'Opened'}</summary>{[...new Set(rows.map(e=>e.stop).filter(Boolean))].map(stop=>{const events=rows.filter(e=>e.stop===stop);return <p key={stop}><strong>{stop}</strong>: {events.filter(e=>e.kind==='stop-start').length} visits · {events.some(e=>e.kind==='stop-complete')?'Completed':'No completion recorded'} · {events.filter(e=>e.kind==='retry').length} retries · {events.filter(e=>e.kind==='skip').length} skips · {events.filter(e=>e.kind==='incident').length} technical incidents</p>;})}</details>;})}</section>}
     {tab==='System use'&&<section><h3>Activity by date · Manila</h3><ActivityTimeline events={d.events}/></section>}
     {tab==='Results'&&<section><h3>Matched results</h3>{['word','blend'].map(type=>{const [a,b]=['pretest','posttest'].map(p=>tally(d.responses.filter(r=>r.phase===p&&r.item_type===type)));const total=type==='word'?15:10;return <p key={type}>{type==='word'?'Printed words':'Blending'}: Pre {a.correct}/{a.n} scored; Post {b.correct}/{b.n} scored. Change: {a.n===total&&b.n===total?b.correct-a.correct:'Pending full scoring'}.</p>;})}
-    {(['pretest','posttest'] as Phase[]).map(p=>{const r=d.fluency.find(f=>f.phase===p);return <p key={p}>{p} WCPM: {r?.words_attempted!=null&&r.duration_ms?((r.words_attempted-(r.error_positions??[]).length)*60000/r.duration_ms).toFixed(1):'Not scored'}</p>;})}</section>}
+    {(['pre','post'] as const).map(p=>{
+      const wcpm=d.result?.fluency[p]?.wcpm;
+      return <p key={p}>{p==='pre'?'Pre-test':'Post-test'} one-minute reading: {wcpm==null?'Not scored':wcpm.toFixed(1)+' WCPM'}</p>;
+    })}</section>}
     {tab==='Survey'&&<AdminSurveyAssignment token={token} target={String(id)} name={name}/>}</fieldset>}
   </DialogContent></Dialog>;
 }

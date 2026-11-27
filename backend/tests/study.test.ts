@@ -67,11 +67,12 @@ test('the speech prompt never reveals the expected word', () => {
   for (const word of ALL_STUDY_WORDS) assert.match(prompt, new RegExp(`\\b${word}\\b`));
 });
 
-test('teacher scores override the app, skips are incorrect, unclear is missing', () => {
+test('teacher scores override the app; skips and unclear are incorrect', () => {
   assert.equal(finalScore({ skipped: true, teacher_score: null, app_result: null }), 'incorrect');
   assert.equal(finalScore({ skipped: false, teacher_score: 'correct', app_result: 'different' }), 'correct');
   assert.equal(finalScore({ skipped: false, teacher_score: null, app_result: 'matched' }), 'correct');
-  assert.equal(finalScore({ skipped: false, teacher_score: 'unclear', app_result: 'matched' }), null);
+  assert.equal(finalScore({ skipped: false, teacher_score: 'unclear', app_result: 'matched' }), 'incorrect');
+  assert.equal(finalScore({ skipped: false, teacher_score: 'skip', app_result: 'matched' }), 'incorrect');
   assert.equal(finalScore({ skipped: false, teacher_score: null, app_result: 'uncertain' }), null);
 });
 
@@ -312,11 +313,11 @@ test('summary reports blending separately from the printed-word categories', () 
     ...BLEND_ITEMS.map(w => answer(11, 'posttest', w, 'correct')),
   ];
   const p = summarize([s], responses).participants[0];
-  assert.deepEqual(p.blend.pre, { correct: 2, scored: 9, total: 10 });
+  assert.deepEqual(p.blend.pre, { correct: 2, scored: 10, total: 10 });
   assert.deepEqual(p.blend.post, { correct: 10, scored: 10, total: 10 });
   assert.deepEqual([p.taught.pre.correct, p.transfer.post.correct, p.control.post.total], [0, 0, 7]);
   assert.equal(p.complete, true);
-  assert.equal(p.unscored, 1);
+  assert.equal(p.unscored, 0);
   assert.equal(summarize([s], responses.filter(r => r.word !== 'bud' || r.phase !== 'posttest')).participants[0].complete, false);
   assert.equal(summarize([session(12, 'P12', 'A')], []).participants[0].blend.pre.total, 0);
 });
@@ -454,7 +455,7 @@ test('teacher scoring validates marks before saving and stores server-computed t
   } finally { supabase.from = original; }
 });
 
-test('summary and export add Part 3 columns at the end; skipped or unscored readings stay blank', () => {
+test('summary and export retain zero for a skipped timed reading and blanks for an unreviewed one', () => {
   const scored = readingSession('done');
   const blank = { ...readingSession('done'), user_id: 14, participant_code: 'P14' };
   const full = (user: number) => (['pretest', 'posttest'] as const).flatMap(phase => [...ALL_STUDY_WORDS, ...BLEND_ITEMS].map(w => answer(user, phase, w, 'correct')));
@@ -465,7 +466,9 @@ test('summary and export add Part 3 columns at the end; skipped or unscored read
   ];
   const summary = summarize([scored, blank], responses, readings);
   assert.deepEqual(summary.participants[0].fluency.post, { wordsAttempted: 40, wordsCorrect: 39, durationSeconds: 50, wcpm: 46.8 });
-  assert.deepEqual(summary.participants[1].fluency, { pre: null, post: null });
+  assert.deepEqual(summary.participants[1].fluency, { pre: { wordsAttempted: null, wordsCorrect: 0, durationSeconds: null, wcpm: 0 }, post: null });
+  assert.deepEqual(summarize([blank], responses, [reading(14, 'pretest', {review_status:'unclear', words_attempted:null, words_correct:null})]).participants[0].fluency.pre,
+    { wordsAttempted: null, wordsCorrect: 0, durationSeconds: 60, wcpm: 0 });
   assert.equal(summary.participants[0].complete, true);
   assert.equal(summarize([scored], responses, readings.slice(0, 1)).participants[0].complete, false, 'posttest reading missing');
 
@@ -474,7 +477,7 @@ test('summary and export add Part 3 columns at the end; skipped or unscored read
   assert.equal(wide.getRow(1).getCell(20).value, 'Gain blending', 'existing summary columns keep their positions');
   assert.deepEqual((wide.getRow(1).values as unknown[]).slice(21), ['Pre words attempted', 'Post words attempted', 'Pre words correct', 'Post words correct', 'Pre duration (s)', 'Post duration (s)', 'Pre WCPM', 'Post WCPM', 'Gain WCPM']);
   assert.deepEqual((wide.getRow(2).values as unknown[]).slice(21), [30, 40, 27, 39, 60, 50, 27, 46.8, 19.8]);
-  for (let col = 21; col <= 29; col++) assert.ok(!wide.getRow(3).getCell(col).value, `P14 column ${col} is blank, not 0`);
+  assert.deepEqual((wide.getRow(3).values as unknown[]).slice(21), ['', '', 0, '', '', '', 0, '', '']);
 
   const long = book.getWorksheet('Responses')!;
   assert.deepEqual((long.getRow(1).values as unknown[]).slice(15), ['Words attempted', 'Words correct', 'Duration (s)', 'WCPM','Timed review status','Technical note','Word order shown','Completion status']);
@@ -484,7 +487,7 @@ test('summary and export add Part 3 columns at the end; skipped or unscored read
   assert.deepEqual((p11post.values as unknown[]).slice(15,19), [40, 39, 50, 46.8]);
   const p14pre = fluencyRows.find(r => r.getCell(1).value === 'P14' && r.getCell(3).value === 'pretest')!;
   assert.equal(p14pre.getCell(7).value, 'Yes');
-  for (let col = 15; col <= 18; col++) assert.ok(!p14pre.getCell(col).value, 'skipped reading is blank');
+  assert.deepEqual((p14pre.values as unknown[]).slice(15,19), ['', 0, '', 0]);
 });
 
 test('staff-ended pre-test exports incomplete tasks with no skip or score', () => {
