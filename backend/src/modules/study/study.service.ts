@@ -351,9 +351,13 @@ export async function fluencyRecording(id: string) {
 
 const bucketOf = (category: WordCategory): CategoryKey => category === 'taught' ? 'taught' : category === 'transfer' ? 'transfer' : 'control';
 
-/** Part 3 result for one test; skipped, missing or unscored readings are null so they export as blanks. */
-function fluencyResult(row: StudyFluency | undefined) {
-  if (!row || row.skipped || row.scored_at === null || row.words_correct === null || row.words_attempted === null || row.duration_ms === null) return null;
+/** Keep explicit zero outcomes separate from missing or unreviewed readings. */
+export function fluencyResult(row: StudyFluency | undefined) {
+  if (!row) return null;
+  if (row.skipped || row.review_status === 'skip' || row.review_status === 'unclear') {
+    return { wordsAttempted: null, wordsCorrect: 0, durationSeconds: row.duration_ms==null?null:Math.round(row.duration_ms / 100) / 10, wcpm: 0 };
+  }
+  if (row.scored_at === null || row.words_correct === null || row.words_attempted === null || row.duration_ms === null) return null;
   return { wordsAttempted: row.words_attempted, wordsCorrect: row.words_correct, durationSeconds: Math.round(row.duration_ms / 100) / 10, wcpm: wcpm(row.words_correct, row.duration_ms) };
 }
 

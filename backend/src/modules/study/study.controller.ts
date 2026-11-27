@@ -4,9 +4,9 @@ import {eventsFor} from './workspace.js';
 import {incompletePretest} from './pretest-end.js';
 import {pathway,dayOf} from './pathway.js';
 import ExcelJS from 'exceljs';
-import { ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_WORDS, STUDY_BOOKS, categoryTotal, STUDY_VERSION, STUDY_WORDS, finalScore, wcpm, wordCategory } from './study.data.js';
+import { ALL_STUDY_WORDS, BLEND_ITEMS, FLUENCY_WORDS, STUDY_BOOKS, categoryTotal, STUDY_VERSION, STUDY_WORDS, finalScore, wordCategory } from './study.data.js';
 import {
-  StudyError, adminOverview, enroll, fluencyRecording, fluencyScoringBatch, getSession, learnerView, loadResults, recordAnswer, recordFluency, recording, removeSession,
+  StudyError, adminOverview, enroll, fluencyRecording, fluencyResult, fluencyScoringBatch, getSession, learnerView, loadResults, recordAnswer, recordFluency, recording, removeSession,
   scoringBatch, setFluencyScore, setScore, updateSession, type StudyFluency, type StudyResponse, type StudySession,
 } from './study.service.js';
 import { FOOTER, type GoalRow, type SmartGoalsReport } from './smart-goals.js';
@@ -151,14 +151,14 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
       r.app_result ?? '', r.app_transcript ?? '', r.teacher_score ?? '', score === null ? '' : score === 'correct' ? 1 : 0, new Date(r.created_at),
       r.item_type, r.prompt_replayed ? 'Yes' : 'No']);
   }
-  // Part 3 adds one row per test after that participant's items; unscored or skipped readings stay blank.
+  // Part 3 adds one row per test; unreviewed readings have no score.
   for (const f of [...fluency].sort((a, b) => (codeOf.get(a.user_id)?.participant_code ?? '').localeCompare(codeOf.get(b.user_id)?.participant_code ?? '') || a.phase.localeCompare(b.phase) * -1)) {
     const session = codeOf.get(f.user_id);
     if (!session) continue;
-    const scored = !f.skipped && f.scored_at !== null && f.words_correct !== null && f.duration_ms !== null;
-    long.addRow([session.participant_code, session.study_group, f.phase, '', '', 'fluency', f.skipped ? 'Yes' : 'No', '', '', '', '', new Date(f.created_at), 'fluency', '',
-      f.words_attempted??'', f.words_correct??'', f.duration_ms!=null?Math.round(f.duration_ms / 100) / 10:'', scored?wcpm(f.words_correct!, f.duration_ms!)??'':'',
-      f.skipped?'skip':f.review_status??(scored?'complete':''), f.technical_note??'', f.word_order.join(' ')]);
+    const result = fluencyResult(f);
+    long.addRow([session.participant_code, session.study_group, f.phase, '', '', 'fluency', (f.skipped||f.review_status==='skip') ? 'Yes' : 'No', '', '', '', '', new Date(f.created_at), 'fluency', '',
+      result?.wordsAttempted??'', result?.wordsCorrect??'', f.duration_ms!=null?Math.round(f.duration_ms / 100) / 10:'', result?.wcpm??'',
+      f.skipped?'skip':f.review_status??(result?'complete':''), f.technical_note??'', f.word_order.join(' ')]);
   }
   for (const s of sessions) {
     for (const item of incompletePretest(s,responses,fluency)) {
@@ -183,7 +183,7 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
       date(s.learning_started_at), date(s.posttest_started_at), date(s.finished_at),
       // Sessions enrolled before blending stay blank rather than showing 0.
       ...(p.blend.pre.total ? values(p.blend) : ['', '', '']),
-      // Skipped, missing or unscored readings stay blank rather than showing 0.
+      // Null measures stay blank; explicitly incorrect outcomes retain zero scores.
       p.fluency.pre?.wordsAttempted ?? '', p.fluency.post?.wordsAttempted ?? '', p.fluency.pre?.wordsCorrect ?? '', p.fluency.post?.wordsCorrect ?? '',
       p.fluency.pre?.durationSeconds ?? '', p.fluency.post?.durationSeconds ?? '', p.fluency.pre?.wcpm ?? '', p.fluency.post?.wcpm ?? '',
       p.fluency.pre?.wcpm != null && p.fluency.post?.wcpm != null ? Math.round((p.fluency.post.wcpm - p.fluency.pre.wcpm) * 10) / 10 : '']);
@@ -200,7 +200,7 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
   notes.addRow(['Blending items', `${BLEND_ITEMS.join(', ')} (Part 2: Milo says each sound, the learner says the whole word; practice item mat is not recorded)`]);
   notes.addRow(['One-minute reading', `${FLUENCY_WORDS.join(', ')} (Part 3: the same 40 words in a new random order each test, read aloud in one recording of up to 60 s). Teacher-scored only. Words attempted = position of the last word reached; words correct = attempted minus words marked wrong; WCPM = words correct / (duration s / 60), 1 decimal.`]);
   notes.addRow(['Categories', 'Historical word-set labels, not evidence of exposure. Use recorded book and stop events to describe actual activity.']);
-  notes.addRow(['Final score', 'Teacher score when available, otherwise the app result (matched = 1, different = 0). Skipped = 0. Unclear or unscored items are blank.']);
+  notes.addRow(['Final score', 'Teacher score when available, otherwise the app result (matched = 1, different = 0). Incorrect, skipped and unclear outcomes score 0. Missing or unscored work is blank. Skipped or unclear timed readings have 0 correct and 0 WCPM; unknown attempt counts are blank.']);
   notes.addRow(['Incomplete', 'An unsubmitted item when staff ended a pre-test. It is not a learner skip and has no score.']);
   notes.addRow(['Teacher scoring', 'Manual review: staff may score in participant view or the blind scoring queue.']);
   notes.addRow(['App/teacher agreement', summary.agreement.percent === null ? 'Not yet available' : `${summary.agreement.percent}% of ${summary.agreement.compared} recordings`]);

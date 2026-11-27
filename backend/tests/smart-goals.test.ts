@@ -49,7 +49,7 @@ test('no completed learners leaves every targeted Section B row pending', () => 
   for (const goal of report.sectionB.filter(g => g.target !== 'No target' && g.indicator !== 'Level completion')) assert.equal(goal.status, 'Pending', goal.indicator);
 });
 
-// --- Normalization from saved study rows (teacher score preferred, skips incorrect, unclear/missing unscored)
+// --- Normalization from saved study rows (teacher score preferred, skips and unclear incorrect)
 
 const session = (user_id: number, code: string, created_at = '2026-11-22T01:00:00Z') => ({ user_id, participant_code: code, study_group: 'A', phase: 'done', learning_minutes: 30,
   pretest_order: ALL_STUDY_WORDS, posttest_order: ALL_STUDY_WORDS, pretest_blend_order: null, posttest_blend_order: null,
@@ -59,7 +59,7 @@ const answer = (user_id: number, phase: 'pretest' | 'posttest', word: string, te
     recording_path: skipped ? null : 'x', recording_type: 'audio/webm', app_result: app, app_transcript: null, teacher_score: teacher, created_at: '2026-11-22T02:00:00Z' }) as any;
 const empty = { fluency: [], profiles: [{ id: 100, user_id: 1 }], epochs: [], checkpoints: [], attempts: [], events: [], states: [], surveys: [] };
 
-test('pronunciation tallies: skip = incorrect, unclear and missing unscored, teacher score beats the app', () => {
+test('pronunciation tallies: skip and unclear count as incorrect, missing stays unscored', () => {
   const [w1, w2, w3, w4, w5] = ALL_STUDY_WORDS;
   const responses = [
     answer(1, 'posttest', w1, 'correct', 'different'),
@@ -69,8 +69,8 @@ test('pronunciation tallies: skip = incorrect, unclear and missing unscored, tea
     answer(1, 'posttest', w5, null, 'unavailable'),
   ];
   const [record] = normalizeLearners({ ...empty, sessions: [session(1, 'P01')], responses });
-  assert.deepEqual(record.words.post, { correct: 2, scored: 3 });
-  assert.equal(record.unscored, 2);
+  assert.deepEqual(record.words.post, { correct: 2, scored: 4 });
+  assert.equal(record.unscored, 1);
   assert.deepEqual(record.agreement, { compared: 1, agree: 0 }, 'only the row with both a teacher and an app decision is compared, and they disagree');
   assert.equal(record.recordings, 4);
   assert.equal(record.appUnavailable, 1);
