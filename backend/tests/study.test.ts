@@ -504,3 +504,23 @@ test('staff-ended pre-test exports incomplete tasks with no skip or score', () =
   assert.ok(incomplete.every(r => r.getCell(7).value === '' && r.getCell(11).value === ''));
   assert.equal(summary.participants[0].complete, false);
 });
+
+test('partial comparison uses only the same scored items on both phases',()=>{
+  const s=readingSession('done');
+  const rows=[
+    answer(s.user_id,'pretest','sit','unclear'),
+    answer(s.user_id,'posttest','sit','correct'),
+    answer(s.user_id,'pretest','pin','correct'),
+    answer(s.user_id,'posttest','set','correct'),
+    answer(s.user_id,'pretest','gap','correct'),
+    answer(s.user_id,'posttest','gap',null,null,true),
+  ];
+  const summary=summarize([s],rows);
+  const p=summary.participants[0];
+  assert.equal(p.complete,false);
+  assert.deepEqual(p.comparison.word,{pairs:1,preCorrect:0,postCorrect:1,partial:true});
+  assert.deepEqual(p.comparison.blend,{pairs:1,preCorrect:1,postCorrect:0,partial:true});
+  const paired=studyWorkbook([s],rows,summary).getWorksheet('Paired comparison')!;
+  assert.deepEqual(paired.getRow(2).values.slice(2),['Printed words','Partial',1,0,1,1]);
+  assert.equal(summarize([s],rows.filter(r=>r.phase==='pretest')).participants[0].comparison.word.pairs,0);
+});

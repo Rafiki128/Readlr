@@ -190,6 +190,19 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
   }
   for (const col of [15, 16, 17]) wide.getColumn(col).numFmt = 'yyyy-mm-dd hh:mm:ss';
   const notes = book.addWorksheet('Notes');
+  const paired=book.addWorksheet('Paired comparison');
+  paired.addRow(['Participant','Measure','Coverage','Matched items','Pre-test','Post-test','Change']);
+  for(const p of summary.participants){
+    for(const [key,label] of [['word','Printed words'],['blend','Blending']] as const){
+      const m=p.comparison[key];
+      paired.addRow(m.pairs?[p.participantCode,label,m.partial?'Partial':'Full',m.pairs,m.preCorrect,m.postCorrect,m.postCorrect-m.preCorrect]:
+        [p.participantCode,label,'No matched scores',0]);
+    }
+    const pre=p.fluency.pre?.wcpm,post=p.fluency.post?.wcpm;
+    paired.addRow([p.participantCode,'One-minute WCPM',pre!=null&&post!=null?'Paired':'No paired scores','',pre??'',post??'',
+      pre!=null&&post!=null?Math.round((post-pre)*10)/10:'']);
+  }
+  [16,22,20,16,13,13,13].forEach((w,i)=>{paired.getColumn(i+1).width=w;});
   notes.addRow(['Item', 'Detail']);
   notes.addRow(['Instrument version', STUDY_VERSION]);
   notes.addRow(['Book use','Free exploration with normal progression. No books are assigned. Word-set labels are instrument metadata, not exposure evidence.']);
@@ -202,10 +215,11 @@ export function studyWorkbook(sessions: StudySession[], responses: StudyResponse
   notes.addRow(['Categories', 'Historical word-set labels, not evidence of exposure. Use recorded book and stop events to describe actual activity.']);
   notes.addRow(['Final score', 'Teacher score when available, otherwise the app result (matched = 1, different = 0). Incorrect, skipped and unclear outcomes score 0. Missing or unscored work is blank. Skipped or unclear timed readings have 0 correct and 0 WCPM; unknown attempt counts are blank.']);
   notes.addRow(['Incomplete', 'An unsubmitted item when staff ended a pre-test. It is not a learner skip and has no score.']);
+  notes.addRow(['Paired comparison', 'Includes incomplete assessments. Word and blending changes use only items with scores in both phases. One-minute gain requires scores in both phases.']);
   notes.addRow(['Teacher scoring', 'Manual review: staff may score in participant view or the blind scoring queue.']);
   notes.addRow(['App/teacher agreement', summary.agreement.percent === null ? 'Not yet available' : `${summary.agreement.percent}% of ${summary.agreement.compared} recordings`]);
   notes.addRow(['Privacy', 'Participants are identified by code only. Keep the code-to-name list separately and within the authorized research team.']);
-  for (const tab of [long, wide, notes]) {
+  for (const tab of [long, wide, paired, notes]) {
     tab.views = [{ state: 'frozen', ySplit: 1 }];
     tab.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     tab.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF087F73' } };
